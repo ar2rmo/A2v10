@@ -11,7 +11,7 @@ using System.Data.SqlClient;
 using System.Data;
 using System.Web.Hosting;
 
-namespace A2v10.Web.Mvc.Configuration
+namespace A2v10.Web.Config
 {
 	public class WebApplicationHost : A2v10.Infrastructure.IApplicationHost, ITenantManager, IDataConfiguration
 	{
@@ -61,6 +61,8 @@ namespace A2v10.Web.Mvc.Configuration
 		}
 
 		public String HelpUrl => ConfigurationManager.AppSettings["helpUrl"];
+		public String AppDescription => ConfigurationManager.AppSettings["appDescription"];
+		public String SupportEmail => ConfigurationManager.AppSettings["supportEmail"];
 
 		public String Theme
 		{
@@ -140,6 +142,7 @@ namespace A2v10.Web.Mvc.Configuration
 
 		public String AppVersion => AppInfo.MainAssembly.Version;
 		public String AppBuild => AppInfo.MainAssembly.Build;
+		public String Copyright => AppInfo.MainAssembly.Copyright;
 
 		const String SET_TENANT_CMD = "[a2security].[SetTenantId]";
 

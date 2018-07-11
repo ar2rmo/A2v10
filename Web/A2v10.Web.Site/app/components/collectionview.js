@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7166
+// 20180511-7186
 // components/collectionview.js
 
 /*
@@ -13,6 +13,7 @@ TODO:
 
 	const log = require('std:log');
 	const utils = require('std:utils');
+	const period = require('std:period');
 
 	const DEFAULT_PAGE_SIZE = 20;
 
@@ -34,19 +35,44 @@ TODO:
 		let nq = { dir: that.dir, order: that.order, offset: that.offset };
 		for (let x in that.filter) {
 			let fVal = that.filter[x];
-			if (utils.isObjectExact(fVal)) {
+			if (period.isPeriod(fVal)) {
+				nq[x] = fVal.format('DateUrl');
+			}
+			else if (utils.isDate(fVal)) {
+				nq[x] = utils.format(fVal, 'DateUrl');
+			}
+			else if (utils.isObjectExact(fVal)) {
 				if (!('Id' in fVal)) {
 					console.error('The object in the Filter does not have Id property');
 				}
 				nq[x] = fVal.Id;
 			}
-			else if (fVal)
+			else if (fVal) {
 				nq[x] = fVal;
+			}
 			else {
 				nq[x] = undefined;
 			}
 		}
 		return nq;
+	}
+
+	function modelInfoToFilter(q, filter) {
+		if (!q) return;
+		for (let x in filter) {
+			if (x in q) {
+				let iv = filter[x];
+				if (period.isPeriod(iv)) {
+					filter[x] = iv.fromUrl(q[x]);
+				}
+				else if (utils.isDate(iv)) {
+					filter[x] = utils.date.tryParse(q[x]);
+				}
+				else {
+					filter[x] = q[x];
+				}
+			}
+		}
 	}
 
 	// client collection
@@ -281,12 +307,7 @@ TODO:
 			// get filter values from modelInfo
 			let mi = this.ItemsSource ? this.ItemsSource.$ModelInfo : null;
 			if (mi) {
-				let q = mi.Filter;
-				if (q) {
-					for (let x in this.filter) {
-						if (x in q) this.filter[x] = q[x];
-					}
-				}
+				modelInfoToFilter(mi.Filter, this.filter);
 			}
 			this.$nextTick(() => {
 				this.lockChange = false;
@@ -400,21 +421,16 @@ TODO:
 			// get filter values from modelInfo and then from query
 			let mi = this.ItemsSource.$ModelInfo;
 			if (mi) {
-				let q = mi.Filter;
-				if (q) {
-					for (let x in this.filter) {
-						if (x in q) this.filter[x] = q[x];
-					}
-				}
+				modelInfoToFilter(mi.Filter, this.filter);
 			}
 			// then query from url
 			let q = this.$store.getters.query;
-			for (let x in this.filter) {
-				if (x in q) this.filter[x] = q[x];
-			}
+			modelInfoToFilter(q, this.filter)
+
 			this.$nextTick(() => {
 				this.lockChange = false;
 			});
+
 			this.$on('sort', this.doSort);
 		}
 	});

@@ -14,11 +14,9 @@ namespace A2v10.Infrastructure
 	{
 		public static T Get<T>(this ExpandoObject obj, String name)
 		{
-			var d = obj as IDictionary<String, Object>;
-			if (d == null)
+			if (!(obj is IDictionary<String, Object> d))
 				return default(T);
-			Object result;
-			if (d.TryGetValue(name, out result))
+			if (d.TryGetValue(name, out Object result))
 			{
 				if (result is T)
 					return (T)result;
@@ -26,10 +24,21 @@ namespace A2v10.Infrastructure
 			return default(T);
 		}
 
+
+		public static Object GetObject(this ExpandoObject obj, String name)
+		{
+			if (!(obj is IDictionary<String, Object> d))
+				return null;
+			if (d.TryGetValue(name, out Object result))
+			{
+				return result;
+			}
+			return null;
+		}
+
 		public static void Set(this ExpandoObject obj, String name, Object value)
 		{
-			var d = obj as IDictionary<String, Object>;
-			if (d == null)
+			if (!(obj is IDictionary<String, Object> d))
 				return;
 			if (d.ContainsKey(name))
 				d[name] = value;
@@ -39,8 +48,7 @@ namespace A2v10.Infrastructure
 
 		public static Boolean HasProperty(this ExpandoObject obj, String name)
 		{
-			var d = obj as IDictionary<String, Object>;
-			if (d == null)
+			if (!(obj is IDictionary<String, Object> d))
 				return false;
 			return d.ContainsKey(name);
 		}
@@ -98,8 +106,7 @@ namespace A2v10.Infrastructure
 				var val = dict[key];
 				if (val is IList<ExpandoObject>)
 				{
-					var list = val as IList<ExpandoObject>;
-					if (list != null)
+					if (val is IList<ExpandoObject> list)
 					{
 						if (list.Count == 0)
 							dict[key] = null;
@@ -197,7 +204,7 @@ namespace A2v10.Infrastructure
 			return eo;
 		}
 
-		public static bool IsNullableType(this Type type)
+		public static Boolean IsNullableType(this Type type)
 		{
 			return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);
 		}

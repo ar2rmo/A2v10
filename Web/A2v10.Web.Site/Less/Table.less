@@ -60,6 +60,10 @@ table.grid-vertical, table.grid-both {
 		border-left-style: solid;
 		border-right-width: 1px;
 		border-right-style: solid;
+		.control-group .input-group {
+			border-right-color:transparent;
+			border-left-color:transparent;
+		}
 	}
 
 	/*
@@ -81,8 +85,12 @@ table.grid-horizontal, table.grid-both {
 		border-top-style: solid;
 		border-bottom-width: 1px;
 		border-bottom-style: solid;
-	}
 
+		.control-group .input-group {
+			border-top-color: transparent;
+			border-bottom-color: transparent;
+		}
+	}
 	/*
 	> tbody > tr:first-child > td, > thead > tr:first-child > td {
 		border-top-style: none;
@@ -115,18 +123,23 @@ table.a2-table {
 		padding: 4px 6px;
 		vertical-align: top;
 		border-color: @a2-table-brd-color;
-
+		//height:27px;
 		label {
 			display: inline-block;
 		}
 
 		.control-group {
-			margin: -1px -1px -2px -1px;
+			//margin: -1px -1px -2px -1px;
+			margin: 0;
 
 			.input-group {
-				border-color: @a2-table-brd-color;
+				//border-color: @a2-table-brd-color;
 				//border-style: none;
 				//border-color:transparent;
+
+				select {
+					width:auto; // fit
+				}
 			}
 		}
 
@@ -135,7 +148,7 @@ table.a2-table {
 		}
 	}
 
-	> thead > tr > td, tfoot > tr > td {
+	> thead > tr > td, > tfoot > tr > td {
 		padding: @table-cell-padding;
 		vertical-align: middle;
 		background-color: @table-hdr-bg-color;
@@ -147,13 +160,17 @@ table.a2-table {
 		vertical-align: top;
 
 		.checkbox, .radio {
-			margin: 2px 6px;
+			margin: 0 6px;
 		}
 
 		.stack-panel.horizontal {
 			.control-group + .control-group {
 				border-left: 1px solid @a2-table-brd-color;
 			}
+		}
+
+		.control-group:hover .input-group.static {
+			border-color: transparent !important;
 		}
 	}
 
@@ -237,6 +254,7 @@ table.a2-table {
 
 	> tbody > tr > td, thead > tr > td, tfoot > tr > td {
 		padding: 2px 4px;
+		height:23px;
 
 		.input-group {
 			padding: 0;
@@ -254,11 +272,12 @@ table.a2-table {
 
 		&.row-divider {
 			padding: 0;
+			height:1px;
 		}
 
 		&.ctrl {
 			padding: 0;
-			vertical-align: top;
+			vertical-align: baseline;
 
 			.checkbox, .radio {
 				margin: 0 6px 0 4px;
@@ -290,4 +309,12 @@ table.a2-table.bk-cyan {
 
 table.a2-table.bk-rose {
 	background-color: #fff8f8;
+}
+
+table.a2-table.bk-white-smoke {
+	background-color: @whitesmoke-gray-bg-color;
+}
+
+table.a2-table.bk-white {
+	background-color: white;
 }

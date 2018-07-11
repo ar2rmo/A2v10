@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7167
+// 20180709-7243
 // controllers/base.js
 
 (function () {
@@ -15,6 +15,7 @@
 	const log = require('std:log');
 	const locale = window.$$locale;
 	const mask = require('std:mask');
+	const modelInfo = require('std:modelInfo');
 
 	const store = component('std:store');
 	const documentTitle = component("std:doctitle");
@@ -33,16 +34,14 @@
 		});
 	}
 
-	function getPagerInfo(mi) {
-		if (!mi) return undefined;
-		let x = { PageSize: mi.PageSize, Offset: mi.Offset, Dir: mi.SortDir, Order: mi.SortOrder };
-		if (mi.Filter)
-			for (let p in mi.Filter) {
-				let fVal = mi.Filter[p];
-				if (!fVal) continue; // empty value, skip it
-				x[p] = fVal;
+	function makeErrors(errs) {
+		let ra = [];
+		for (let x of errs) {
+			for (let y of x.e) {
+				ra.push(y.msg);
 			}
-		return x;
+		}
+		return ra.length ? ra : null;
 	}
 
 	const base = Vue.extend({
@@ -145,11 +144,18 @@
 				let url = root + '/_data/save';
 				let urlToSave = this.$indirectUrl || this.$baseUrl;
 				const isCopy = this.$data.$isCopy;
+				const validRequired = !!opts && opts.options && opts.options.validRequired;
+				if (validRequired && this.$data.$invalid) {
+					let errs = makeErrors(this.$data.$forceValidate());
+					this.$alert(locale.$MakeValidFirst, undefined, errs);
+					return;
+				}
 				return new Promise(function (resolve, reject) {
 					let jsonData = utils.toJson({ baseUrl: urlToSave, data: self.$data });
 					let wasNew = self.$baseUrl.indexOf('/new') !== -1;
 					dataservice.post(url, jsonData).then(function (data) {
-						self.$data.$merge(data);
+						self.$data.$merge(data, true);
+						self.$data.$emit('Model.saved', self.$data);
 						self.$data.$setDirty(false);
 						// data is a full model. Resolve requires only single element.
 						let dataToResolve;
@@ -175,13 +181,31 @@
 							self.$data.__baseUrl__ = urltools.replaceSegment(self.$data.__baseUrl__, newId, 'edit');
 						}
 						resolve(dataToResolve); // single element (raw data)
-						if (opts && opts.toast)
-							self.$toast(opts.toast);
+						let toast = opts && opts.toast ? opts.toast : null;
+						if (toast)
+							self.$toast(toast);
+						self.$notifyOwner(newId, toast);
 					}).catch(function (msg) {
 						self.$alertUi(msg);
 					});
 				});
 			},
+			$notifyOwner(id, toast) {
+				if (!window.opener) return;
+				if (!window.$$token) return;
+				let rq = window.opener.require;
+				if (!rq) return;
+				const bus = rq('std:eventBus');
+				if (!bus) return;
+				let dat = {
+					token: window.$$token.token,
+					update: window.$$token.update,
+					toast: toast || null,
+					id: id
+				};
+				bus.$emit('childrenSaved', dat);
+			},
+
 
 			$invoke(cmd, data, base) {
 				let self = this;
@@ -229,6 +253,7 @@
 
 			$reload(args) {
 				//console.dir('$reload was called for' + this.$baseUrl);
+				//debugger;
 				let self = this;
 				if (utils.isArray(args) && args.$isLazy()) {
 					// reload lazy
@@ -240,7 +265,16 @@
 				let root = window.$$rootUrl;
 				let url = root + '/_data/reload';
 				let dat = self.$data;
-				let mi = args ? getPagerInfo(args.$ModelInfo) : null;
+
+				let mi = args ? modelInfo.get(args.$ModelInfo) : null;
+				if (!args && !mi) {
+					// try to get first $ModelInfo
+					let modInfo = this.$data._findRootModelInfo();
+					if (modInfo) {
+						mi = modelInfo.get(modInfo);
+					}
+				}
+
 				return new Promise(function (resolve, reject) {
 					let dataToQuery = { baseUrl: urltools.replaceUrlQuery(self.$baseUrl, mi) };
 					if (utils.isDefined(dat.Query)) {
@@ -255,6 +289,7 @@
 							dat.$merge(data);
 							dat._setModelInfo_(undefined, data);
 							dat._fireLoad_();
+							resolve(dat);
 						} else {
 							throw new Error('Invalid response type for $reload');
 						}
@@ -298,19 +333,31 @@
 				return href;
 			},
 			$href(url, data) {
-				let dataToHref = data;
-				if (utils.isObjectExact(dataToHref))
-					dataToHref = dataToHref.$id;
-				let retUrl = urltools.combine(url, dataToHref);
-				return retUrl;
+				return urltools.createUrlForNavigate(url, data);
 			},
-			$navigate(url, data, newWindow) {
+			$navigate(url, data, newWindow, update) {
 				let urlToNavigate = urltools.createUrlForNavigate(url, data);
 				if (newWindow === true) {
-					window.open(urlToNavigate, "_blank");
+					let nwin = window.open(urlToNavigate, "_blank");
+					nwin.$$token = { token: this.__currentToken__, update: update };
 				}
 				else
 					this.$store.commit('navigate', { url: urlToNavigate });
+			},
+
+			$navigateSimple(url, newWindow, update) {
+				if (newWindow === true) {
+					let nwin = window.open(url, "_blank");
+					nwin.$$token = { token: this.__currentToken__, update: update };
+				}
+				else
+					this.$store.commit('navigate', { url: url });
+			},
+
+			$download(url) {
+				const root = window.$$rootUrl;
+				url = urltools.combine('/file', url.replace('.', '-'));
+				window.location = root + url;
 			},
 
 			$dbRemove(elem, confirm) {
@@ -357,7 +404,7 @@
 				this.$dbRemove(sel, confirm);
 			},
 
-			$openSelected(url, arr) {
+			$openSelected(url, arr, newwin, update) {
 				url = url || '';
 				let sel = arr.$selected;
 				if (!sel)
@@ -369,10 +416,14 @@
 						throw new Error(`Property '${url}' not found in ${sel.constructor.name} object`);
 					url = nUrl;
 				}
-				this.$navigate(url, sel.$id);
+				this.$navigate(url, sel.$id, newwin, update);
 			},
 
-			$hasSelected(arr) {
+			$hasSelected(arr, opts) {
+				if (opts && opts.validRequired) {
+					let root = this.$data;
+					if (!root.$valid) return false;
+				}
 				return arr && !!arr.$selected;
 			},
 
@@ -390,10 +441,11 @@
 				return dlgData.promise;
 			},
 
-			$alert(msg, title) {
+			$alert(msg, title, list) {
+				// TODO: tools
 				let dlgData = {
 					promise: null, data: {
-						message: msg, title: title, style: 'alert'
+						message: msg, title: title, style: 'alert', list: list
 					}
 				};
 				eventBus.$emit('confirm', dlgData);
@@ -441,7 +493,7 @@
 
 				function simpleMerge(target, src) {
 					for (let p in target) {
-						if (p in src) 
+						if (p in src)
 							target[p] = src[p];
 						else
 							target[p] = undefined;
@@ -504,8 +556,8 @@
 
 			$report(rep, arg, opts) {
 				if (this.$isReadOnly(opts)) return;
-
-				let cmd = opts.export ? 'export' : 'show';
+			
+				let cmd = opts && opts.export ? 'export' : 'show';
 
 				const doReport = () => {
 					let id = arg;
@@ -518,8 +570,9 @@
 					let qry = { base: baseUrl, rep: rep };
 					url = url + urltools.makeQueryString(qry);
 					// open in new window
-					if (opts.export)
+					if (opts && opts.export) {
 						window.location = url;
+					}
 					else
 						window.open(url, '_blank');
 				};
@@ -542,7 +595,9 @@
 				if (this.$isDirty) {
 					const root = this.$data;
 					if (opts && opts.validRequired && root.$invalid) {
-						this.$alert(locale.$MakeValidFirst);
+						let errs = makeErrors(root.$forceValidate());
+						//console.dir(errs);
+						this.$alert(locale.$MakeValidFirst, undefined, errs);
 						return;
 					}
 					this.$save().then((result) => eventBus.$emit('modalClose', result));
@@ -555,10 +610,14 @@
 				eventBus.$emit('modalClose', result);
 			},
 
-			$modalSelect(array) {
+			$modalSelect(array, opts) {
 				if (!('$selected' in array)) {
-					console.error('invalid array for $modalSelect');
+					console.error('Invalid array for $modalSelect');
 					return;
+				}
+				if (opts && opts.validRequired) {
+					let root = this.$data;
+					if (!root.$valid) return;
 				}
 				this.$modalClose(array.$selected);
 			},
@@ -680,7 +739,7 @@
 				}
 				*/
 
-				let mi = getPagerInfo(selfMi);
+				let mi = modelInfo.get(selfMi);
 				let xQuery = urltools.parseUrlAndQuery(self.$baseUrl, mi);
 				let newUrl = xQuery.url + urltools.makeQueryString(mi);
 				//console.dir(newUrl);
@@ -742,7 +801,9 @@
 						delete nq[p];
 					}
 				}
-				this.$data.__baseUrl__ = this.$store.replaceUrlSearch(this.$baseUrl, urltools.makeQueryString(nq));
+				//this.$data.__baseUrl__ = this.$store.replaceUrlSearch(this.$baseUrl, urltools.makeQueryString(nq));
+				let mi = source ? source.$ModelInfo : this.$data._findRootModelInfo();
+				modelInfo.copyfromQuery(mi, nq);
 				this.$reload(source);
 			},
 			__doInit__() {
@@ -753,6 +814,18 @@
 					caller = this.$caller.$data;
 				root._modelLoad_(caller);
 				root._seal_(root);
+			}, 
+			__notified(token) {
+				if (!token) return;
+				if (this.__currentToken__ !== token.token) return;
+				if (token.toast)
+					this.$toast(token.toast);
+				this.$reload(token.update || null).then(function (array) {
+					if (!token.id) return;
+					if (!utils.isArray(array)) return;
+					let el = array.find(itm => itm.$id === token.id);
+					if (el && el.$select) el.$select();
+				});
 			}
 		},
 		created() {
@@ -763,11 +836,13 @@
 			eventBus.$on('beginRequest', this.__beginRequest);
 			eventBus.$on('endRequest', this.__endRequest);
 			eventBus.$on('queryChange', this.__queryChange);
+			eventBus.$on('childrenSaved', this.__notified);
 
 			// TODO: delete this.__queryChange
 			this.$on('localQueryChange', this.__queryChange);
 			this.$on('cwChange', this.__cwChange);
 			this.__asyncCache__ = {};
+			this.__currentToken__ = window.app.nextToken();
 			log.time('create time:', __createStartTime, false);
 		},
 		beforeDestroy() {
@@ -778,6 +853,8 @@
 			eventBus.$off('beginRequest', this.__beginRequest);
 			eventBus.$off('endRequest', this.__endRequest);
 			eventBus.$off('queryChange', this.__queryChange);
+			eventBus.$off('childrenSaved', this.__notified);
+
 			this.$off('localQueryChange', this.__queryChange);
 			this.$off('cwChange', this.__cwChange);
 		},

@@ -40,7 +40,7 @@ button {
 
 hr {
 	margin: 0.3em 0;
-	border: 1px solid #ccc;
+	border: 1px solid @light-gray-color;
 	border-bottom-style: none;
 }
 
@@ -82,11 +82,19 @@ header, .header {
 
 	> a.nav-admin {
 		color: inherit;
-		padding: 4px 6px;
+		padding: 6px 8px;
 
 		&:hover {
 			background-color: @brand-hover-color;
 		}
+	}
+
+	> a.middle {
+		//margin-right:10px;
+	}
+
+	> a.open {
+		background-color: @brand-hover-color;
 	}
 
 	> .dropdown {
@@ -100,6 +108,7 @@ header, .header {
 
 	.btn {
 		background-color: transparent;
+		white-space:nowrap;
 		color: white;
 		padding: 4px;
 		height: @header-height - 4px;
@@ -189,7 +198,7 @@ footer, .footer {
 	.menu {
 		margin-bottom: -2px;
 		font-size: @font-size;
-		text-transform:none;
+		text-transform: none;
 	}
 
 	button {
@@ -220,6 +229,14 @@ footer, .footer {
 			border-color: @link-hover-color;
 			border-top-color: #ccc;
 			animation: spin 1.5s linear infinite;
+		}
+	}
+
+	.app-links {
+		white-space:nowrap;
+		a {
+			display:inline-block;
+			margin:0 10px;
 		}
 	}
 }
@@ -317,7 +334,7 @@ a {
 pre {
 	font-family: @monospace-font;
 	font-size: 0.85em;
-	background-color: #f8f8f8;
+	background-color: @whitesmoke-gray-bg-color;
 	padding: 6px;
 	white-space: pre-wrap;
 	word-break: break-all;
@@ -342,6 +359,7 @@ pre.a2-code {
 @import "Tab.less";
 @import "List.less";
 @import "Dialog.less";
+@import "Wizard.less";
 @import "Toastr.less";
 @import "Table.less";
 @import "PropertyGrid.less";
@@ -443,8 +461,8 @@ h5, .h5 {
 	display: inline-block;
 	background-color: @dark-bk-color;
 	color: white;
-	padding: .25rem .4rem;
-	margin-left: 0.4rem;
+	padding: .15rem .4rem;
+	margin-left: 0.6rem;
 	font-size: 85%;
 	font-weight: @font-bold;
 	line-height: 1;
@@ -476,3 +494,21 @@ h5, .h5 {
 	display: block;
 	width: 100%;
 }
+
+.a2-changelog {
+	padding: 1rem;
+
+	ol {
+		margin-top: 4px;
+	}
+
+	h4 {
+		font-size: 1em;
+		margin: 0.5rem 0;
+		color: #777;
+		font-weight: bold;
+		font-family: inherit;
+	}
+}
+
+@import "AppPages.less";

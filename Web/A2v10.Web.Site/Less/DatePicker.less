@@ -1,17 +1,27 @@
 ﻿
 
+@elem-margin: 10px;
+
 .input-group > .calendar {
+	display: flex;
+	flex-direction: row;
 	border: 1px solid @dropdown-brd-color;
 	position: absolute;
-	background-color: #f5f5f5;
+	//background-color: #f5f5f5;
+	background-color: white;
 	left: 0;
 	top: 100%;
 	z-index: @popup-index !important;
 	margin-top: 0;
 	margin-left: -1px;
-	box-shadow: 5px 5px 10px 0 rgba(0, 0, 0, 0.2);
-	padding: 3px;
+	//box-shadow: 5px 5px 10px 0 rgba(0, 0, 0, 0.2);
+	padding: @elem-margin;
+	box-shadow: 3px 3px 10px 0 rgba(174, 174, 174, .5), 0 5px 40px 0 rgba(0, 0, 0, .15);
+	color:@text-color;
+}
 
+
+.calendar-pane {
 	td {
 		background-color: white;
 	}
@@ -19,6 +29,15 @@
 	td, th {
 		text-align: center;
 		vertical-align: central;
+	}
+
+	.calendar-footer {
+		text-align: center;
+	}
+
+	.month-title {
+		font-weight: 500;
+		line-height: 2rem;
 	}
 
 	a {
@@ -29,7 +48,7 @@
 
 		&:hover {
 			background-color: @hover-bg-color;
-			border-color: @tb-hover-brd-color;
+			//border-color: @tb-hover-brd-color;
 		}
 	}
 
@@ -45,14 +64,29 @@
 		}
 
 		&.other > a {
-			color: #c0c0c0;
+			//color: @light-gray-color;
+			opacity: 0.33;
+		}
+
+		&.period-start > a {
+			//border-left: 1px solid @primary-base-color;
+			background-color: darken(@active-bg-color, 7%);
+		}
+
+		&.period-end > a {
+			//border-right: 1px solid @primary-base-color;
+			background-color: darken(@active-bg-color, 7%);
 		}
 	}
 
+	tbody > tr:first-child > td {
+		padding-top: 6px;
+	}
 
 	thead th, tfoot td {
-		background-color: #f5f5f5;
+		//background-color: #f5f5f5;
 		border-style: none;
+		color: #555;
 
 		> a {
 			padding: 2px 0;
@@ -69,15 +103,116 @@
 	}
 
 	tr.weekdays th {
-		border-bottom: 1px solid #ccc;
+		border-bottom: 1px solid @light-gray-color;
 		padding: 2px 0;
-		color: #777;
 	}
 }
-
 
 .drop-up .input-group > .calendar {
 	top: auto;
 	bottom: 100%;
 	box-shadow: 5px -5px 10px 0 rgba(0, 0, 0, 0.2);
 }
+
+
+
+.period-picker {
+	cursor: pointer;
+
+	.period-text {
+		padding: 0 0 0 5px;
+		line-height: @control-height;
+		display: block;
+		width: 100%;
+		min-height: @control-height;
+		white-space: nowrap;
+	}
+
+	.caret {
+		margin-right: 4px;
+	}
+
+	.period-menu {
+		margin: 0;
+		padding: 0;
+		border-right: 1px solid @light-gray-color;
+		list-style: none;
+
+
+		li > a {
+			display: block;
+			padding: 0 @elem-margin;
+			line-height: 1.9rem;
+			cursor: pointer;
+			white-space: nowrap;
+			color: @text-color;
+		}
+
+		li:hover {
+			background-color: @hover-bg-color;
+		}
+
+		li.active {
+			background-color: @active-bg-color;
+		}
+	}
+
+	.period-pane {
+		display: grid;
+		grid-gap: @elem-margin;
+	}
+
+	@keyframes blink {
+		from { opacity:1 }
+		to { opacity:0 }
+	}
+
+	.current-period {
+		font-weight: 500;
+		color: #555;
+		&.processing {
+			animation: blink .5s infinite alternate ease-in-out;
+		}
+	}
+
+	.period-footer {
+		display: flex;
+		align-items: center;
+		padding-top: @elem-margin;
+		border-top: 1px solid @light-gray-color;
+
+		.btn {
+			padding: 4px 6px;
+		}
+
+		.btn + .btn {
+			margin-left: @elem-margin;
+		}
+	}
+}
+
+.control-group.drop-bottom-right {
+	.input-group > .calendar {
+		left: auto;
+		right: -1px;
+	}
+}
+
+.control-group.drop-top-left {
+	.input-group > .calendar {
+		top: auto;
+		bottom: 100%;
+		margin-bottom: 1px;
+	}
+}
+
+.control-group.drop-top-right {
+	.input-group > .calendar {
+		top: auto;
+		left: auto;
+		right: -1px;
+		bottom: 100%;
+		margin-bottom: 1px;
+	}
+}
+

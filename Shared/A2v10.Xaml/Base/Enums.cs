@@ -11,6 +11,12 @@ namespace A2v10.Xaml
 		Center
 	}
 
+	public enum TextColorStyle
+	{
+		Default = 0,
+		Gray
+	}
+
 	public enum VerticalAlign
 	{
 		Default,
@@ -42,7 +48,8 @@ namespace A2v10.Xaml
 		Number,
 		Currency,
 		Boolean,
-		Object
+		Object,
+		Period
 	}
 
 	public enum ControlSize
@@ -96,6 +103,22 @@ namespace A2v10.Xaml
 		Error
 	}
 
+	public enum DropDownDirection
+	{
+		DownLeft,
+		DownRight,
+		UpLeft,
+		UpRight
+	}
+
+	public enum BackgroundStyle
+	{
+		None,
+		LightGray,
+		WhiteSmoke,
+		White
+	}
+
 	public enum Icon
 	{
 		NoIcon = 0,
@@ -104,9 +127,11 @@ namespace A2v10.Xaml
 		Alert,
 		Approve,
 		ArrowDown,
+		ArrowDownRed,
 		ArrowLeft,
 		ArrowRight,
 		ArrowUp,
+		ArrowUpGreen,
 		ArrowExport,
 		ArrowOpen,
 		ArrowSort,

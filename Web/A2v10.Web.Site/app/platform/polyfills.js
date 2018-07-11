@@ -1,7 +1,7 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180110-7088
-// services/datamodel.js
+// 20180623-7233
+// platform/polyfills.js
 
 
 (function (elem) {
@@ -14,8 +14,36 @@
 				node = node.parentElement;
 		}
 		return null;
-	}
+	};
+
+	elem.scrollIntoViewCheck = elem.scrollIntoViewCheck || function () {
+		let el = this;
+		let elRect = el.getBoundingClientRect();
+		let pElem = el.parentElement;
+		while (pElem) {
+			if (pElem.offsetHeight < pElem.scrollHeight)
+				break;
+			pElem = pElem.parentElement;
+		}
+		let parentRect = pElem.getBoundingClientRect();
+		if (elRect.top < parentRect.top)
+			el.scrollIntoView(true);
+		else if (elRect.bottom > parentRect.bottom)
+			el.scrollIntoView(false);
+	};
+
+
 })(Element.prototype);
+
+(function (date) {
+
+	date.isZero = date.isZero || function () {
+		let td = new Date(0, 0, 1, 0, 0, 0, 0);
+		td.setHours(0, -td.getTimezoneOffset(), 0, 0);
+		return this.getTime() === td.getTime();
+	};
+
+})(Date.prototype);
 
 
 

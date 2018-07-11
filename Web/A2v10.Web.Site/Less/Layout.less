@@ -17,7 +17,7 @@
 		}
 
 		.control-group {
-			margin:0;
+			margin: 0;
 		}
 	}
 
@@ -39,19 +39,20 @@
 }
 
 .panel {
-	margin-bottom: 6px;
+	margin-bottom: 12px;
+	background-color:white;
 
 	.panel-header {
-		padding: 5px 6px;
-		font-size: 110%;
+		padding: 4px 6px;
+		//font-size: 110%;
 		display: flex;
 		justify-content: space-between;
 		cursor: pointer;
 		line-height: 1.5rem;
 
 		.ico {
-			font-size: 1.2rem;
-			margin-right: 2px;
+			//font-size: 1.2rem;
+			margin-right: 3px;
 		}
 
 		.panel-collapse-handle {
@@ -78,13 +79,34 @@
 	}
 }
 
-.panel.panel-background-light-gray {
-	background-color: @light-gray-bg-color;
+.panel.drop-shadow {
+	border-style: none !important;
+
+	.panel-header {
+		border-color: @light-gray-color!important;
+	}
 }
 
-.panel.drop-shadow {
-	box-shadow: 2px 2px 4px 0 rgba(0, 0, 0, 0.2);
+.shadow1 {
+	box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
 }
+
+.shadow2 {
+	box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+}
+
+.shadow3 {
+	box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+}
+
+.shadow4 {
+	box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+}
+
+.shadow5 {
+	box-shadow: 0 19px 38px rgba(0,0,0,0.30), 0 15px 12px rgba(0,0,0,0.22);
+}
+
 
 .panel.collapsed {
 	.panel-header {
@@ -136,7 +158,7 @@
 .field-set {
 	// flex does not work for <fieldset>
 	margin: 0;
-	padding: .4rem .6rem;
+	padding: .4rem .6rem, .6rem .6rem;
 	border: 1px solid @default-brd-color;
 
 	legend {
@@ -160,6 +182,7 @@
 
 		.field-set-item {
 			margin-right: 1rem;
+			display:inline-block;
 
 			&:last-child {
 				margin-right: 0;
@@ -169,11 +192,11 @@
 }
 
 .page.absolute > .cw-absolute {
-	position:absolute;
-	left:0;
-	top:0;
-	right:0;
-	bottom:0;
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
 }
 
 .full-height-panel {
@@ -195,9 +218,35 @@
 	}
 }
 
-.a2-include.full-height  {
-	height:100%;
+.a2-include.full-height {
+	height: 100%;
+
 	.cw {
 		height: 100%;
 	}
 }
+
+.scrollable-pane {
+	overflow: auto;
+}
+
+.text-color-gray {
+	color:#777;
+}
+
+.bordered-pane {
+	border: 1px solid @light-gray-color;
+}
+
+.background-light-gray {
+	background-color: @light-gray-bg-color;
+}
+
+.background-white-smoke {
+	background-color: @whitesmoke-gray-bg-color;
+}
+
+.background-white {
+	background-color: white;
+}
+

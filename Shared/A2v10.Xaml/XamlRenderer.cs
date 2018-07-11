@@ -37,38 +37,23 @@ namespace A2v10.Xaml
 
 			using (request.Start(ProfileAction.Render, $"render: {info.FileTitle}"))
 			{
-				RenderContext ctx = new RenderContext(uiElem, info);
-				ctx.RootId = info.RootId;
+				RenderContext ctx = new RenderContext(uiElem, info)
+				{
+					RootId = info.RootId
+				};
 
 				uiElem.RenderElement(ctx);
 
-				try
-				{
-					Grid.CheckAttachedObjects();
-					Splitter.CheckAttachedObjects();
-					FullHeightPanel.CheckAttachedObjects();
-					Toolbar.CheckAttachedObjects();
-				} catch (XamlException)
-				{
-					Grid.ClearAttachedObjects();
-					Splitter.ClearAttachedObjects();
-					FullHeightPanel.ClearAttachedObjects();
-					Toolbar.ClearAttachedObjects();
-					throw;
-				}
+				Grid.ClearAttached();
+				Splitter.ClearAttached();
+				FullHeightPanel.ClearAttached();
+				Toolbar.ClearAttached();
 			}
 
-			var disp = uiElem as IDisposable;
-			if (disp != null)
+			if (uiElem is IDisposable disp)
 			{
 				disp.Dispose();
 			}
-#if DEBUG
-			Grid.DebugCheckAttached();
-			Splitter.DebugCheckAttached();
-			FullHeightPanel.DebugCheckAttached();
-			Toolbar.DebugCheckAttached();
-#endif
 		}
 	}
 }

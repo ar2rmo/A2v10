@@ -1,10 +1,10 @@
-/* 20180406-7048 */
+/* 20180611-7051 */
 /*
 ------------------------------------------------
-Copyright © 2008-2017 Alex Kukhtin
+Copyright Â© 2008-2018 Alex Kukhtin
 
-Last updated : 06 apr 2018
-module version : 7048
+Last updated : 11 jun 2018
+module version : 7051
 */
 ------------------------------------------------
 set noexec off;
@@ -22,9 +22,9 @@ go
 ------------------------------------------------
 set nocount on;
 if not exists(select * from a2sys.Versions where Module = N'std:ui')
-	insert into a2sys.Versions (Module, [Version]) values (N'std:ui', 7048);
+	insert into a2sys.Versions (Module, [Version]) values (N'std:ui', 7051);
 else
-	update a2sys.Versions set [Version] = 7048 where Module = N'std:ui';
+	update a2sys.Versions set [Version] = 7051 where Module = N'std:ui';
 go
 ------------------------------------------------
 if not exists(select * from INFORMATION_SCHEMA.SCHEMATA where SCHEMA_NAME=N'a2ui')
@@ -75,6 +75,26 @@ begin
 		[Permissions] as cast(CanView as int)
 		constraint PK_MenuAcl primary key(Menu, UserId)
 	);
+end
+go
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.TABLES where TABLE_SCHEMA=N'a2ui' and TABLE_NAME=N'Feedback')
+begin
+	create table a2ui.Feedback
+	(
+		Id	bigint identity(1, 1) not null constraint PK_Feedback primary key,
+		[Date] datetime not null
+			constraint DF_Feedback_Date default(getdate()),
+		UserId bigint not null
+			constraint FK_Feedback_UserId_Users foreign key references a2security.Users(Id),
+		[Text] nvarchar(max) null
+	);
+end
+go
+------------------------------------------------
+if (255 = (select CHARACTER_MAXIMUM_LENGTH from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2ui' and TABLE_NAME=N'Feedback' and COLUMN_NAME=N'Text'))
+begin
+	alter table a2ui.Feedback alter column [Text] nvarchar(max) null;
 end
 go
 ------------------------------------------------
@@ -141,16 +161,16 @@ begin
 	declare @tx table (Id bigint, Parent bit);
 
 	-- all children
-	with Ñ(Id, ParentId)
+	with C(Id, ParentId)
 	as
 	(
 		select @MenuId, cast(null as bigint) 
 		union all
 		select m.Id, m.Parent
-			from a2ui.Menu m inner join Ñ on m.Parent=Ñ.Id
+			from a2ui.Menu m inner join C on m.Parent=C.Id
 	)
 	insert into @tx(Id, Parent)
-		select Id, 0 from Ñ
+		select Id, 0 from C
 		group by Id;
 
 	-- all parent 
@@ -227,6 +247,22 @@ begin
 			values (source.[ObjectId], source.UserId, source.CanView)
 	when not matched by source then
 		delete;
+end
+go
+------------------------------------------------
+if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2ui' and ROUTINE_NAME=N'SaveFeedback')
+	drop procedure a2ui.SaveFeedback
+go
+------------------------------------------------
+create procedure a2ui.SaveFeedback
+@UserId bigint,
+@Text nvarchar(max)
+as
+begin
+	set nocount on;
+	set transaction isolation level read committed;
+	set xact_abort on;
+	insert into a2ui.Feedback(UserId, [Text]) values (@UserId, @Text);
 end
 go
 ------------------------------------------------

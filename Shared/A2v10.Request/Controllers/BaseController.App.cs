@@ -2,14 +2,13 @@
 
 using System.IO;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using A2v10.Request.Properties;
 using System.Dynamic;
-using A2v10.Infrastructure;
 using Newtonsoft.Json;
+
+using A2v10.Request.Properties;
+using A2v10.Infrastructure;
 
 namespace A2v10.Request
 {
@@ -17,10 +16,12 @@ namespace A2v10.Request
 	{
 		Task RenderAbout(TextWriter writer)
 		{
-			var aboutHtml = new StringBuilder(Resources.about);
+			var aboutHtml = new StringBuilder(_localizer.Localize(null, Resources.about));
 			var aboutScript = new StringBuilder(Resources.aboutScript);
 			var pageGuid = $"el{Guid.NewGuid()}"; // starts with letter!
 			aboutScript.Replace("$(PageGuid)", pageGuid);
+
+			aboutScript.Replace("$(AppData)", GetAppData());
 
 			aboutHtml.Replace("$(PageGuid)", pageGuid);
 			aboutHtml.Replace("$(AboutScript)", aboutScript.ToString());
@@ -28,6 +29,42 @@ namespace A2v10.Request
 			writer.Write(aboutHtml.ToString());
 
 			return Task.FromResult(0);
+		}
+
+		Task RenderAppPage(TextWriter writer, String page)
+		{
+			String path = _host.MakeFullPath(Admin, "_pages", $"{page}.{CurrentLang}.html");
+			if (!File.Exists(path))
+				throw new IOException($"Application page not found ({page}.{CurrentLang}).");
+			var appPageHtml = new StringBuilder(_localizer.Localize(null, Resources.appPage));
+			var appPageScript = new StringBuilder(Resources.appPageScript);
+			var pageGuid = $"el{Guid.NewGuid()}"; // starts with letter!
+			appPageScript.Replace("$(PageGuid)", pageGuid);
+			appPageHtml.Replace("$(PageGuid)", pageGuid);
+			appPageHtml.Replace("$(AppPageScript)", appPageScript.ToString());
+
+			String appPageConetent = File.ReadAllText(path);
+			appPageHtml.Replace("$(AppPageContent)", appPageConetent);
+
+			writer.Write(appPageHtml.ToString());
+			return Task.FromResult(0);
+		}
+
+		String GetAppData()
+		{
+			var appPath = _host.MakeFullPath(Admin, "", "app.json");
+			if (File.Exists(appPath))
+			{
+				String appText = File.ReadAllText(appPath);
+				// validate
+				Object app = JsonConvert.DeserializeObject<ExpandoObject>(appText);
+				return _localizer.Localize(null, JsonConvert.SerializeObject(app));
+			}
+			ExpandoObject defAppData = new ExpandoObject();
+			defAppData.Set("version", _host.AppVersion);
+			defAppData.Set("title", "A2v10 Web Application");
+			defAppData.Set("copyright", _host.Copyright);
+			return JsonConvert.SerializeObject(defAppData);
 		}
 
 		async Task RenderChangePassword(TextWriter writer, ExpandoObject loadPrms)

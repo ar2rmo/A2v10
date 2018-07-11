@@ -23,6 +23,8 @@ using A2v10.Data.Interfaces;
 using System.Threading;
 using System.Security;
 using System.ComponentModel.DataAnnotations;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace A2v10.Web.Site.Controllers
 {
@@ -84,9 +86,7 @@ namespace A2v10.Web.Site.Controllers
 		{
 			try
 			{
-				String cookieToken;
-				String formToken;
-				AntiForgery.GetTokens(null, out cookieToken, out formToken);
+				AntiForgery.GetTokens(null, out String cookieToken, out String formToken);
 
 				AppTitleModel appTitle = _dbContext.Load<AppTitleModel>(_host.CatalogDataSource, "a2ui.[AppTitle.Load]");
 
@@ -95,6 +95,9 @@ namespace A2v10.Web.Site.Controllers
 				layout.Replace("$(Build)", _host.AppBuild);
 				StringBuilder html = new StringBuilder(rsrcHtml);
 				layout.Replace("$(Partial)", html.ToString());
+				layout.Replace("$(Title)", appTitle.AppTitle);
+				layout.Replace("$(Description)", _host.AppDescription);
+
 
 				String mtMode = _host.IsMultiTenant.ToString().ToLowerInvariant();
 
@@ -104,7 +107,7 @@ namespace A2v10.Web.Site.Controllers
 				script.Replace("$(Mask)", ResourceHelper.mask);
 
 				script.Replace("$(PageData)", $"{{ version: '{_host.AppVersion}', title: '{appTitle?.AppTitle}', subtitle: '{appTitle?.AppSubTitle}', multiTenant: {mtMode} }}");
-				script.Replace("$(ServerInfo)", serverInfo != null ? serverInfo : "null");
+				script.Replace("$(ServerInfo)", serverInfo ?? "null");
 				script.Replace("$(Token)", formToken);
 				layout.Replace("$(PageScript)", script.ToString());
 
@@ -124,6 +127,8 @@ namespace A2v10.Web.Site.Controllers
 		[OutputCache(Duration = 0)]
 		public void Login()
 		{
+			Session.Abandon();
+			ClearAllCookies();
 			SendPage(ResourceHelper.LoginHtml, ResourceHelper.LoginScript);
 		}
 
@@ -155,6 +160,7 @@ namespace A2v10.Web.Site.Controllers
 			{
 				case SignInStatus.Success:
 					await UpdateUser(user, success: true);
+					ClearRVTCookie();
 					status = "Success";
 					break;
 				case SignInStatus.LockedOut:
@@ -175,7 +181,7 @@ namespace A2v10.Web.Site.Controllers
 		//
 		// GET: /Account/VerifyCode
 		[AllowAnonymous]
-		public async Task<ActionResult> VerifyCode(string provider, string returnUrl, bool rememberMe)
+		public async Task<ActionResult> VerifyCode(String provider, String returnUrl, Boolean rememberMe)
 		{
 			// Require that the user has already logged in via username/password or external login
 			if (!await SignInManager.HasBeenVerifiedAsync())
@@ -183,6 +189,24 @@ namespace A2v10.Web.Site.Controllers
 				return View("Error");
 			}
 			return View(new VerifyCodeViewModel { Provider = provider, ReturnUrl = returnUrl, RememberMe = rememberMe });
+		}
+
+		void ClearAllCookies()
+		{
+			var expires = DateTime.Now.AddDays(-1d);
+			foreach (var key in Request.Cookies.AllKeys)
+			{
+				var c = Response.Cookies[key];
+				if (c != null)
+					c.Expires = expires;
+			}
+		}
+
+		void ClearRVTCookie()
+		{
+			var cc = Response.Cookies["__RequestVerificationToken"];
+			if (cc != null)
+				cc.Expires = DateTime.Now.AddDays(-1d);
 		}
 
 		//
@@ -228,6 +252,56 @@ namespace A2v10.Web.Site.Controllers
 			SendPage(ResourceHelper.RegisterTenantHtml, ResourceHelper.RegisterTenantScript);
 		}
 
+		static ConcurrentDictionary<String, DateTime> _ddosChecker = new ConcurrentDictionary<String, DateTime>();
+
+		public Int32 IsDDOS()
+		{
+			String host = Request.UserHostAddress;
+			var now = DateTime.Now;
+			if (_ddosChecker.TryGetValue(host, out DateTime time)) {
+				var timeOffest = now - time;
+				if (timeOffest.TotalSeconds < 60)
+				{
+					//_ddosChecker.AddOrUpdate(host, now, (key, value) => now);
+					return Convert.ToInt32(timeOffest.TotalSeconds);
+				}
+				else
+				{
+					// remove current
+					_ddosChecker.TryRemove(host, out DateTime xVal);
+					return 0;
+				}
+			}
+			else
+			{
+				_ddosChecker.AddOrUpdate(host, now, (key, value) => now);
+			}
+			ClearDDOSCache();
+			return 0;
+		}
+
+		void ClearDDOSCache()
+		{
+			var now = DateTime.Now;
+			// clear old values
+			var keysForDelete = new List<String>();
+			foreach (var dd in _ddosChecker)
+			{
+				var offset = now - dd.Value;
+				if (offset.Seconds > 120)
+					keysForDelete.Add(dd.Key);
+			}
+			foreach (var key in keysForDelete)
+				_ddosChecker.TryRemove(key, out DateTime outVal);
+		}
+
+		void SaveDDOSTime()
+		{
+			String host = Request.UserHostAddress;
+			var now = DateTime.Now;
+			_ddosChecker.AddOrUpdate(host, now, (key, value) => now);
+		}
+
 		// POST: /Register/Login
 		[ActionName("Register")]
 		[HttpPost]
@@ -237,6 +311,9 @@ namespace A2v10.Web.Site.Controllers
 		public async Task<ActionResult> RegisterPOST()
 		{
 			String status;
+			var seconds = IsDDOS();
+			if (seconds > 0)
+				return Json(new { Status = "DDOS" }); //, Seconds = seconds });
 			try
 			{
 				RegisterTenantModel model;
@@ -261,6 +338,7 @@ namespace A2v10.Web.Site.Controllers
 				var result = await UserManager.CreateAsync(user, model.Password);
 				if (result.Succeeded)
 				{
+					SaveDDOSTime();
 					// email confirmation
 					String confirmCode = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
 					var callbackUrl = Url.Action("confirmemail", "account", new { userId = user.Id, code = confirmCode }, protocol: Request.Url.Scheme);
@@ -311,6 +389,7 @@ namespace A2v10.Web.Site.Controllers
 				{
 					var user = await UserManager.FindByIdAsync(userId.Value);
 					await UserManager.UpdateUser(user);
+					//await UserManager.SendEmailAsync(user.Id, subject, body);
 					SendPage(ResourceHelper.ConfirmEMailHtml, ResourceHelper.SimpleScript);
 					return;
 				}
@@ -357,7 +436,7 @@ namespace A2v10.Web.Site.Controllers
 				else
 				{
 					String code = await UserManager.GeneratePasswordResetTokenAsync(user.Id);
-					var callbackUrl = Url.Action("ResetPassword", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);
+					var callbackUrl = Url.Action("ResetPassword", "Account", new { userId = user.Id, code }, protocol: Request.Url.Scheme);
 					String subject = _localizer.Localize(null, "@[ResetPassword]");
 					String body = _localizer
 						.Localize(null, "@[ResetPasswordBody]")
@@ -378,7 +457,7 @@ namespace A2v10.Web.Site.Controllers
 		[AllowAnonymous]
 		[HttpGet]
 		[OutputCache(Duration = 0)]
-		public void ResetPassword(string code)
+		public void ResetPassword(String code)
 		{
 			if (code == null)
 				return;
@@ -478,7 +557,7 @@ namespace A2v10.Web.Site.Controllers
 		//
 		// GET: /Account/SendCode
 		[AllowAnonymous]
-		public async Task<ActionResult> SendCode(string returnUrl, bool rememberMe)
+		public async Task<ActionResult> SendCode(String returnUrl, Boolean rememberMe)
 		{
 			var userId = await SignInManager.GetVerifiedUserIdAsync();
 			if (userId == 0)
@@ -507,7 +586,7 @@ namespace A2v10.Web.Site.Controllers
 			{
 				return View("Error");
 			}
-			return RedirectToAction("VerifyCode", new { Provider = model.SelectedProvider, ReturnUrl = model.ReturnUrl, RememberMe = model.RememberMe });
+			return RedirectToAction("VerifyCode", new { Provider = model.SelectedProvider, model.ReturnUrl, model.RememberMe });
 		}
 
 		[HttpPost]
@@ -518,7 +597,7 @@ namespace A2v10.Web.Site.Controllers
 		}
 
 
-		protected override void Dispose(bool disposing)
+		protected override void Dispose(Boolean disposing)
 		{
 			if (disposing)
 			{
@@ -549,7 +628,7 @@ namespace A2v10.Web.Site.Controllers
 			}
 		}
 
-		private ActionResult RedirectToLocal(string returnUrl)
+		private ActionResult RedirectToLocal(String returnUrl)
 		{
 			if (Url.IsLocalUrl(returnUrl))
 			{
@@ -591,7 +670,7 @@ namespace A2v10.Web.Site.Controllers
 			}
 		}
 
-		bool IsEmailValid(String mail)
+		Boolean IsEmailValid(String mail)
 		{
 			var ema = new EmailAddressAttribute();
 			return ema.IsValid(mail);

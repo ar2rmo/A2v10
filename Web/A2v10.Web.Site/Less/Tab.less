@@ -1,7 +1,7 @@
 ﻿
-@tab-brd-color: @default-brd-color;
+@tab-brd-color: @light-gray-color;
 @tab-active-brd-color: gold;
-@tab-bg-color: #f8f8f8;
+@tab-bg-color: @whitesmoke-gray-bg-color;
 @tab-hover-color: #eee;
 @tab-header-padding: .45rem 1rem .55rem 1rem;
 
@@ -36,13 +36,14 @@
 			border-top-width: 3px;
 			margin-bottom: -1px;
 			color: @link-color;
+			vertical-align: bottom;
 
 			> .ico {
 				color: @icon-color;
 			}
 
 			.badge {
-				vertical-align: bottom;
+				vertical-align: middle;
 			}
 
 			&:hover {
@@ -61,7 +62,7 @@
 			}
 
 			&.active.yellow {
-				background-color: lightyellow;
+				background-color: #fefcf0;
 			}
 
 			&.active:hover {
@@ -74,6 +75,14 @@
 				display: inline;
 				margin: 0;
 			}
+		}
+	}
+
+
+	.tab-item.full-height {
+		height: 100%;
+		> div {
+			height:100%;
 		}
 	}
 

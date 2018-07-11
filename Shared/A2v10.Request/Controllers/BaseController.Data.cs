@@ -11,6 +11,9 @@ using Newtonsoft.Json.Converters;
 
 using A2v10.Infrastructure;
 using A2v10.Data.Interfaces;
+using System.Collections.Specialized;
+using System.Collections.Generic;
+using A2v10.Interop;
 
 namespace A2v10.Request
 {
@@ -90,6 +93,9 @@ namespace A2v10.Request
 				case CommandType.resumeProcess:
 					await ResumeWorkflow(cmd, dataToExec, writer);
 					break;
+				case CommandType.clr:
+					ExecuteClrCommand(cmd, dataToExec, writer);
+					break;
 				default:
 					throw new RequestModelException($"Invalid command type '{cmd.type}'");
 			}
@@ -101,14 +107,27 @@ namespace A2v10.Request
 			WriteDataModel(model, writer);
 		}
 
+		void ExecuteClrCommand(RequestCommand cmd, ExpandoObject dataToExec, TextWriter writer)
+		{
+			if (String.IsNullOrEmpty(cmd.clrType))
+				throw new RequestModelException($"clrType must be specified for command '{cmd.command}'");
+			var invoker = new ClrInvoker();
+			var result = invoker.Invoke(cmd.clrType, dataToExec);
+			writer.Write(JsonConvert.SerializeObject(result, StandardSerializerSettings));
+		}
+
 		async Task StartWorkflow(RequestCommand cmd, ExpandoObject dataToStart, TextWriter writer)
 		{
-			var swi = new StartWorkflowInfo();
-			swi.DataSource = cmd.CurrentSource;
-			swi.Schema = cmd.CurrentSchema;
-			swi.Model = cmd.CurrentModel;
-			swi.ModelId = dataToStart.Get<Int64>("Id");
-			swi.ActionBase = cmd.ActionBase;
+			if (_workflowEngine == null)
+				throw new InvalidOperationException($"Service 'IWorkflowEngine' not registered");
+			var swi = new StartWorkflowInfo
+			{
+				DataSource = cmd.CurrentSource,
+				Schema = cmd.CurrentSchema,
+				Model = cmd.CurrentModel,
+				ModelId = dataToStart.Get<Int64>("Id"),
+				ActionBase = cmd.ActionBase
+			};
 			if (swi.ModelId == 0)
 				throw new RequestModelException("ModelId must be specified");
 			if (!String.IsNullOrEmpty(cmd.file))
@@ -116,15 +135,19 @@ namespace A2v10.Request
 			swi.Comment = dataToStart.Get<String>("Comment");
 			swi.UserId = dataToStart.Get<Int64>("UserId");
 			if (swi.Source == null)
-				throw new RequestModelException($"file or clrtype must be specified");
+				throw new RequestModelException($"File or clrType must be specified");
 			WorkflowResult wr = await _workflowEngine.StartWorkflow(swi);
 			WriteJsonResult(writer, wr);
 		}
 
 		async Task ResumeWorkflow(RequestCommand cmd, ExpandoObject dataToStart, TextWriter writer)
 		{
-			var rwi = new ResumeWorkflowInfo();
-			rwi.Id = dataToStart.Get<Int64>("Id");
+			if (_workflowEngine == null)
+				throw new InvalidOperationException($"Service 'IWorkflowEngine' not registered");
+			var rwi = new ResumeWorkflowInfo
+			{
+				Id = dataToStart.Get<Int64>("Id")
+			};
 			if (rwi.Id == 0)
 				throw new RequestModelException("InboxId must be specified");
 			rwi.UserId = dataToStart.Get<Int64>("UserId");
@@ -152,7 +175,7 @@ namespace A2v10.Request
 				baseUrl = parts[0];
 				// parts[1] contains query parameters
 				var qryParams = HttpUtility.ParseQueryString(parts[1]);
-				loadPrms.Append(qryParams, toPascalCase: true);
+				loadPrms.Append(CheckPeriod(qryParams), toPascalCase: true);
 			}
 
 			if (baseUrl == null)
@@ -206,12 +229,45 @@ namespace A2v10.Request
 			writer.Write("{\"status\": \"OK\"}"); // JSON!
 		}
 
+		public NameValueCollection CheckPeriod(NameValueCollection coll)
+		{
+			var res = new NameValueCollection();
+			foreach (var key in coll.Keys)
+			{
+				var k = key?.ToString();
+				if (k.ToLowerInvariant() == "period")
+				{
+					// parse period
+					var ps = coll[k].Split('-');
+					res.Remove("From"); // replace prev value
+					res.Remove("To");
+					if (ps[0].ToLowerInvariant() == "all")
+					{
+						// from js! utils.date.minDate/maxDate
+						res.Add("From", "19010101");
+						res.Add("To", "29991231"); 
+					}
+					else
+					{
+						res.Add("From", ps[0]);
+						res.Add("To", ps.Length == 2 ? ps[1] : ps[0]);
+					}
+				}
+				else
+				{
+					res.Add(k, coll[k]);
+				}
+			}
+			return res;
+		}
+
 		void AddParamsFromUrl(ExpandoObject prms, String baseUrl)
 		{
 			if (baseUrl.Contains("?"))
 			{
 				// add query params from baseUrl
-				prms.Append(HttpUtility.ParseQueryString(baseUrl.Split('?')[1]), toPascalCase: true);
+				var nvc = HttpUtility.ParseQueryString(baseUrl.Split('?')[1]);
+				prms.Append(CheckPeriod(nvc), toPascalCase: true);
 			}
 		}
 

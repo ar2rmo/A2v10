@@ -13,12 +13,6 @@ namespace A2v10.Xaml
 		ThreeColumnsGrid
 	}
 
-	public enum ListBackgroundStyle
-	{
-		None,
-		LightGray
-	}
-
 
 	[ContentProperty("Content")]
 	public class List : Control, ITableControl
@@ -27,27 +21,29 @@ namespace A2v10.Xaml
 		public UIElementCollection Content { get; set; } = new UIElementCollection();
 		public AutoSelectMode AutoSelect { get; set; }
 		public Boolean Striped { get; set; }
+		public Boolean? Select { get; set; }
 		public Object Mark { get; set; }
 		public Boolean Border { get; set; }
 
 		public Length Height { get; set; }
-		public ListBackgroundStyle Background { get; set; }
+		public BackgroundStyle Background { get; set; }
 
 		public ListStyle Style { get; set; }
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
 			var ul = new TagBuilder("a2-list", null, IsInGrid);
-			if (onRender != null)
-				onRender(ul);
+			onRender?.Invoke(ul);
 			var isBind = GetBinding(nameof(ItemsSource));
 			ul.AddCssClassBool(Striped, "striped");
 			ul.AddCssClassBool(Border, "border");
+			if (Select != null)
+				ul.MergeAttribute(":selectable", Select.Value.ToString().ToLowerInvariant());
 			ul.AddCssClass(Style.ToString().ToKebabCase());
 			//ul.MergeAttribute(":command", "()=> $navigate()");
 
-			if (Background != ListBackgroundStyle.None)
-				ul.AddCssClass("list-background-" + Background.ToString().ToKebabCase());
+			if (Background != BackgroundStyle.None)
+				ul.AddCssClass("background-" + Background.ToString().ToKebabCase());
 
 			var mbind = GetBinding(nameof(Mark));
 			if (mbind != null)

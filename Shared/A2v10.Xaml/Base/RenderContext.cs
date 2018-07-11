@@ -113,11 +113,11 @@ namespace A2v10.Xaml
 		private Stack<GridRowCol> _stackGrid = new Stack<GridRowCol>();
 		private Stack<ScopeElem> _stackScope = new Stack<ScopeElem>();
 
-		private UIElementBase _root;
+		readonly private UIElementBase _root;
 		private IDataModel _dataModel;
 		private ILocalizer _localizer;
 
-		private String _currentLocale;
+		readonly private String _currentLocale;
 
 		public RenderContext(UIElementBase root, RenderInfo ri)
 		{
@@ -128,13 +128,8 @@ namespace A2v10.Xaml
 			_currentLocale = ri.CurrentLocale;
 		}
 
-		public Boolean IsDialog
-		{
-			get
-			{
-				return _root is Dialog;
-			}
-		}
+		public Boolean IsDialog => _root is Dialog;
+		public Boolean IsWizard => _root is Wizard;
 
 		public Boolean IsDataModelIsReadOnly
 		{
@@ -206,7 +201,11 @@ namespace A2v10.Xaml
 				throw new ArgumentNullException(nameof(path));
 			const String rootKey = "Root.";
 			if (_stackScope.Count == 0)
+			{
+				if (path == "Root")
+					return "$data";
 				return path.Replace(rootKey, "$data.");
+			}
 			if (path.StartsWith("Parent."))
 				return path;
 			if (path.StartsWith(rootKey))

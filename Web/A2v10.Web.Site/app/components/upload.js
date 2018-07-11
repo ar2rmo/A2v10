@@ -1,24 +1,23 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180405-7149
+// 20180428-7171
 // components/upload.js
 
 
 
 (function () {
 
-	var url = require('std:url');
-	var http = require('std:http');
+	const url = require('std:url');
+	const http = require('std:http');
 
 	Vue.component("a2-upload", {
         /* TODO:
-         1. Accept for images/upload - may be accept property ???
          4. ControllerName (_image ???)
         */
 		template: `
 <label :class="cssClass" @dragover="dragOver" @dragleave="dragLeave">
-	<input v-if='canUpload' type="file" @change="uploadImage" v-bind:multiple="isMultiple" accept="image/*" />
-	<i class="ico ico-image"></i>
+	<input v-if='canUpload' type="file" @change="uploadImage" v-bind:multiple="isMultiple" :accept="accept" />
+	<i class="ico" :class="icoClass"></i>
 	<span class="upload-tip" v-text="tip" v-if="tip"></span>
 </label>
 		`,
@@ -28,7 +27,8 @@
 			base: String,
 			newItem: Boolean,
 			tip: String,
-			readOnly: Boolean
+			readOnly: Boolean,
+			accept: String
 		},
 		data: function () {
 			return {
@@ -44,6 +44,9 @@
 			},
 			canUpload() {
 				return !this.readOnly;
+			},
+			icoClass() {
+				return this.accept === 'image/*' ? 'ico-image' : 'ico-upload';
 			}
 		},
 		methods: {
@@ -56,7 +59,7 @@
 				ev.preventDefault();
 			},
 			uploadImage(ev) {
-				let root = window.$rootUrl;
+				let root = window.$$rootUrl;
 				let id = this.item[this.prop];
 				let imgUrl = url.combine(root, '_image', this.base, this.prop, id);
 				var fd = new FormData();
@@ -78,6 +81,8 @@
 							this.item[this.prop] = result.ids[0];
 						}
 					}
+				}).catch(result => {
+					alert(result);
 				});
 			}
 		}

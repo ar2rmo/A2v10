@@ -1,6 +1,6 @@
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180226-7120
+// 20180428-7171
 // app.js
 
 "use strict";
@@ -9,7 +9,8 @@
 
 	window.app = {
 		modules: {},
-		components: {}
+		components: {},
+		nextToken: nextToken
 	};
 
 	window.require = require;
@@ -35,11 +36,17 @@
 			return app.components[name];
 		throw new Error('component "' + name + '" not found');
 	}
+
+	let currentToken = 1603;
+
+	function nextToken() {
+		return '' + (currentToken++);
+	}
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180110-7088
-// services/datamodel.js
+// 20180623-7233
+// platform/polyfills.js
 
 
 (function (elem) {
@@ -52,15 +59,43 @@
 				node = node.parentElement;
 		}
 		return null;
-	}
+	};
+
+	elem.scrollIntoViewCheck = elem.scrollIntoViewCheck || function () {
+		let el = this;
+		let elRect = el.getBoundingClientRect();
+		let pElem = el.parentElement;
+		while (pElem) {
+			if (pElem.offsetHeight < pElem.scrollHeight)
+				break;
+			pElem = pElem.parentElement;
+		}
+		let parentRect = pElem.getBoundingClientRect();
+		if (elRect.top < parentRect.top)
+			el.scrollIntoView(true);
+		else if (elRect.bottom > parentRect.bottom)
+			el.scrollIntoView(false);
+	};
+
+
 })(Element.prototype);
+
+(function (date) {
+
+	date.isZero = date.isZero || function () {
+		let td = new Date(0, 0, 1, 0, 0, 0, 0);
+		td.setHours(0, -td.getTimezoneOffset(), 0, 0);
+		return this.getTime() === td.getTime();
+	};
+
+})(Date.prototype);
 
 
 
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7166
+// 20180619-7227
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -77,6 +112,7 @@ app.modules['std:utils'] = function () {
 
 	const currencyFormat = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6, useGrouping: true }).format;
 	const numberFormat = new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 6, useGrouping: true }).format;
+
 
 	return {
 		isArray: Array.isArray,
@@ -107,12 +143,17 @@ app.modules['std:utils'] = function () {
 			today: dateToday,
 			zero: dateZero,
 			parse: dateParse,
+			tryParse: dateTryParse,
 			equal: dateEqual,
 			isZero: dateIsZero,
 			formatDate: formatDate,
 			add: dateAdd,
+			diff: dateDiff,
+			create: dateCreate,
 			compare: dateCompare,
-			endOfMonth: endOfMonth
+			endOfMonth: endOfMonth,
+			minDate: dateCreate(1901, 1, 1),
+			maxDate: dateCreate(2999, 12, 31)
 		},
 		text: {
 			contains: textContains,
@@ -163,6 +204,7 @@ app.modules['std:utils'] = function () {
 
 	function toJson(data) {
 		return JSON.stringify(data, function (key, value) {
+			if (dateIsZero(this[key])) return undefined; // value is string!
 			return key[0] === '$' || key[0] === '_' ? undefined : value;
 		}, 2);
 	}
@@ -269,6 +311,12 @@ app.modules['std:utils'] = function () {
 				if (dateIsZero(obj))
 					return '';
 				return formatTime(obj);
+			case "Period":
+				if (!obj.format) {
+					console.error(`Invalid Period for utils.format (${obj})`);
+					return obj;
+				}
+				return obj.format('Date');
 			case "Currency":
 				if (!isNumber(obj)) {
 					console.error(`Invalid Currency for utils.format (${obj})`);
@@ -290,6 +338,7 @@ app.modules['std:utils'] = function () {
 		}
 		return obj;
 	}
+
 
 	function getStringId(obj) {
 		if (!obj)
@@ -314,9 +363,24 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateZero() {
-		let td = new Date(0, 0, 1);
+		let td = new Date(0, 0, 1, 0, 0, 0, 0);
 		td.setHours(0, -td.getTimezoneOffset(), 0, 0);
 		return td;
+	}
+
+	function dateTryParse(str) {
+		if (!str) return dateZero();
+		let dt;
+		if (str.length === 8) {
+			dt = new Date(+str.substring(0, 4), +str.substring(4, 6) - 1, +str.substring(6, 8), 0, 0, 0, 0);
+		} else {
+			dt = new Date(str);
+		}
+		if (!isNaN(dt.getTime())) {
+			dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
+			return dt;
+		}
+		return str;
 	}
 
 	function dateParse(str) {
@@ -344,11 +408,45 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateIsZero(d1) {
+		if (!isDate(d1)) return false;
 		return dateEqual(d1, dateZero());
 	}
 
 	function endOfMonth(dt) {
 		return new Date(dt.getFullYear(), dt.getMonth() + 1, 0);
+	}
+
+	function dateCreate(year, month, day) {
+		let dt = new Date(year, month - 1, day, 0, 0, 0, 0);
+		dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
+		return dt;
+	}
+
+	function dateDiff(unit, d1, d2) {
+		switch (unit) {
+			case "month":
+				if (d1.getTime() > d2.getTime())
+					[d1, d2] = [d2, d1];
+				let delta = 0;
+				if (d2.getDate() < d1.getDate())
+					delta = -1;
+				if (d1.getFullYear() === d2.getFullYear())
+					return d2.getMonth() - d1.getMonth() + delta;
+				let month = 0;
+				let year = d1.getFullYear();
+				while (year < d2.getFullYear()) {
+					let day = d2.getDate();
+					let dayOfMonth = endOfMonth(new Date(year + 1, d1.getMonth(), 1, 0, 0, 0, 0)).getDate();
+					if (day > dayOfMonth)
+						day = dayOfMonth;
+					d1 = new Date(year + 1, d1.getMonth(), day, 0, 0, 0, 0);
+					year = d1.getFullYear();
+					month += 12;
+				}
+				month += d2.getMonth() - d1.getMonth();
+				return month + delta;
+		}
+		throw new Error('Invalid unit value for utils.date.diff');
 	}
 
 	function dateAdd(dt, nm, unit) {
@@ -368,7 +466,6 @@ app.modules['std:utils'] = function () {
 					day = ldm;
 				var dtx = new Date(dt.getFullYear(), newMonth, day);
 				return dtx;
-				break;
 			case 'day':
 				du = 1000 * 60 * 60 * 24;
 				break;
@@ -438,12 +535,13 @@ app.modules['std:utils'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180426-7167*/
+/*20180619-7227*/
 /* services/url.js */
 
 app.modules['std:url'] = function () {
 
 	const utils = require('std:utils');
+	const period = require('std:period');
 
 	return {
 		combine,
@@ -487,6 +585,8 @@ app.modules['std:url'] = function () {
 		if (!utils.isDefined(obj)) return '';
 		if (utils.isDate(obj)) {
 			return utils.format(obj, "DateUrl");
+		} else if (period.isPeriod(obj)) {
+			return obj.format('DateUrl');
 		} else if (utils.isObjectExact(obj)) {
 			if (obj.constructor.name === 'Object') {
 				if (!utils.isDefined(obj.Id))
@@ -562,15 +662,18 @@ app.modules['std:url'] = function () {
 
 	function makeBaseUrl(url) {
 		let x = (url || '').split('/');
-		if (x.length === 6)
-			return x.slice(2, 4).join('/');
+		let len = x.length;
+		if (len >= 6)
+			return x.slice(2, len - 2).join('/');
 		return url;
 	}
 
 	function parseUrlAndQuery(url, querySrc) {
 		let query = {};
-		for (let p in querySrc)
+		for (let p in querySrc) {
+			if (p.startsWith('_')) continue;
 			query[p] = toUrl(querySrc[p]); // all values are string
+		}
 		let rv = { url: url, query: query };
 		if (url.indexOf('?') !== -1) {
 			let a = url.split('?');
@@ -634,6 +737,246 @@ app.modules['std:url'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
+// 20180508-7179
+// services/period.js
+
+app.modules['std:period'] = function () {
+
+	const utils = require('std:utils');
+	const date = utils.date;
+	const locale = window.$$locale;
+
+	function TPeriod(source) {
+		if (source && 'From' in source) {
+			if (!source.From && !source.To) {
+				this.From = date.minDate;
+				this.To = date.maxDate;
+			}
+			else {
+				this.From = date.tryParse(source.From);
+				this.To = date.tryParse(source.To);
+			}
+		} else {
+			this.From = date.minDate;
+			this.To = date.maxDate;
+		}
+		Object.defineProperty(this, 'Name', {
+			enumerable: true,
+			get() {
+				return this.format('Date');
+			}
+		});
+	}
+
+	TPeriod.prototype.assign = function (v) {
+		if (isPeriod(v)) {
+			this.From = v.From;
+			this.To = v.To;
+		} else {
+			if (v.From === null && v.To === null) {
+				this.From = date.minDate;
+				this.To = date.maxDate;
+			} else {
+				this.From = date.tryParse(v.From);
+				this.To = date.tryParse(v.To);
+			}
+		}
+		this.normalize();
+		return this;
+	}
+
+	TPeriod.prototype.equal = function (p) {
+		return this.From.getTime() === p.From.getTime() &&
+			this.To.getTime() === p.To.getTime();
+	}
+
+	TPeriod.prototype.fromUrl = function (v) {
+		if (utils.isObject(v) && 'From' in v) {
+			this.From = date.tryParse(v.From);
+			this.To = date.tryParse(v.To);
+			this.normalize();
+			return this;
+		}
+		let px = (v || '').split('-');
+		if (px[0].toLowerCase() === 'all') {
+			this.From = date.minDate;
+			this.To = date.maxDate;
+			return this;
+		}
+		let df = px[0];
+		let dt = px.length > 1 ? px[1] : px[0];
+		this.From = date.tryParse(df)
+		this.To = date.tryParse(dt);
+		return this;
+	}
+
+	TPeriod.prototype.isAllData = function () {
+		return this.From.getTime() === date.minDate.getTime() &&
+			this.To.getTime() === date.maxDate.getTime();
+	}
+
+	TPeriod.prototype.format = function (dataType) {
+		//console.warn(`${this.From.getTime()}-${date.minDate.getTime()} : ${this.To.getTime()}-${date.maxDate.getTime()}`);
+		if (this.isAllData())
+			return dataType === 'DateUrl' ? 'All' : locale.$AllPeriodData;
+		let from = this.From;
+		let to = this.To;
+		if (from.getTime() === to.getTime())
+			return utils.format(from, dataType);
+		if (dataType === "DateUrl")
+			return utils.format(from, dataType) + '-' + utils.format(to, dataType);
+		return utils.format(from, dataType) + ' - ' + (utils.format(to, dataType) || '???');
+	}
+
+	TPeriod.prototype.in = function (dt) {
+		let t = dt.getTime();
+		let zd = utils.date.zero().getTime();
+		if (this.From.getTime() === zd || this.To.getTime() === zd) return;
+		return t >= this.From.getTime() && t <= this.To.getTime();
+	}
+
+	TPeriod.prototype.normalize = function () {
+		if (this.From.getTime() > this.To.getTime())
+			[this.From, this.To] = [this.To, this.From];
+		return this;
+	}
+
+	TPeriod.prototype.set = function (from, to) {
+		this.From = from;
+		this.To = to;
+		return this.normalize();
+	}
+
+
+	function isPeriod(value) { return value instanceof TPeriod; }
+
+	return {
+		isPeriod,
+		constructor: TPeriod,
+		zero: zeroPeriod,
+		all: allDataPeriod,
+		create: createPeriod 
+	};
+
+	function zeroPeriod() {
+		return new TPeriod();
+	}
+
+	function allDataPeriod() {
+		return createPeriod('allData');
+	}
+
+	function createPeriod(key, from, to) {
+		let today = date.today();
+		let p = zeroPeriod();
+		switch (key) {
+			case 'today':
+				p.set(today, today);
+				break;
+			case 'yesterday':
+				let yesterday = date.add(today, -1, 'day');
+				p.set(yesterday, yesterday);
+				break;
+			case 'last7':
+				// -6 (include today!)
+				let last7 = date.add(today, -6, 'day');
+				p.set(last7, today);
+				break;
+			case 'last30':
+				// -29 (include today!)
+				let last30 = date.add(today, -29, 'day');
+				p.set(last30, today);
+				break;
+			case 'startMonth':
+				let d1 = date.create(today.getFullYear(), today.getMonth() + 1, 1);
+				p.set(d1, today);
+				break;
+			case 'prevMonth': {
+				let d1 = date.create(today.getFullYear(), today.getMonth(), 1);
+				let d2 = date.create(today.getFullYear(), today.getMonth() + 1, 1);
+				p.set(d1, date.add(d2, -1, 'day'));
+			}
+				break;
+			case 'startQuart': {
+				let q = Math.floor(today.getMonth() / 3);
+				let m = q * 3;
+				let d1 = date.create(today.getFullYear(), m + 1, 1);
+				p.set(d1, today);
+			}
+				break;
+			case 'prevQuart': {
+				let year = today.getFullYear();
+				let q = Math.floor(today.getMonth() / 3) - 1;
+				if (q < 0) {
+					year -= 1;
+					q = 3;
+				}
+				let m1 = q * 3;
+				let m2 = (q + 1) * 3;
+				let d1 = date.create(year, m1 + 1, 1);
+				let d2 = date.add(date.create(year, m2 + 1, 1), -1, 'day');
+				p.set(d1, d2);
+			}
+				break;
+			case 'startYear':
+				let dy1 = date.create(today.getFullYear(), 1, 1);
+				p.set(dy1, today);
+				break;
+			case 'allData':
+				// full period
+				p.set(date.minDate, date.maxDate);
+				break;
+			case "custom":
+				p.set(from, to);
+				break;
+			default:
+				console.error('invalid menu key: ' + key);
+		}
+		return p;
+	}
+};
+
+
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+/*20180511-7186*/
+/* services/modelinfo.js */
+
+app.modules['std:modelInfo'] = function () {
+
+	return {
+		copyfromQuery: copyFromQuery,
+		get: getPagerInfo
+	};
+
+	function copyFromQuery(mi, q) {
+		let psq = { PageSize: q.pageSize, Offset: q.offset, SortDir: q.dir, SortOrder: q.order };
+		for (let p in psq) {
+			mi[p] = psq[p];
+		}
+		if (mi.Filter) {
+			for (let p in mi.Filter) {
+				mi.Filter[p] = q[p];
+			}
+		}
+	}
+
+	function getPagerInfo(mi) {
+		if (!mi) return undefined;
+		let x = { pageSize: mi.PageSize, offset: mi.Offset, dir: mi.SortDir, order: mi.SortOrder };
+		if (mi.Filter)
+			for (let p in mi.Filter) {
+				let fVal = mi.Filter[p];
+				if (!fVal) continue; // empty value, skip it
+				x[p] = fVal;
+			}
+		return x;
+	}
+};
+
+
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
 /*20180227-7121*/
 /* platform/webvue.js */
 
@@ -659,7 +1002,7 @@ app.modules['std:url'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180319-7135
+// 20180701-7237
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -725,11 +1068,12 @@ app.modules['std:http'] = function () {
 		return new Promise(function (resolve, reject) {
 			let xhr = new XMLHttpRequest();
 			xhr.onload = function (response) {
+				eventBus.$emit('endRequest', url);
 				if (xhr.status === 200) {
 					let xhrResult = JSON.parse(xhr.responseText);
 					resolve(xhrResult);
 				} else if (xhr.status === 255) {
-					alert(xhr.responseText || xhr.statusText);
+					reject(xhr.responseText || xhr.statusText);
 				}
 			};
 			xhr.onerror = function (response) {
@@ -738,9 +1082,11 @@ app.modules['std:http'] = function () {
 			xhr.open("POST", url, true);
 			xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 			xhr.setRequestHeader('Accept', 'application/json');
+			eventBus.$emit('beginRequest', url);
 			xhr.send(data);
 		});
 	}
+
 	function load(url, selector) {
 		let fc = selector ? selector.firstElementChild : null;
 		if (fc && fc.__vue__) {
@@ -1020,22 +1366,24 @@ app.modules['std:log'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180425-7165*/
+/*20180705-7241*/
 /*validators.js*/
 
 app.modules['std:validators'] = function () {
 
 	const utils = require('std:utils');
+	const eventBus = require('std:eventBus');
 	const ERROR = 'error';
 
 	// from chromium ? https://stackoverflow.com/questions/46155/how-to-validate-an-email-address-in-javascript
 	const EMAIL_REGEXP = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
 	const URL_REGEXP = /^[a-z][a-z\d.+-]*:\/*(?:[^:@]+(?::[^@]+)?@)?(?:[^\s:/?#]+|\[[a-f\d:]+\])(?::\d+)?(?:\/[^?#]*)?(?:\?[^#]*)?(?:#.*)?$/i;
 
-	const validateMap = new WeakMap();
+	let validateMap = new WeakMap();
 
 	return {
-		validate: validateItem
+		validate: validateItem,
+		removeWeak
 	};
 
 	function validateStd(rule, val) {
@@ -1053,8 +1401,36 @@ app.modules['std:validators'] = function () {
 		return true;
 	}
 
+	function removeWeak() {
+		validateMap = new WeakMap();
+	}
+
+	function addToWeak(rule, item, val) {
+		let valMap;
+		if (validateMap.has(rule)) {
+			valMap = validateMap.get(rule);
+		} else {
+			valMap = new WeakMap(); // internal
+			validateMap.set(rule, valMap);
+		}
+		if (utils.isObjectExact(val) && '$id' in val)
+			val = val.$id;
+		let valRes = { val: val, result: null };
+		valMap.set(item, valRes);
+		return valRes;
+	}
+
+
+	function getValForCompare(o1) {
+		if (utils.isObjectExact(o1) && '$id' in o1) {
+			return o1.$id;
+		}
+		return o1;
+	}
+
 	function validateImpl(rules, item, val, ff) {
 		let retval = [];
+		retval.pending = 0;
 		rules.forEach(function (rule) {
 			const sev = rule.severity || ERROR;
 			if (utils.isFunction(rule.applyIf)) {
@@ -1063,39 +1439,66 @@ app.modules['std:validators'] = function () {
 			if (utils.isString(rule)) {
 				if (!validateStd('notBlank', val))
 					retval.push({ msg: rule, severity: ERROR });
+			} else if (utils.isFunction(rule)) {
+				let vr = rule(item, val);
+				if (utils.isString(vr) && vr) {
+					retval.push({ msg: vr, severity: sev });
+				} else if (utils.isObject(vr)) {
+					retval.push({ msg: vr.msg, severity: vr.severity || sev });
+				}
 			} else if (utils.isString(rule.valid)) {
 				if (!validateStd(rule.valid, val))
 					retval.push({ msg: rule.msg, severity: sev });
 			} else if (utils.isFunction(rule.valid)) {
 				if (rule.async) {
-					if (validateMap.has(item)) {
-						if (validateMap.get(item) === val) {
-							// Let's skip already validated values
+					if (validateMap.has(rule)) {
+						let vmset = validateMap.get(rule);
+						if (vmset.has(item)) {
+							let vmv = vmset.get(item);
+
+							if (vmv.val === getValForCompare(val)) {
+								// Let's skip already validated values
+								if (vmv.result)
+									retval.push(vmv.result);
+								return;
+							}
+						} else {
+							// First call. Save valid value.
+							addToWeak(rule, item, val);
 							return;
 						}
+					} else {
+						// First call. Save valid value.
+						addToWeak(rule, item, val);
+						return;
 					}
 				}
 				let vr = rule.valid(item, val);
 				if (vr && vr.then) {
+					retval.pending += 1;
 					if (!rule.async) {
 						console.error('Async rules should be marked async:true');
 						return;
 					}
-					validateMap.set(item, val);
+					let valRes = addToWeak(rule, item, val);
 					vr.then((result) => {
 						let dm = { severity: sev, msg: rule.msg };
 						let nu = false;
 						if (utils.isString(result)) {
 							dm.msg = result;
+							valRes.result = dm;
 							retval.push(dm);
 							nu = true;
 						} else if (!result) {
 							retval.push(dm);
+							valRes.result = dm;
 							nu = true;
 						}
 						// need to update the validators
 						item._root_._needValidate_ = true;
 						if (nu && ff) ff();
+						retval.pending -= 1;
+						eventBus.$emit('pendingValidate');
 					});
 				}
 				else if (utils.isString(vr)) {
@@ -1118,6 +1521,8 @@ app.modules['std:validators'] = function () {
 			arr = rules;
 		else if (utils.isObject(rules))
 			arr.push(rules);
+		else if (utils.isFunction(rules))
+			arr.push(rules);
 		else if (utils.isString(rules))
 			arr.push({ valid: 'notBlank', msg: rules });
 		let err = validateImpl(arr, item, val, du);
@@ -1138,7 +1543,7 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7167
+// 20180630-7236
 // services/datamodel.js
 
 (function () {
@@ -1166,6 +1571,7 @@ app.modules['std:validators'] = function () {
 	const validators = require('std:validators');
 	const utils = require('std:utils');
 	const log = require('std:log');
+	const period = require('std:period');
 
 	let __initialized__ = false;
 
@@ -1234,6 +1640,9 @@ app.modules['std:validators'] = function () {
 				let mp = trg._meta_.markerProps[prop];
 				shadow[prop] = mp;
 				break;
+			case period.constructor:
+				shadow[prop] = new propCtor(source[prop]);
+				break;
 			default:
 				shadow[prop] = new propCtor(source[prop] || null, pathdot + prop, trg);
 				break;
@@ -1246,12 +1655,14 @@ app.modules['std:validators'] = function () {
 			},
 			set(val) {
 				let eventWasFired = false;
+				let skipDirty = prop.startsWith('$$');
 				//TODO: emit and handle changing event
 				let ctor = this._meta_.props[prop];
 				if (ctor.type) ctor = ctor.type;
 				val = ensureType(ctor, val);
 				if (val === this._src_[prop])
 					return;
+				let oldVal = this._src_[prop];
 				if (this._src_[prop] && this._src_[prop].$set) {
 					// object
 					this._src_[prop].$set(val);
@@ -1259,14 +1670,14 @@ app.modules['std:validators'] = function () {
 				} else {
 					this._src_[prop] = val;
 				}
-				if (!prop.startsWith('$$')) // skip special properties
-					this._root_.$setDirty(true);
+				if (!skipDirty) // skip special properties
+					this._root_.$setDirty(true, this._path_);
 				if (this._lockEvents_) return; // events locked
 				if (eventWasFired) return; // was fired
 				if (!this._path_)
 					return;
 				let eventName = this._path_ + '.' + prop + '.change';
-				this._root_.$emit(eventName, this, val);
+				this._root_.$emit(eventName, this, val, oldVal);
 			}
 		});
 	}
@@ -1335,13 +1746,13 @@ app.modules['std:validators'] = function () {
 	}
 
 	function createObject(elem, source, path, parent) {
-		const ctorname = elem.constructor.name;		
+		const ctorname = elem.constructor.name;
 		let startTime = null;
 		if (ctorname === 'TRoot')
 			startTime = performance.now();
 		parent = parent || elem;
 		defHidden(elem, SRC, {});
-		defHidden(elem, PATH, path);
+		defHidden(elem, PATH, path || '');
 		defHidden(elem, ROOT, parent._root_ || parent);
 		defHidden(elem, PARENT, parent);
 		defHidden(elem, ERRORS, null, true);
@@ -1420,6 +1831,7 @@ app.modules['std:validators'] = function () {
 				}
 			}
 			elem._setModelInfo_ = setRootModelInfo;
+			elem._findRootModelInfo = findRootModelInfo;
 			elem._enableValidate_ = true;
 			elem._needValidate_ = false;
 			elem._modelLoad_ = (caller) => {
@@ -1447,6 +1859,7 @@ app.modules['std:validators'] = function () {
 			let ctor = elem._meta_.props[p];
 			if (ctor.type) ctor = ctor.type;
 			if (utils.isPrimitiveCtor(ctor)) continue;
+			if (ctor === period.constructor) continue;
 			let val = elem[p];
 			if (utils.isArray(val)) {
 				val.forEach(itm => seal(itm));
@@ -1464,6 +1877,15 @@ app.modules['std:validators'] = function () {
 			elem.$ModelInfo = data.$ModelInfo[p];
 			return; // first element only
 		}
+	}
+
+	function findRootModelInfo() {
+		for (let p in this._meta_.props) {
+			let x = this[p];
+			if (x.$ModelInfo)
+				return x.$ModelInfo;
+		}
+		return null;
 	}
 
 	function isReadOnly() {
@@ -1731,6 +2153,10 @@ app.modules['std:validators'] = function () {
 				return this._root_._host_.$viewModel;
 			return null;
 		});
+
+		obj.$isValid = function (props) {
+			return true;
+		}
 	}
 
 	function defineObject(obj, meta, arrayItem) {
@@ -2048,11 +2474,19 @@ app.modules['std:validators'] = function () {
 		return errs.length ? errs : null;
 	}
 
-	function validateAll() {
+	function forceValidateAll() {
+		let me = this;
+		me._needValidate_ = true;
+		return me._validateAll_(true);
+	}
+
+	function validateAll(force) {
 		var me = this;
 		if (!me._host_) return;
 		if (!me._needValidate_) return;
 		me._needValidate_ = false;
+		if (force)
+			validators.removeWeak();
 		var startTime = performance.now();
 		let tml = me.$template;
 		if (!tml) return;
@@ -2067,12 +2501,16 @@ app.modules['std:validators'] = function () {
 		}
 		var e = performance.now();
 		log.time('validation time:', startTime);
+		return allerrs;
 		//console.dir(allerrs);
 	}
 
-	function setDirty(val) {
+	function setDirty(val, path) {
 		if (this.$root.$readOnly)
 			return;
+		if (path && path.toLowerCase().startsWith('query'))
+			return;
+		// TODO: template.options.skipDirty
 		this.$dirty = val;
 	}
 
@@ -2095,7 +2533,16 @@ app.modules['std:validators'] = function () {
 		return undefined;
 	}
 
-	function merge(src) {
+	function isSkipMerge(root, prop) {
+		if (prop.startsWith('$$')) return true; // special properties
+		let t = root.$template;
+		let opts = t && t.options;
+		let bo = opts && opts.bindOnce;
+		if (!bo) return false;
+		return bo.indexOf(prop) !== -1;
+	}
+
+	function merge(src, afterSave) {
 		let oldId = this.$id__;
 		try {
 			if (src === null)
@@ -2103,7 +2550,7 @@ app.modules['std:validators'] = function () {
 			this._root_._enableValidate_ = false;
 			this._lockEvents_ += 1;
 			for (var prop in this._meta_.props) {
-				if (prop.startsWith('$$')) continue; // skip special properties (saved)
+				if (afterSave && isSkipMerge(this._root_, prop)) continue;
 				let ctor = this._meta_.props[prop];
 				if (ctor.type) ctor = ctor.type;
 				let trg = this[prop];
@@ -2161,6 +2608,7 @@ app.modules['std:validators'] = function () {
 		root.prototype._delegate_ = getDelegate;
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
+		root.prototype.$forceValidate = forceValidateAll;
 		// props cache for t.construct
 		if (!template) return;
 		let xProp = {};
@@ -2233,6 +2681,8 @@ app.modules['std:validators'] = function () {
 
 
 
+
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
 /*20171029-7060*/
 /* services/popup.js */
@@ -2332,7 +2782,7 @@ app.modules['std:popup'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180425-7164*/
+/*20180629-7234*/
 /* services/mask.js */
 
 app.modules['std:mask'] = function () {
@@ -2344,7 +2794,8 @@ app.modules['std:mask'] = function () {
 		getMasked,
 		getUnmasked,
 		mountElement,
-		unmountElement
+		unmountElement,
+		setMask
 	};
 
 	function isMaskChar(ch) {
@@ -2376,6 +2827,42 @@ app.modules['std:mask'] = function () {
 				j++;
 			} else {
 				str += mc;
+			}
+		}
+		return str;
+	}
+
+	function fitMask(mask, value) {
+		let str = '';
+		let j = 0;
+
+		function nextValueChar() {
+			let ch;
+			while (true) {
+				ch = value[j];
+				if (!ch) return PLACE_CHAR;
+				// TODO: this is for digits only!
+				j++;
+				if (ch >= '0' && ch <= '9') {
+					return ch;
+				}
+			}
+		}
+
+		let ch = nextValueChar();
+		
+		for (let i = 0; i < mask.length; i++) {
+			let mc = mask[i];
+			if (isSpaceChar(mc)) {
+				str += mc;
+			}
+			else if (isMaskChar(mc)) {
+				str += ch;
+				ch = nextValueChar();
+			} else {
+				str += mc;
+				if (mc === ch)
+					ch = nextValueChar();
 			}
 		}
 		return str;
@@ -2420,6 +2907,24 @@ app.modules['std:mask'] = function () {
 		el.removeEventListener('paste', pasteHandler);
 	}
 
+	function setMask(el, mask) {
+		if (!el) return;
+		if (!mask) {
+			// remove mask
+			unmountElement(el, mask);
+			el.value = '';
+		} else if (el.__opts) {
+			// change mask
+			el.__opts.mask = mask;
+			//console.dir('set new mask');
+			el.value = getMasked(mask, '');
+		} else {
+			// set new
+			mountElement(el, mask);
+			el.value = getMasked(mask, '');
+		}
+	}
+
 	function getCaretPosition(input) {
 		if (!input)
 			return 0;
@@ -2452,6 +2957,7 @@ app.modules['std:mask'] = function () {
 	}
 
 	function setCaretPosition(input, pos, fit) {
+		//console.dir('set position');
 		if (!input) return;
 		if (input.offsetWidth === 0 || input.offsetHeight === 0) {
 			return; // Input's hidden
@@ -2464,6 +2970,7 @@ app.modules['std:mask'] = function () {
 	}
 
 	function setRangeText(input, text, s, e) {
+		//console.dir('set range text');
 		if (input.setRangeText) {
 			input.setRangeText(text, s, e);
 			return;
@@ -2479,6 +2986,22 @@ app.modules['std:mask'] = function () {
 		setRangeText(input, '', input.selectionStart, input.selectionEnd);
 	}
 
+	function clearSelectionFull(ev, input) {
+		if (ev.which !== 46) return false;
+		let s = input.selectionStart;
+		let e = input.selectionEnd;
+		let l = input.value.length;
+		if (s === 0 && e === l) {
+			//console.dir(`s: ${s}, e:${e} v:${input.value.length}`);
+			input.value = getMasked(input.__opts.mask, '');
+			setCaretPosition(input, 0, 'r');
+			ev.preventDefault();
+			ev.stopPropagation();
+			return true;
+		}
+		return false;
+	}
+
 	function setCurrentChar(input, char) {
 		let pos = getCaretPosition(input);
 		let mask = input.__opts.mask;
@@ -2491,13 +3014,57 @@ app.modules['std:mask'] = function () {
 		}
 	}
 
+	function isAccel(e, input) {
+		if (e.which >= 112 && e.which <= 123)
+			return true; // f1-f12
+		if (e.which === 16 || e.which === 17)
+			return true; // ctrl || shift
+		if (e.which >= 112 && e.which <= 123)
+			return true; // f1-f12
+		if (e.which === 9) return true; // tab
+		if (e.which === 13) {
+			fireChange(input);
+			setTimeout(() => {
+				let d = 'l'; // last
+				if (!input.value) {
+					input.value = getMasked(input.__opts.mask, '');
+					d = 'r'; // first
+				}
+				setCaretPosition(input, d === 'r' ? 0 : 32768, d);
+			}, 10);
+			return true; // enter
+		}
+		if (e.ctrlKey) {
+			switch (e.which) {
+				case 86: // V
+				case 67: // C
+				case 65: // A
+				case 88: // X
+				case 90: // Z
+				case 45: // Ins
+					return true;
+			}
+		} else if (e.shiftKey) {
+			switch (e.which) {
+				case 45: // ins
+				case 46: // del
+				case 37: // left
+				case 39: // right
+				case 36: // home
+				case 35: // end
+					return true;
+			}
+		}
+		return false;
+	}
+
 	function keydownHandler(e) {
-		let isCtrlZ = e.which === 90 && e.ctrlKey; //ctrl+z (undo)
+		if (isAccel(e, this)) return;
 		let handled = false;
+		if (clearSelectionFull(e, this)) return;
 		let pos = getCaretPosition(this);
+		//console.dir(e.which);
 		switch (e.which) {
-			case 9: /* tab */
-				break;
 			case 37: /* left */
 				setCaretPosition(this, pos - 1, 'l');
 				handled = true;
@@ -2531,8 +3098,6 @@ app.modules['std:mask'] = function () {
 				handled = true;
 				break;
 			default:
-				if (e.which >= 112 && e.which <= 123)
-					break; // f1-f12
 				if (e.key.length === 1)
 					setCurrentChar(this, e.key);
 				handled = true;
@@ -2548,7 +3113,7 @@ app.modules['std:mask'] = function () {
 		fireChange(this);
 	}
 
-	function focusHandler(e) {
+	function focusHandler(/*e*/) {
 		if (!this.value)
 			this.value = getMasked(this.__opts.mask, '');
 		setTimeout(() => {
@@ -2558,6 +3123,9 @@ app.modules['std:mask'] = function () {
 
 	function pasteHandler(e) {
 		e.preventDefault();
+		let dat = e.clipboardData.getData('text/plain');
+		if (!dat) return;
+		this.value = fitMask(this.__opts.mask, dat);
 	}
 
 
@@ -2565,6 +3133,30 @@ app.modules['std:mask'] = function () {
 		var evt = document.createEvent('HTMLEvents');
 		evt.initEvent('change', false, true);
 		input.dispatchEvent(evt);
+	}
+};
+
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+/*20180702-7237*/
+/* services/tools.js */
+
+app.modules['std:tools'] = function () {
+
+	const eventBus = require('std:eventBus');
+
+	return {
+		alert
+	};
+
+	function alert(msg, title, list) {
+		let dlgData = {
+			promise: null, data: {
+				message: msg, title: title, style: 'alert', list: list
+			}
+		};
+		eventBus.$emit('confirm', dlgData);
+		return dlgData.promise;
 	}
 };
 
@@ -2719,7 +3311,7 @@ app.modules['std:mask'] = function () {
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180424-7163
+// 20180629-7234
 // components/control.js
 
 (function () {
@@ -2771,7 +3363,7 @@ app.modules['std:mask'] = function () {
 			},
 			inputClass() {
 				let cls = '';
-				if (this.align !== 'left')
+				if (this.align && this.align !== 'left')
 					cls += 'text-' + this.align;
 				if (this.isNegative) cls += ' negative-red';
 				return cls;
@@ -2795,10 +3387,16 @@ app.modules['std:mask'] = function () {
 			}
 		},
 		mounted() {
+			// direct parent only
+			if (this.$parent.$registerControl)
+				this.$parent.$registerControl(this);
 			if (!this.mask) return;
 			mask.mountElement(this.$refs.input, this.mask);
 		},
 		beforeDestroy() {
+			// direct parent only
+			if (this.$parent.$unregisterControl)
+				this.$parent.$unregisterControl(this);
 			if (!this.mask) return;
 			mask.unmountElement(this.$refs.input, this.mask);
 		},
@@ -2807,11 +3405,18 @@ app.modules['std:mask'] = function () {
 				// method! no cache!
 				return !this.invalid();
 			},
-			invalid() {
+			invalid(out) {
 				// method! no cache!
 				let err = this.errors;
 				if (!err) return false;
+				if (out) {
+					out.warn = err.every(r => r.severity === 'warning');
+					out.info = err.every(r => r.info === 'info');
+				}
 				return err.length > 0;
+			},
+			pending() {
+				return this.errors && this.errors.pending > 0;
 			},
 			cssClass() {
 				// method! no cached!!!
@@ -2827,6 +3432,13 @@ app.modules['std:mask'] = function () {
 			test() {
 				alert('from base control');
 			}
+		},
+		watch: {
+			mask() {
+				mask.setMask(this.$refs.input, this.mask);
+				if (this.updateValue)
+					this.updateValue(this.$refs.input.value);
+			}
 		}
 	};
 
@@ -2839,26 +3451,26 @@ app.modules['std:mask'] = function () {
 /*components/validator.js*/
 
 Vue.component('validator', {
-    props: {
-        invalid: Function,
-        errors: Array,
-        options: Object
-    },
-    template: '<div v-if="invalid()" class="validator" :class="cssClass" :style="cssStyle"><span v-for="err in errors" v-text="err.msg" :class="err.severity"></span></div>',
-    computed: {
-        cssStyle() {
-            let r = {};
-            if (this.options && this.options.width)
-                r.width = this.options.width;
-            return r;
-        },
-        cssClass() {
-            let r = {};
-            if (this.options && this.options.placement)
-                r[this.options.placement] = true;
-            return r;
-        }
-    }
+	props: {
+		invalid: Function,
+		errors: Array,
+		options: Object
+	},
+	template: '<div v-if="invalid()" class="validator" :class="cssClass" :style="cssStyle"><span v-for="err in errors" v-text="err.msg" :class="err.severity"></span></div>',
+	computed: {
+		cssStyle() {
+			let r = {};
+			if (this.options && this.options.width)
+				r.width = this.options.width;
+			return r;
+		},
+		cssClass() {
+			let r = {};
+			if (this.options && this.options.placement)
+				r[this.options.placement] = true;
+			return r;
+		}
+	}
 });
 
 
@@ -3063,7 +3675,7 @@ Vue.component('validator-control', {
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180328-7142*/
+/*20180602-7193*/
 /*components/combobox.js*/
 
 (function () {
@@ -3075,10 +3687,14 @@ Vue.component('validator-control', {
 `<div :class="cssClass()" v-lazy="itemsSource">
 	<label v-if="hasLabel" v-text="label" />
 	<div class="input-group">
-		<select v-focus v-model="cmbValue" :class="inputClass" :disabled="disabled" :tabindex="tabIndex">
+		<div class="select-wrapper">
+			<div v-text="getWrapText()" class="select-text" ref="wrap" :class="wrapClass"/>
+			<span class="caret"/>
+		</div>
+		<select v-focus v-model="cmbValue" :disabled="disabled" :tabindex="tabIndex" ref="sel" :title="getWrapText()">
 			<slot>
 				<option v-for="(cmb, cmbIndex) in itemsSource" :key="cmbIndex" 
-					v-text="getName(cmb)" :value="getValue(cmb)"></option>
+					v-text="getName(cmb, true)" :value="getValue(cmb)"></option>
 			</slot>
 		</select>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
@@ -3109,183 +3725,123 @@ Vue.component('validator-control', {
 			itemToValidate: Object,
 			propToValidate: String,
 			nameProp: String,
-			valueProp: String
+			valueProp: String,
+			showvalue: Boolean,
+			align: String
 		},
 		computed: {
 			cmbValue: {
 				get() {
-					let val = this.item ? this.item[this.prop] : null;
-					if (!utils.isObjectExact(val))
-						return val;
-					let vProp = this.valueProp || '$id';
-					if (!(vProp in val))
-						return val;
-					if (this.itemsSource.indexOf(val) !== -1) {
-						return val;
-					}
-					// always return value from ItemsSource
-					return this.itemsSource.find((x) => x[vProp] === val[vProp]);
+					return this.getComboValue();
 				},
 				set(value) {
 					if (this.item) this.item[this.prop] = value;
 				}
+			},
+			wrapClass() {
+				let cls = '';
+				if (this.align && this.align !== 'left')
+					cls += 'text-' + this.align;
+				return cls;
 			}
 		},
 		methods: {
-			getName(itm) {
+			getName(itm, trim) {
 				let n = this.nameProp ? utils.eval(itm, this.nameProp) : itm.$name;
 				return n;
 			},
 			getValue(itm) {
 				let v = this.valueProp ? utils.eval(itm, this.valueProp) : itm;
 				return v;
+			},
+			getWrapText() {
+				return this.showvalue ? this.getComboValue() : this.getText();
+			},
+			getComboValue() {
+				let val = this.item ? this.item[this.prop] : null;
+				if (!utils.isObjectExact(val))
+					return val;
+				let vProp = this.valueProp || '$id';
+				if (!(vProp in val))
+					return val;
+				if (this.itemsSource.indexOf(val) !== -1) {
+					return val;
+				}
+				// always return value from ItemsSource
+				return this.itemsSource.find(x => x[vProp] === val[vProp]);
+			},
+			getText() {
+				let cv = this.getComboValue();
+				if (utils.isObjectExact(cv))
+					return this.getName(cv);
+				if (this.itemsSource && this.itemsSource.length) {
+					let vProp = this.valueProp || '$id';
+					let ob = this.itemsSource.find(x => x[vProp] === cv);
+					return ob ? this.getName(ob) : '';
+				} else {
+					// get text from select directly.
+					let sel = this.$refs.sel;
+					if (!sel) return '';
+					let ops = sel.options;
+					let si = sel.selectedIndex;
+					if (si < 0 || si >= ops.length) return '';
+					return ops[si].text;
+				}
 			}
+		},
+		mounted() {
+			// litle hack. $refs are unavailable during init.
+			let t = this.getText();
+			if (t)
+				this.$refs.wrap.innerText = t;
 		}
 	});
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180327-7141
-// components/datepicker.js
-
+// 20180508-7178
+// components/calendar.js
 
 (function () {
 
-	const popup = require('std:popup');
-
 	const utils = require('std:utils');
-	const eventBus = require('std:eventBus');
-
-	const baseControl = component('control');
 	const locale = window.$$locale;
 
-	Vue.component('a2-date-picker', {
-		extends: baseControl,
+	Vue.component('a2-calendar', {
 		template: `
-<div :class="cssClass2()">
-	<label v-if="hasLabel" v-text="label" />
-	<div class="input-group">
-		<input v-focus v-model.lazy="model" :class="inputClass" :disabled="disabled" />
-		<a href @click.stop.prevent="toggle($event)"><i class="ico ico-calendar"></i></a>
-		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
-		<div class="calendar" v-if="isOpen" @click.stop.prevent="dummy">
-			<table>
-				<thead><tr>
-						<th><a @click.stop.prevent='prevMonth'><i class="ico ico-triangle-left"></i></a></th>
-						<th colspan="5"><span v-text="title"></span></th>
-						<th><a @click.stop.prevent='nextMonth'><i class="ico ico-triangle-right"></i></a></th>					
-					</tr>
-					<tr class="weekdays"><th v-for="d in 7" v-text="wdTitle(d)">Пн</th></tr>
-				</thead>
-				<tbody>
-					<tr v-for="row in days">
-						<td v-for="day in row" :class="dayClass(day)"><a @click.stop.prevent="selectDay(day)" v-text="day.getDate()" :title="dayTitle(day)"/></td>
-					</tr>
-				</tbody>
-				<tfoot><tr><td colspan="7"><a class="today" @click.stop.prevent='today' v-text='todayText'></a></td></tr></tfoot>
-			</table>
-		</div>
-	</div>
-	<span class="descr" v-if="hasDescr" v-text="description"></span>
+<div @click.stop.prevent="dummy">
+	<table class="calendar-pane">
+		<thead><tr>
+				<th><a  v-if="hasPrev" @click.stop.prevent='prevMonth'><i class="ico ico-triangle-left"></i></a></th>
+				<th colspan="5"  class="month-title"><span v-text="title"></span></th>
+				<th><a v-if="hasNext" @click.stop.prevent='nextMonth'><i class="ico ico-triangle-right"></i></a></th>					
+			</tr>
+			<tr class="weekdays"><th v-for="d in 7" v-text="wdTitle(d)">Пн</th></tr>
+		</thead>
+		<tbody>
+			<tr v-for="row in days">
+				<td v-for="day in row" :class="dayClass(day)"><a @click.stop.prevent="selectDay(day)" 
+					@mouseover="mouseOver(day)"
+					v-text="day.getDate()" :title="dayTitle(day)"/></td>
+			</tr>
+		</tbody>
+		<tfoot v-if="showToday" ><tr><td colspan="7" class="calendar-footer">
+			<a class="today" @click.stop.prevent='today' v-text='todayText'></a></td></tr></tfoot>
+	</table>
 </div>
 `,
 		props: {
-			item: Object,
-			prop: String,
-			itemToValidate: Object,
-			propToValidate: String,
-			// override control.align (default value)
-			align: { type: String, default: 'center' }
-		},
-		data() {
-			return {
-				isOpen: false
-			};
-		},
-		methods: {
-			dummy() {
-			},
-			toggle(ev) {
-				if (!this.isOpen) {
-					// close other popups
-					eventBus.$emit('closeAllPopups');
-					if (utils.date.isZero(this.modelDate))
-						this.item[this.prop] = utils.date.today();
-				}
-				this.isOpen = !this.isOpen;
-			},
-			today() {
-				this.selectDay(utils.date.today());
-			},
-			prevMonth() {
-				let dt = new Date(this.modelDate);
-				dt.setMonth(dt.getMonth() - 1);
-				this.item[this.prop] = dt;
-			},
-			nextMonth() {
-				let dt = new Date(this.modelDate);
-				dt.setMonth(dt.getMonth() + 1);
-				this.item[this.prop] = dt;
-			},
-			selectDay(day) {
-				this.item[this.prop] = day;
-				this.isOpen = false;
-			},
-			wdTitle(d) {
-				let dt = this.days[0][d - 1];
-				return dt.toLocaleString(locale.$Locale, { weekday: "short" });
-			},
-			dayClass(day) {
-				let cls = '';
-				let tls = utils.date;
-				if (tls.equal(day, tls.today()))
-					cls += ' today';
-				if (tls.equal(day, this.modelDate))
-					cls += ' active';
-				if (day.getMonth() !== this.modelDate.getMonth())
-					cls += " other";
-				return cls;
-			},
-			dayTitle(day) {
-				// todo: localize
-				return day.toLocaleString(locale.$Locale, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-			},
-			cssClass2() {
-				let cx = this.cssClass();
-				if (this.isOpen)
-					cx += ' open'
-				return cx;
-			},
-			__clickOutside() {
-				this.isOpen = false;
-			}
+			showToday: { type: Boolean, default: true },
+			pos: String,
+			model: Date,
+			setMonth: Function,
+			setDay: Function,
+			getDayClass: Function,
+			hover: Function
 		},
 		computed: {
-			modelDate() {
-				return this.item[this.prop];
-			},
-			todayText() {
-				return locale.$Today;
-			},
-			model: {
-				get() {
-					if (utils.date.isZero(this.modelDate))
-						return '';
-					return this.modelDate.toLocaleString(locale.$Locale, { year: 'numeric', month: '2-digit', day: '2-digit' });
-				},
-				set(str) {
-					let md = utils.date.parse(str);
-					this.item[this.prop] = md;
-					if (utils.date.isZero(md))
-						this.isOpen = false;
-				}
-			},
-			title() {
-				let mn = this.modelDate.toLocaleString(locale.$Locale, { month: "long", year: 'numeric' });
-				return mn.charAt(0).toUpperCase() + mn.slice(1);
-			},
 			days() {
-				let dt = new Date(this.modelDate);
+				let dt = new Date(this.model);
 				dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
 				let d = dt.getDate();
 				dt.setDate(1); // 1-st day of month
@@ -3305,6 +3861,169 @@ Vue.component('validator-control', {
 					arr.push(row);
 				}
 				return arr;
+			},
+			hasPrev() {
+				return this.pos !== 'right';
+			},
+			hasNext() {
+				return this.pos !== 'left';
+			},
+			title() {
+				let mn = this.model.toLocaleString(locale.$Locale, { month: "long", year: 'numeric' });
+				return mn.charAt(0).toUpperCase() + mn.slice(1);
+			},
+			todayText() {
+				return locale.$Today;
+			}
+		},
+		methods: {
+			dummy() { },
+			nextMonth() {
+				let dt = new Date(this.model);
+				dt.setMonth(dt.getMonth() + 1);
+				this.setMonth(dt, this.pos);
+			},
+			prevMonth() {
+				let dt = new Date(this.model);
+				dt.setMonth(dt.getMonth() - 1);
+				this.setMonth(dt, this.pos);
+			},
+			wdTitle(d) {
+				let dt = this.days[0][d - 1];
+				return dt.toLocaleString(locale.$Locale, { weekday: "short" });
+			},
+			today() {
+				this.setDay(utils.date.today());
+			},
+			selectDay(d) {
+				this.setDay(d, this.pos);
+			},
+			dayClass(day) {
+				let cls = '';
+				if (day.getMonth() !== this.model.getMonth())
+					cls += " other";
+				if (this.getDayClass) {
+					cls += this.getDayClass(day);
+					return cls;
+				}
+				let tls = utils.date;
+				if (tls.equal(day, tls.today()))
+					cls += ' today';
+				if (tls.equal(day, this.model))
+					cls += ' active';
+				return cls;
+			},
+			dayTitle(day) {
+				// todo: localize
+				return day.toLocaleString(locale.$Locale, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+			},
+			mouseOver(day) {
+				if (this.hover)
+					this.hover(day);
+			}
+		}
+	});
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20180619-7227
+// components/datepicker.js
+
+
+(function () {
+
+	const popup = require('std:popup');
+
+	const utils = require('std:utils');
+	const eventBus = require('std:eventBus');
+
+	const baseControl = component('control');
+	const locale = window.$$locale;
+
+	Vue.component('a2-date-picker', {
+		extends: baseControl,
+		template: `
+<div :class="cssClass2()" class="date-picker">
+	<label v-if="hasLabel" v-text="label" />
+	<div class="input-group">
+		<input v-focus v-model.lazy="model" :class="inputClass" :disabled="disabled" />
+		<a href @click.stop.prevent="toggle($event)"><i class="ico ico-calendar"></i></a>
+		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
+		<div class="calendar" v-if="isOpen">		
+			<a2-calendar :model="modelDate"
+				:set-month="setMonth" :set-day="selectDay" :get-day-class="dayClass"/>
+		</div>
+	</div>
+	<span class="descr" v-if="hasDescr" v-text="description"></span>
+</div>
+`,
+		props: {
+			item: Object,
+			prop: String,
+			itemToValidate: Object,
+			propToValidate: String,
+			// override control.align (default value)
+			align: { type: String, default: 'center' }
+		},
+		data() {
+			return {
+				isOpen: false
+			};
+		},
+		methods: {
+			toggle(ev) {
+				if (!this.isOpen) {
+					// close other popups
+					eventBus.$emit('closeAllPopups');
+					if (utils.date.isZero(this.modelDate))
+						this.item[this.prop] = utils.date.today();
+				}
+				this.isOpen = !this.isOpen;
+			},
+			setMonth(dt) {
+				this.item[this.prop] = dt;
+			},
+			selectDay(day) {
+				this.item[this.prop] = day;
+				this.isOpen = false;
+			},
+			dayClass(day) {
+				let cls = '';
+				let tls = utils.date;
+				if (tls.equal(day, tls.today()))
+					cls += ' today';
+				if (tls.equal(day, this.modelDate))
+					cls += ' active';
+				if (day.getMonth() !== this.modelDate.getMonth())
+					cls += " other";
+				return cls;
+			},
+			cssClass2() {
+				let cx = this.cssClass();
+				if (this.isOpen)
+					cx += ' open'
+				return cx;
+			},
+			__clickOutside() {
+				this.isOpen = false;
+			}
+		},
+		computed: {
+			modelDate() {
+				return this.item[this.prop];
+			},
+			model: {
+				get() {
+					if (utils.date.isZero(this.modelDate))
+						return '';
+					return this.modelDate.toLocaleString(locale.$Locale, { year: 'numeric', month: '2-digit', day: '2-digit' });
+				},
+				set(str) {
+					let md = utils.date.parse(str);
+					this.item[this.prop] = md;
+					if (utils.date.isZero(md))
+						this.isOpen = false;
+				}
 			}
 		},
 		mounted() {
@@ -3319,9 +4038,195 @@ Vue.component('validator-control', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7166
+// 20180507-7179
+// components/periodpicker.js
+
+
+(function () {
+
+	const popup = require('std:popup');
+
+	const utils = require('std:utils');
+	const eventBus = require('std:eventBus');
+	const uPeriod = require('std:period');
+
+	const baseControl = component('control');
+	const locale = window.$$locale;
+
+	const DEFAULT_DEBOUNCE = 150;
+
+	Vue.component('a2-period-picker', {
+		extends: baseControl,
+		template: `
+<div class="control-group period-picker" @click.stop.prevent="toggle($event)">
+	<label v-if="hasLabel" v-text="label" />
+	<div class="input-group">
+		<span class="period-text" v-text="text" :class="inputClass" :tabindex="tabIndex"/>
+		<span class="caret"/>
+		<div class="calendar period-pane" v-if="isOpen" @click.stop.prevent="dummy">
+			<ul class="period-menu" style="grid-area: 1 / 1 / span 2 / auto">
+				<li v-for='(mi, ix) in menu' :key="ix" :class="{active: isSelectedMenu(mi.key)}"><a v-text='mi.name' @click.stop.prevent="selectMenu(mi.key)"></a></li>
+			</ul>
+			<a2-calendar style="grid-area: 1 / 2" :show-today="false" pos="left" :model="prevModelDate" 
+				:set-month="setMonth" :set-day="setDay" :get-day-class="dayClass" :hover="mouseHover"/>
+			<a2-calendar style="grid-area: 1 / 3; margin-left:6px":show-today="false" pos="right" :model="modelDate" 
+				:set-month="setMonth" :set-day="setDay" :get-day-class="dayClass" :hover="mouseHover"/>
+			<div class="period-footer" style="grid-area: 2 / 2 / auto / span 2">
+				<span class="current-period" v-text="currentText" :class="{processing: selection}"/>
+				<span class="aligner"></span>
+				<button class="btn btn-primary" @click.stop.prevent="apply" v-text="locale.$Apply" :disabled="applyDisabled"/>
+				<button class="btn btn-default" @click.stop.prevent="close" v-text="locale.$Cancel" />
+			</div>
+		</div>
+	</div>
+	<span class="descr" v-if="hasDescr" v-text="description"></span>
+</div>
+`,
+		props: {
+			item: Object,
+			prop: String
+		},
+		data() {
+			return {
+				isOpen: false,
+				selection: '',
+				modelDate: utils.date.today(),
+				currentPeriod: uPeriod.zero(),
+				selectEnd: utils.date.zero(),
+				timerId: null
+			};
+		},
+		computed: {
+			locale() {
+				return window.$$locale;
+			},
+			text() {
+				return this.period.format('Date');
+			},
+			period() {
+				let period = this.item[this.prop];
+				if (!uPeriod.isPeriod(period))
+					console.error('PeriodPicker. Value is not a Period');
+				return period;
+			},
+			prevModelDate() {
+				return utils.date.add(this.modelDate, -1, 'month')
+			},
+			currentText() {
+				return this.currentPeriod.format('Date');
+			},
+			applyDisabled() {
+				return this.selection === 'start';
+			},
+			menu() {
+				return [
+					{ name: locale.$Today, key: 'today' },
+					{ name: locale.$Yesterday, key: 'yesterday' },
+					{ name: locale.$Last7Days, key: 'last7' },
+					{ name: locale.$Last30Days, key: 'last30' },
+					{ name: locale.$MonthToDate, key: 'startMonth' },
+					{ name: locale.$PrevMonth, key: 'prevMonth' },
+					{ name: locale.$QuartToDate, key: 'startQuart' },
+					{ name: locale.$PrevQuart, key: 'prevQuart' },
+					{ name: locale.$YearToDate, key: 'startYear' },
+					{ name: locale.$AllPeriodData, key: 'allData' }
+				];
+			}
+		},
+		methods: {
+			dummy() {
+			},
+			setMonth(d, pos) {
+				if (pos === 'left')
+					this.modelDate = utils.date.add(d, 1, 'month'); // prev month
+				else
+					this.modelDate = d;
+			},
+			setDay(d) {
+				if (!this.selection) {
+					this.selection = 'start';
+					this.currentPeriod.From = d;
+					this.currentPeriod.To = utils.date.zero();
+					this.selectEnd = utils.date.zero();
+				} else if (this.selection === 'start') {
+					this.currentPeriod.To = d;
+					this.currentPeriod.normalize();
+					this.selection = '';
+				}
+			},
+			dayClass(day) {
+				let cls = '';
+				let px = this.currentPeriod;
+				if (this.selection)
+					px = uPeriod.create('custom', this.currentPeriod.From, this.selectEnd);
+				if (px.in(day))
+					cls += ' active';
+				if (px.From.getTime() === day.getTime())
+					cls += ' period-start';
+				if (px.To.getTime() === day.getTime())
+					cls += ' period-end';
+				return cls;
+			},
+			close() {
+				this.isOpen = false;
+			},
+			apply() {
+				// apply period here
+				this.period.assign(this.currentPeriod);
+				this.isOpen = false;
+			},
+			toggle(ev) {
+				if (!this.isOpen) {
+					// close other popups
+					eventBus.$emit('closeAllPopups');
+					this.modelDate = this.period.To; // TODO: calc start month
+					if (this.modelDate.isZero() || this.modelDate.getTime() === utils.date.maxDate.getTime())
+						this.modelDate = utils.date.today();
+					this.currentPeriod.assign(this.period);
+					this.selection = '';
+					this.selectEnd = utils.date.zero();
+				}
+				this.isOpen = !this.isOpen;
+			},
+			__clickOutside() {
+				this.isOpen = false;
+			},
+			isSelectedMenu(key) {
+				let p = uPeriod.create(key);
+				return p.equal(this.currentPeriod);
+			},
+			selectMenu(key) {
+				let p = uPeriod.create(key);
+				this.currentPeriod.assign(p);
+				this.apply();
+			},
+			mouseHover(day) {
+				if (!this.selection) return;
+				if (this.selectEnd.getTime() === day.getTime()) return;
+				clearTimeout(this.timerId);
+				this.timerId = setTimeout(() => {
+					this.selectEnd = day;
+				}, DEFAULT_DEBOUNCE);
+			}
+		},
+		mounted() {
+			popup.registerPopup(this.$el);
+			this.$el._close = this.__clickOutside;
+		},
+		beforeDestroy() {
+			popup.unregisterPopup(this.$el);
+		}
+	});
+})();
+
+
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20180523-7193
 
 // components/selector.js
+
+/*TODO*/
 
 (function () {
 	const popup = require('std:popup');
@@ -3340,13 +4245,11 @@ Vue.component('validator-control', {
 	<label v-if="hasLabel" v-text="label" />
 	<div class="input-group">
 		<input v-focus v-model="query" :class="inputClass" :placeholder="placeholder"
-			@input="debouncedUpdate"
-			@blur.stop="cancel"
-			@keydown.stop="keyUp"
+			@input="debouncedUpdate" @blur.stop="cancel" @keydown="keyDown" @keyup="keyUp"
 			:disabled="disabled" />
 		<slot></slot>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
-		<div class="selector-pane" v-if="isOpen" ref="pane">
+		<div class="selector-pane" v-if="isOpen" ref="pane" :class="paneClass">
 			<div class="selector-body" :style="bodyStyle">
 				<slot name="pane" :items="items" :is-item-active="isItemActive" :item-name="itemName" :hit="hit" :slotStyle="slotStyle">
 					<ul class="selector-ul">
@@ -3376,7 +4279,8 @@ Vue.component('validator-control', {
 			fetch: Function,
 			listWidth: String,
 			listHeight: String,
-			createNew: Function
+			createNew: Function,
+			placement: String
 		},
 		data() {
 			return {
@@ -3407,10 +4311,15 @@ Vue.component('validator-control', {
 					hit: this.hit
 				};
 			},
+			paneClass() {
+				if (this.placement)
+					return "panel-" + this.placement;
+			},
 			bodyStyle() {
 				let s = {};
-				if (this.listWidth)
-					s.width = this.listWidth;
+				if (this.listWidth) {
+					s.minWidth = this.listWidth;
+				}
 				if (this.listHeight)
 					s.maxHeight = this.listHeight;
 				return s;
@@ -3464,10 +4373,19 @@ Vue.component('validator-control', {
 				this.isOpen = false;
 			},
 			keyUp(event) {
-				if (!this.isOpen) return;
+				if (this.isOpen && event.which === 27) {
+					event.preventDefault();
+					event.stopPropagation();
+					this.cancel();
+				}
+			},
+			keyDown(event) {
+				if (!this.isOpen)
+					return;
+				event.stopPropagation();
 				switch (event.which) {
 					case 27: // esc
-						this.cancel();
+						event.preventDefault();
 						break;
 					case 13: // enter
 						if (this.current === -1) return;
@@ -3495,21 +4413,23 @@ Vue.component('validator-control', {
 			},
 			hit(itm) {
 				let obj = this.item[this.prop];
-				if (obj.$merge)
-					obj.$merge(itm, true /*fire*/);
-				else
-					platform.set(this.item, this.prop, itm);
 				this.query = this.valueText;
 				this.isOpen = false;
 				this.isOpenNew = false;
+				this.$nextTick(() => {
+					if (obj.$merge)
+						obj.$merge(itm, true /*fire*/);
+					else
+						platform.set(this.item, this.prop, itm);
+				});
 			},
 			clear() {
-				let obj = this.item[this.prop];
-				if (obj.$empty)
-					obj.$empty();
 				this.query = '';
 				this.isOpen = false;
 				this.isOpenNew = false;
+				let obj = this.item[this.prop];
+				if (obj.$empty)
+					obj.$empty();
 			},
 			scrollIntoView() {
 				this.$nextTick(() => {
@@ -3549,7 +4469,12 @@ Vue.component('validator-control', {
 				//console.dir(this.createNew);
 				this.isOpen = false;
 				if (this.createNew) {
-					this.createNew(this.query);
+					let elem = this.item[this.prop];
+					let arg = {
+						elem: elem,
+						text: this.query
+					};
+					this.createNew(arg);
 				}
 			}
 		},
@@ -3565,7 +4490,7 @@ Vue.component('validator-control', {
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7167
+// 20180701-7237
 // components/datagrid.js*/
 
 (function () {
@@ -3864,6 +4789,7 @@ Vue.component('validator-control', {
 				let arg1 = normalizeArg(col.command.arg1, false);
 				let arg2 = normalizeArg(col.command.arg2, col.command.eval);
 				let arg3 = normalizeArg(col.command.arg3, false);
+				let arg4 = col.command.arg4; // without normalize
 				let ev = col.command.$ev;
 				let child = {
 					props: ['row', 'col'],
@@ -3886,7 +4812,7 @@ Vue.component('validator-control', {
 								//ev.stopImmediatePropagation();
 								//ev.preventDefault();
 							}
-							col.command.cmd(arg1, arg2, arg3);
+							col.command.cmd(arg1, arg2, arg3, arg4);
 						},
 						eval: utils.eval,
 						getHref() {
@@ -4066,7 +4992,7 @@ Vue.component('validator-control', {
 			rowDetailsActivate: String,
 			rowDetailsVisible: [String /*path*/, Boolean],
 			isItemActive: Function,
-			hitItem: Function,
+			hitItem: Function
 		},
 		template: dataGridTemplate,
 		components: {
@@ -4313,9 +5239,9 @@ Vue.component('validator-control', {
 			if (!src) return;
 			let ix = src.$selectedIndex;
 			let rows = this.$refs.row;
-			if (ix != -1 && rows && ix < rows.length) {
+			if (ix !== -1 && rows && ix < rows.length) {
 				let tr = rows[ix].$refs.tr;
-				tr.scrollIntoView(true); // top of elems
+				tr.scrollIntoViewCheck();
 			}
 		}
 	});
@@ -4748,7 +5674,7 @@ Vue.component('popover', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7166
+// 20180511-7186
 // components/collectionview.js
 
 /*
@@ -4761,6 +5687,7 @@ TODO:
 
 	const log = require('std:log');
 	const utils = require('std:utils');
+	const period = require('std:period');
 
 	const DEFAULT_PAGE_SIZE = 20;
 
@@ -4782,19 +5709,44 @@ TODO:
 		let nq = { dir: that.dir, order: that.order, offset: that.offset };
 		for (let x in that.filter) {
 			let fVal = that.filter[x];
-			if (utils.isObjectExact(fVal)) {
+			if (period.isPeriod(fVal)) {
+				nq[x] = fVal.format('DateUrl');
+			}
+			else if (utils.isDate(fVal)) {
+				nq[x] = utils.format(fVal, 'DateUrl');
+			}
+			else if (utils.isObjectExact(fVal)) {
 				if (!('Id' in fVal)) {
 					console.error('The object in the Filter does not have Id property');
 				}
 				nq[x] = fVal.Id;
 			}
-			else if (fVal)
+			else if (fVal) {
 				nq[x] = fVal;
+			}
 			else {
 				nq[x] = undefined;
 			}
 		}
 		return nq;
+	}
+
+	function modelInfoToFilter(q, filter) {
+		if (!q) return;
+		for (let x in filter) {
+			if (x in q) {
+				let iv = filter[x];
+				if (period.isPeriod(iv)) {
+					filter[x] = iv.fromUrl(q[x]);
+				}
+				else if (utils.isDate(iv)) {
+					filter[x] = utils.date.tryParse(q[x]);
+				}
+				else {
+					filter[x] = q[x];
+				}
+			}
+		}
 	}
 
 	// client collection
@@ -5029,12 +5981,7 @@ TODO:
 			// get filter values from modelInfo
 			let mi = this.ItemsSource ? this.ItemsSource.$ModelInfo : null;
 			if (mi) {
-				let q = mi.Filter;
-				if (q) {
-					for (let x in this.filter) {
-						if (x in q) this.filter[x] = q[x];
-					}
-				}
+				modelInfoToFilter(mi.Filter, this.filter);
 			}
 			this.$nextTick(() => {
 				this.lockChange = false;
@@ -5148,21 +6095,16 @@ TODO:
 			// get filter values from modelInfo and then from query
 			let mi = this.ItemsSource.$ModelInfo;
 			if (mi) {
-				let q = mi.Filter;
-				if (q) {
-					for (let x in this.filter) {
-						if (x in q) this.filter[x] = q[x];
-					}
-				}
+				modelInfoToFilter(mi.Filter, this.filter);
 			}
 			// then query from url
 			let q = this.$store.getters.query;
-			for (let x in this.filter) {
-				if (x in q) this.filter[x] = q[x];
-			}
+			modelInfoToFilter(q, this.filter)
+
 			this.$nextTick(() => {
 				this.lockChange = false;
 			});
+
 			this.$on('sort', this.doSort);
 		}
 	});
@@ -5170,25 +6112,24 @@ TODO:
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180405-7149
+// 20180428-7171
 // components/upload.js
 
 
 
 (function () {
 
-	var url = require('std:url');
-	var http = require('std:http');
+	const url = require('std:url');
+	const http = require('std:http');
 
 	Vue.component("a2-upload", {
         /* TODO:
-         1. Accept for images/upload - may be accept property ???
          4. ControllerName (_image ???)
         */
 		template: `
 <label :class="cssClass" @dragover="dragOver" @dragleave="dragLeave">
-	<input v-if='canUpload' type="file" @change="uploadImage" v-bind:multiple="isMultiple" accept="image/*" />
-	<i class="ico ico-image"></i>
+	<input v-if='canUpload' type="file" @change="uploadImage" v-bind:multiple="isMultiple" :accept="accept" />
+	<i class="ico" :class="icoClass"></i>
 	<span class="upload-tip" v-text="tip" v-if="tip"></span>
 </label>
 		`,
@@ -5198,7 +6139,8 @@ TODO:
 			base: String,
 			newItem: Boolean,
 			tip: String,
-			readOnly: Boolean
+			readOnly: Boolean,
+			accept: String
 		},
 		data: function () {
 			return {
@@ -5214,6 +6156,9 @@ TODO:
 			},
 			canUpload() {
 				return !this.readOnly;
+			},
+			icoClass() {
+				return this.accept === 'image/*' ? 'ico-image' : 'ico-upload';
 			}
 		},
 		methods: {
@@ -5226,7 +6171,7 @@ TODO:
 				ev.preventDefault();
 			},
 			uploadImage(ev) {
-				let root = window.$rootUrl;
+				let root = window.$$rootUrl;
 				let id = this.item[this.prop];
 				let imgUrl = url.combine(root, '_image', this.base, this.prop, id);
 				var fd = new FormData();
@@ -5248,6 +6193,8 @@ TODO:
 							this.item[this.prop] = result.ids[0];
 						}
 					}
+				}).catch(result => {
+					alert(result);
 				});
 			}
 		}
@@ -5258,7 +6205,7 @@ TODO:
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
 
-/* 20180423-7161 */
+/* 20180528-7200 */
 /*components/tab.js*/
 
 /*
@@ -5279,14 +6226,16 @@ TODO:
         </li>
     </ul >
     */
+	const utils = require('std:utils');
 
 	const tabPanelTemplate = `
 <div class="tab-panel">
-    <template v-if="static">
+	<template v-if="static">
 		<ul class="tab-header">
 			<li :class="tab.tabCssClass" v-for="(tab, tabIndex) in tabs" :key="tabIndex" @click.prevent="select(tab)" v-show="tab.isVisible">
 				<i v-if="tab.hasIcon" :class="tab.iconCss" ></i>
 				<span v-text="tab.header"></span><span class="badge" v-if="tab.hasBadge" v-text="tab.badge"></span>
+				<i v-if="tab.isInvalid()" class="ico ico-error-outline"/>
 			</li>
 		</ul>
 		<slot name="title" />
@@ -5313,7 +6262,7 @@ TODO:
 `;
 
 	const tabItemTemplate = `
-<div class="tab-item" v-if="isActive">
+<div class="tab-item" v-show="isActive">
 	<slot />
 </div>
 `;
@@ -5327,7 +6276,14 @@ TODO:
 			badge: [String, Number, Object],
 			icon: String,
 			tabStyle: String,
-			show: undefined
+			show: undefined,
+			itemToValidate: Object,
+			propToValidate: String
+		},
+		data() {
+			return {
+				controls:[]
+			};
 		},
 		computed: {
 			hasIcon() {
@@ -5349,6 +6305,25 @@ TODO:
 				if (typeof this.show === 'boolean')
 					return this.show;
 				return true;
+			}
+		},
+		methods: {
+			isInvalid() {
+				if (!this.controls.length) return false;
+				for (let c of this.controls) {
+					if (c.invalid()) {
+						return true;
+					}
+				}
+				return false;
+			},
+			$registerControl(control) {
+				this.controls.push(control);
+			},
+			$unregisterControl(control) {
+				let ix = this.controls.indexOf(control);
+				if (ix !== -1)
+					this.controls.splice(ix, 1);
 			}
 		},
 		created() {
@@ -5403,6 +6378,12 @@ TODO:
 				if (this.items)
 					this._index = this.items.indexOf(item);
 			},
+			nextTab() {
+				alert('next');
+			},
+			prevTab() {
+				alert('prev');
+			},
 			isActiveTab(item) {
 				return item === this.activeTab;
 			},
@@ -5430,7 +6411,7 @@ TODO:
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180122-7165
+// 20180502-7173
 // components/list.js
 
 /* TODO:
@@ -5442,7 +6423,7 @@ TODO:
 
 	Vue.component("a2-list", {
 		template:
-`<ul class="a2-list" v-lazy="itemsSource">
+			`<ul class="a2-list" v-lazy="itemsSource">
 	<template v-if="itemsSource">
 		<li class="a2-list-item" tabindex="1" :class="cssClass(listItem)" v-for="(listItem, listItemIndex) in itemsSource" :key="listItemIndex" 
 				@click.prevent="select(listItem)" @keydown="keyDown" 
@@ -5458,7 +6439,10 @@ TODO:
 			itemsSource: Array,
 			autoSelect: String,
 			mark: String,
-			command: Function
+			command: Function,
+			selectable: {
+				type: Boolean, default: true
+			}
 		},
 		computed: {
 			isSelectFirstItem() {
@@ -5483,6 +6467,7 @@ TODO:
 				return cls;
 			},
 			select(item) {
+				if (!this.selectable) return;
 				if (item.$select) item.$select();
 			},
 			selectStatic() {
@@ -5492,6 +6477,7 @@ TODO:
 			selectFirstItem() {
 				if (!this.isSelectFirstItem)
 					return;
+				if (!this.selectable) return;
 				// from source (not $origin!)
 				let src = this.itemsSource;
 				if (!src.length)
@@ -5549,9 +6535,10 @@ TODO:
 				this.selectFirstItem();
 			}
 			let src = this.itemsSource;
+			if (!src) return;
 			let ix = src.$selectedIndex;
 			if (ix != -1 && this.$refs.li)
-				this.$refs.li[ix].scrollIntoView(true); // top of elems
+				this.$refs.li[ix].scrollIntoViewCheck();
 		}
 	});
 })();
@@ -5561,6 +6548,12 @@ TODO:
 // 20180410-7153
 // components/modal.js
 
+
+/*
+			<ul v-if="hasList">
+				<li v-for="(li, lx) in dialog.list" :key="lx", v-text="li" />
+			</ul>
+ */
 
 (function () {
 
@@ -5574,7 +6567,12 @@ TODO:
 		<div class="modal-header" v-drag-window><span v-text="title"></span><button class="btnclose" @click.prevent="modalClose(false)">&#x2715;</button></div>
 		<div :class="bodyClass">
 			<i v-if="hasIcon" :class="iconClass" />
-			<div v-text="dialog.message" />
+			<div class="modal-body-content">
+				<div v-text="dialog.message" />
+				<ul v-if="hasList" class="modal-error-list">
+					<li v-for="(itm, ix) in dialog.list" :key="ix" v-text="itm"/>
+				</ul>
+			</div>
 		</div>
 		<div class="modal-footer">
 			<button class="btn btn-default" v-for="(btn, index) in buttons"  :key="index" @click.prevent="modalClose(btn.result)" v-text="btn.text"></button>
@@ -5739,6 +6737,9 @@ TODO:
 			iconClass() {
 				return "ico ico-" + this.dialog.style;
 			},
+			hasList() {
+				return this.dialog.list && this.dialog.list.length;
+			},
 			buttons: function () {
 				//console.warn(this.dialog.style);
 				let okText = this.dialog.okText || locale.$Ok;
@@ -5764,6 +6765,235 @@ TODO:
 	};
 
 	app.components['std:modal'] = modalComponent;
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+
+/* 20180629-7234 */
+/*components/wizard.js*/
+
+/*
+TODO:
+1. btn-primary
+2. btn-width
+ */
+
+(function () {
+
+	const eventBus = require('std:eventBus');
+	const locale = window.$$locale;
+
+	const wizardPageTemplate = `
+<div class="wizard-page" v-if="isActive">
+	<slot />
+</div>
+`;
+
+	const wizardPanelTemplate = `
+<div class="wizard-panel">
+	<ul class="wizard-header">
+		<li v-for="(p, px) in pages" :class="pageClass(p)" @click.prevent="selectPage(p)">
+			<a><span class="wizard-header-title" v-text="p.header"/><span class="wizard-header-descr" v-text="p.descr"></span><i v-if="p.errorIcon" class="ico ico-error-outline"></i></a>
+		</li>
+	</ul>
+	<div class="wizard-content">
+		<slot />
+	</div>
+	<div class="modal-footer">
+		<template v-if="helpLink">
+			<a class="btn-help" :href="helpLink" @click.prevent="$showHelp()"><i class="ico ico-help"/><span v-text="$locale.$Help"/></a>
+			<div class="aligner"/>
+		</template>
+		<button class="btn a2-inline" @click.prevent="close" v-text="$locale.$Cancel" />
+		<button class="btn a2-inline" :disabled="backDisabled" @click.stop="back"><i class="ico ico-chevron-left"/> <span v-text="$locale.$Back"/></button>
+		<button class="btn a2-inline" :class="nextFinishClass" @click.stop="nextFinish" :disabled="nextDisabled()"><span v-text="nextFinishText"/> <i class="ico" :class="nextFinishIco""/></button>
+	</div>
+</div>
+`;
+
+	Vue.component('a2-wizard-panel', {
+		template: wizardPanelTemplate,
+		props: {
+			finish: Function,
+			helpLink: String
+		},
+		data() {
+			return {
+				pages: [],
+				activePage: null
+			};
+		},
+		computed: {
+			$locale() {
+				return locale;
+			},
+			nextFinishText() {
+				let pgs = this.pages;
+				return this.activePage === pgs[pgs.length - 1] ? locale.$Finish : locale.$Next;
+			},
+			nextFinishIco() {
+				let pgs = this.pages;
+				return this.activePage === pgs[pgs.length - 1] ? 'ico-chevron-right-end' : 'ico-chevron-right';
+			},
+			backDisabled() {
+				return this.activePage === this.pages[0];
+			},
+			nextFinishClass() {
+				let pgs = this.pages;
+				return this.activePage === pgs[pgs.length - 1] ? 'btn-primary' : '';
+
+			}
+		},
+		methods: {
+			nextDisabled() {
+				if (!this.activePage) return false;
+				if (this.activePage.$invalid()) return true;
+				return false;
+			},
+			setActivePage(page) {
+				if (this.activePage) this.activePage.visit = true;
+				this.activePage = page;
+				this.activePage.state = 'edit';
+			},
+			selectPage(page) {
+				if (this.$nextPage(page) && !this.nextDisabled()) {
+					this.setActivePage(page);
+					return;
+				}
+				if (!page.visit) return;
+				this.setActivePage(page);
+			},
+			pageClass(page) {
+				let cls = '';
+				//if (page.state === 'init') {
+				if (!page.visit) {
+					if (this.$nextPage(page) && !this.nextDisabled())
+						return cls;
+					cls = 'disabled';
+				}
+				if (page === this.activePage)
+					cls = 'active';
+				else if (page.wasInvalid)
+					cls = 'invalid';
+				return cls;
+			},
+			close() {
+				eventBus.$emit('modalClose');
+			},
+			back() {
+				let pgs = this.pages;
+				let ix = pgs.indexOf(this.activePage);
+				if (ix <= 0) return;
+				this.setActivePage(pgs[ix - 1]);
+			},
+			nextFinish() {
+				if (this.nextDisabled()) return;
+				let pgs = this.pages;
+				let ix = pgs.indexOf(this.activePage);
+				if (ix === pgs.length - 1) {
+					if (this.finish)
+						this.finish();
+					else {
+						console.error('The FinishCommand is not specified');
+					}
+				} else {
+					this.setActivePage(pgs[ix + 1]);
+				}
+			},
+			$nextPage(page) {
+				let ia = this.pages.indexOf(this.activePage);
+				let ix = this.pages.indexOf(page);
+				return ix === ia + 1;
+			},
+			$addPage(page) {
+				this.pages.push(page);
+			},
+			$removePage(page) {
+				let ix = this.pages.indexOf(page);
+				if (ix !== -1)
+					this.pages.splice(ix, 1);
+			},
+			$showHelp() {
+				if (!this.helpLink) return;
+				window.open(this.helpLink, "_blank");
+			},
+			_pendingValidate() {
+				this.$forceUpdate();
+			}
+		},
+		mounted() {
+			if (this.pages.length > 0) {
+				this.activePage = this.pages[0];
+				this.activePage.state = 'edit';
+			}
+		},
+		created() {
+			eventBus.$on('pendingValidate', this._pendingValidate);
+		},
+		beforeDestroy() {
+			eventBus.$off('pendingValidate', this._pendingValidate);
+		}
+	});
+
+	Vue.component("a2-wizard-page", {
+		template: wizardPageTemplate,
+		props: {
+			header: String,
+			descr: String
+		},
+		data() {
+			return {
+				controls: [],
+				state: 'init',
+				wasInvalid: false,
+				visit: false
+			};
+		},
+		computed: {
+			isActive() {
+				return this === this.$parent.activePage;
+			},
+			isNextPage() {
+				return $parent.$nextPage(this);
+			},
+			errorIcon() {
+				if (!this.visit) return false;
+				// ther are no controls here
+				return this.wasInvalid;
+			}
+		},
+		methods: {
+			$invalid() {
+				if (!this.controls.length) return false;
+				for (let c of this.controls) {
+					if (c.invalid() || c.pending()) {
+						this.wasInvalid = true;
+						return true;
+					}
+				}
+				this.wasInvalid = false;
+				return false;
+			},
+			$registerControl(control) {
+				this.controls.push(control);
+			},
+			$unregisterControl(control) {
+				let ix = this.controls.indexOf(control);
+				if (ix !== -1)
+					this.controls.splice(ix, 1);
+			}
+		},
+		created() {
+			this.$parent.$addPage(this);
+		},
+		beforeDestroy() {
+			this.controls.splice(0, this.controls.length);
+		},
+		destroyed() {
+			this.$parent.$removePage(this);
+		}
+	});
+
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
@@ -5864,7 +7094,7 @@ TODO:
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180405-7149
+// 20180428-7171
 // components/image.js
 
 (function () {
@@ -5887,7 +7117,8 @@ TODO:
 <div class="a2-image">
 	<img v-if="hasImage" :src="href" :style="cssStyle" @click.prevent="clickOnImage"/>
 	<a class="remove-image" v-if="hasRemove" @click.prevent="removeImage">&#x2715;</a>
-	<a2-upload v-if="isUploadVisible" :style="uploadStyle" :item="itemForUpload" :base="base" :prop="prop" :new-item="newItem" :tip="tip" :read-only='readOnly'/>
+	<a2-upload v-if="isUploadVisible" :style="uploadStyle" accept="image/*"
+		:item="itemForUpload" :base="base" :prop="prop" :new-item="newItem" :tip="tip" :read-only='readOnly'/>
 </div>
 `,
 		props: {
@@ -5910,7 +7141,7 @@ TODO:
 			href: function () {
 				if (this.newItem)
 					return undefined;
-				let root = window.$rootUrl;
+				let root = window.$$rootUrl;
 				let id = this.item[this.prop];
 				if (!id) return undefined;
 				return url.combine(root, '_image', this.base, this.prop, id);
@@ -5920,7 +7151,7 @@ TODO:
 				return locale.$ClickToDownloadPicture;
 			},
 			cssStyle() {
-				return { width: this.width, height: this.height };
+				return { maxWidth: this.width, maxHeight: this.height };
 			},
 			uploadStyle() {
 				let w = { width: this.width, height: this.height };
@@ -5970,15 +7201,146 @@ TODO:
 		},
 		computed: {
 			href: function () {
-				let root = window.$rootUrl;
+				let root = window.$$rootUrl;
 				return url.combine(root, '_static_image', this.url.replace(/\./g, '-'));
 			}
 		}
 	});
 })();
-// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20171116-7069
+// 20180703-7238
+// components/attachments.js
+
+(function () {
+
+    /**
+     TODO:
+    2. if/else - image/upload
+    3. Photo, Base for list
+    4. multiple for list
+    5. css
+    <span v-text="href"></span>
+    <span>{{newElem}}</span>
+     */
+
+	const url = require('std:url');
+	const http = require('std:http');
+	const locale = window.$$locale;
+	const tools = require('std:tools');
+
+	const uploadAttachment = {
+		template: `
+<label :class="cssClass" @dragover.prevent="dragOver" @dragleave.prevent="dragLeave">
+	<input v-if='canUpload' type="file" @change="uploadFile" v-bind:multiple="isMultiple" :accept="accept" ref="inputFile"/>
+	<i class="ico ico-upload"></i>
+	<span class="upload-tip" v-text="tip" v-if="tip"></span>
+</label>
+		`,
+		data() {
+			return {
+				hover: false
+			};
+		},
+		props: {
+			accept: String,
+			tip: String,
+			url: String,
+			source: Object,
+			delegate: Function
+		},
+		computed: {
+			cssClass() {
+				return 'file-upload' + (this.hover ? ' hover' : '');
+			},
+			canUpload() {
+				return true;
+			},
+			isMultiple() {
+				return false;
+			}
+		},
+		methods: {
+			dragOver(ev) {
+				this.hover = true;
+			},
+			dragLeave(ev) {
+				this.hover = false;
+			},
+			uploadFile(ev) {
+				let root = window.$$rootUrl;
+				let id = 1; //%%%%this.item[this.prop];
+				let uploadUrl = url.combine(root, '_upload', this.url, id);
+				var fd = new FormData();
+				for (let file of ev.target.files) {
+					fd.append('file', file, file.name);
+				}
+				this.$refs.inputFile.value = '';
+				http.upload(uploadUrl, fd).then((result) => {
+					ev.target.value = ''; // clear current selected files
+					if (this.delegate)
+						this.delegate.call(this.source, result);
+					//this.source.$merge(result);
+				}).catch(msg => {
+					if (msg.indexOf('UI:') === 0)
+						tools.alert(msg.substring(3).replace('\\n', '\n'));
+					else
+						alert(msg);
+				});
+			}
+		}
+	};
+
+	/*
+	<ul>
+		<li><a @click.prevent="clickFile">filename</a></li>
+	</ul>
+	*/
+
+	Vue.component('a2-attachments', {
+		template: `
+<div class="a2-attachments">
+	<a2-upload-attachment v-if="isUploadVisible" :source="source" :delegate="delegate"
+		:url="url" :tip="tip" :read-only='readOnly' :accept="accept"/>
+</div>
+`,
+		components: {
+			'a2-upload-attachment': uploadAttachment
+		},
+		props: {
+			url: String,
+			source: Object,
+			readOnly: Boolean,
+			accept: String,
+			delegate: Function
+		},
+		computed: {
+			tip() {
+				if (this.readOnly) return '';
+				return locale.$ClickToDownloadFile;
+			},
+			isUploadVisible: function () {
+				return true;
+			}
+		},
+		methods: {
+			removeFile: function () {
+				if (this.inArray)
+					this.item.$remove();
+				else
+					this.item[this.prop] = undefined;
+			},
+			clickFile() {
+				alert('click file here');
+			}
+		},
+		created() {
+		}
+	});
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20180524-7195
 // components/taskpad.js
 
 Vue.component("a2-taskpad", {
@@ -5990,7 +7352,7 @@ Vue.component("a2-taskpad", {
 		</slot>
 	</div>
 	<div v-else class="taskpad-title" @click.prevent="toggle">
-		<span class="taskpad-label">Задачи</span>
+		<span class="taskpad-label" v-text="tasksText"></span>
 	</div>
 </div>
 `,
@@ -6005,6 +7367,9 @@ Vue.component("a2-taskpad", {
 			let cls = "taskpad";
 			if (this.expanded) cls += ' expanded'; else cls += ' collapsed';
 			return cls;
+		},
+		tasksText() {
+			return window.$$locale.$Tasks;
 		}
 	},
 	methods: {
@@ -6015,7 +7380,7 @@ Vue.component("a2-taskpad", {
 			if (this.expanded)
 				topStyle.gridTemplateColumns = this.__savedCols;
 			else
-				topStyle.gridTemplateColumns = "1fr 20px";
+				topStyle.gridTemplateColumns = "1fr 36px"; // TODO: ???
 		}
 	},
 	mounted() {
@@ -6097,106 +7462,106 @@ Vue.component('a2-panel', {
 
 (function () {
 
-    const sheetTemplate = `
+	const sheetTemplate = `
 <table class="sheet">
-    <thead>
-        <slot name="header"></slot>
-    </thead>
-    <slot name="body"></slot>
-    <tfoot>
-        <slot name="footer"></slot>
-    </tfoot>    
+	<thead>
+		<slot name="header"></slot>
+	</thead>
+	<slot name="body"></slot>
+	<tfoot>
+		<slot name="footer"></slot>
+	</tfoot>    
 </table>
 `;
 
-    const sheetSectionTemplate = `
+	const sheetSectionTemplate = `
 <tbody>
-    <slot></slot>
+	<slot></slot>
 </tbody>
 `;
 
-    function* traverse(item, prop, lev) {
-        if (prop in item) {
-            let arr = item[prop];
-            for (let i = 0; i < arr.length; i++) {
-                let elem = arr[i];
-                elem.$level = lev;
-                yield elem;
-                if (!elem.$collapsed)
-                    yield* traverse(elem, prop, lev + 1);
-            };
-        }
-    }
+	function* traverse(item, prop, lev) {
+		if (prop in item) {
+			let arr = item[prop];
+			for (let i = 0; i < arr.length; i++) {
+				let elem = arr[i];
+				elem.$level = lev;
+				yield elem;
+				if (!elem.$collapsed)
+					yield* traverse(elem, prop, lev + 1);
+			};
+		}
+	}
 
-    Vue.component('a2-sheet', {
-        template: sheetTemplate
-    });
+	Vue.component('a2-sheet', {
+		template: sheetTemplate
+	});
 
-    Vue.component("a2-sheet-section", {
-        template: sheetSectionTemplate
-    });
+	Vue.component("a2-sheet-section", {
+		template: sheetSectionTemplate
+	});
 
-    Vue.component('a2-sheet-section-tree', {
-        functional: true,
-        name: 'a2-sheet-section',
-        props: {
-            itemsSource: Object,
-            propName: String
-        },
-        render(h, ctx) {
-            const prop = ctx.props.propName;
-            const source = ctx.props.itemsSource;
-            if (!source) return;
-            if (!prop) return;
+	Vue.component('a2-sheet-section-tree', {
+		functional: true,
+		name: 'a2-sheet-section',
+		props: {
+			itemsSource: Object,
+			propName: String
+		},
+		render(h, ctx) {
+			const prop = ctx.props.propName;
+			const source = ctx.props.itemsSource;
+			if (!source) return;
+			if (!prop) return;
 
-            function toggle() {
-                let clpsed = this.item.$collapsed || false;
-                Vue.set(this.item, "$collapsed", !clpsed);
-            }
+			function toggle() {
+				let clpsed = this.item.$collapsed || false;
+				Vue.set(this.item, "$collapsed", !clpsed);
+			}
 
-            function cssClass() {
-                let cls = '';
-                if (this.hasChildren())
-                    cls += 'has-children';
-                if (this.item.$collapsed)
-                    cls += ' collapsed';
-                cls += ' lev-' + this.item.$level;
-                return cls;
-            }
+			function cssClass() {
+				let cls = '';
+				if (this.hasChildren())
+					cls += 'has-children';
+				if (this.item.$collapsed)
+					cls += ' collapsed';
+				cls += ' lev-' + this.item.$level;
+				return cls;
+			}
 
-            function rowCssClass() {
-                let cls = ''
-                if (this.hasChildren())
-                    cls += ' group';
-                if (this.item.$collapsed)
-                    cls += ' collapsed';
-                return cls;
-            }
+			function rowCssClass() {
+				let cls = ''
+				if (this.hasChildren())
+					cls += ' group';
+				if (this.item.$collapsed)
+					cls += ' collapsed';
+				return cls;
+			}
 
-            function indentCssClass() {
-                return 'indent lev-' + this.item.$level;
-            }
+			function indentCssClass() {
+				return 'indent lev-' + this.item.$level;
+			}
 
-            function hasChildren() {
-                let chElems = this.item[prop];
-                return chElems && chElems.length > 0;
-            }
+			function hasChildren() {
+				let chElems = this.item[prop];
+				return chElems && chElems.length > 0;
+			}
 
-            const slot = ctx.data.scopedSlots.default;
+			const slot = ctx.data.scopedSlots.default;
 
-            let compArr = [];
+			let compArr = [];
 
-            for (let v of traverse(source, prop, 1)) {
-                let slotElem = slot({ item: v, toggle, cssClass, hasChildren, rowCssClass, indentCssClass })[0];
-                compArr.push(h(slotElem.tag, slotElem.data, slotElem.children));
-            }
-            return h('tbody', {}, compArr);
-        }
-    });
+			for (let v of traverse(source, prop, 1)) {
+				let slotElem = slot({ item: v, toggle, cssClass, hasChildren, rowCssClass, indentCssClass })[0];
+				compArr.push(h(slotElem.tag, slotElem.data, slotElem.children));
+			}
+			return h('tbody', {}, compArr);
+		}
+	});
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180319-7135*/
+/*20180605-7210*/
 /*components/newbutton.js*/
 
 (function () {
@@ -6207,7 +7572,7 @@ Vue.component('a2-panel', {
 
 	const newButtonTemplate =
 `<div class="dropdown dir-down a2-new-btn" v-dropdown v-if="isVisible">
-	<button class="btn btn-success" toggle><i class="ico ico-plus"></i></button>
+	<button class="btn" :class="btnClass" toggle><i class="ico" :class="iconClass"></i></button>
 	<div class="dropdown-menu menu down-right">
 		<div class="super-menu" :class="cssClass">
 			<div v-for="(m, mx) in topMenu" :key="mx" class="menu-group">
@@ -6227,7 +7592,9 @@ Vue.component('a2-panel', {
 		template: newButtonTemplate,
 		store: store,
 		props: {
-			menu: Array
+			menu: Array,
+			icon: String,
+			btnStyle: String
 		},
 		computed: {
 			isVisible() {
@@ -6236,8 +7603,15 @@ Vue.component('a2-panel', {
 			topMenu() {
 				return this.menu ? this.menu[0].Menu : null;
 			},
+			iconClass() {
+				return this.icon ? 'ico-' + this.icon : '';
+			},
+			btnClass() {
+				return this.btnStyle ? 'btn-' + this.btnStyle : '';
+			},
 			columns() {
 				let descr = this.menu ? this.menu[0].Description : '';
+				if (!descr) return 1;
 				try {
 					return +JSON.parse(descr).columns || 1;
 				} catch (err) {
@@ -6270,7 +7644,7 @@ Vue.component('a2-panel', {
 			},
 			dialog(url) {
 				const dlgData = { promise: null};
-				eventBus.$emit('modal', url, dlgData);
+				eventBus.$emit('modaldirect', url, dlgData);
 				dlgData.promise.then(function (result) {
 					// todo: resolve?
 				});
@@ -6311,7 +7685,7 @@ Vue.component('a2-panel', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20171120-7094
+// 20180619-7227
 // components/debug.js*/
 
 (function () {
@@ -6327,6 +7701,9 @@ Vue.component('a2-panel', {
 	const urlTools = require('std:url');
 	const eventBus = require('std:eventBus');
 	const locale = window.$$locale;
+	const utils = require('std:utils');
+
+	const isZero = utils.date.isZero;
 
 	const specKeys = {
 		'$vm': null,
@@ -6341,6 +7718,7 @@ Vue.component('a2-panel', {
 				return !(key in specKeys) ? value : undefined;
 			else if (key[0] === '_')
 				return undefined;
+			if (isZero(this[key])) return null;
 			return value;
 		}, 2);
 	}
@@ -6440,7 +7818,7 @@ Vue.component('a2-panel', {
 				if (this.modelVisible)
 					this.$forceUpdate();
 				else if (this.traceVisible)
-					this.loadTrace()
+					this.loadTrace();
 			},
 			loadTrace() {
 				const root = window.$$rootUrl;
@@ -6470,10 +7848,118 @@ Vue.component('a2-panel', {
 		},
 		created() {
 			eventBus.$on('endRequest', (url) => {
-				if (url.indexOf('/shell/trace') != -1) return;
+				if (url.indexOf('/shell/trace') !== -1) return;
 				if (!this.traceVisible) return;
 				this.loadTrace();
 			});
+		}
+	});
+})();
+
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20180605-7210
+// components/feedback.js*/
+
+(function () {
+
+    /**
+     * TODO
+    1. Trace window
+    2. Dock right/left
+    6.
+     */
+
+	const dataService = require('std:dataservice');
+	const urlTools = require('std:url');
+	const locale = window.$$locale;
+	const utils = require('std:utils');
+
+	Vue.component('a2-feedback', {
+		template: `
+<div class="feedback-panel" v-if="visible">
+    <div class="feedback-pane-header">
+        <span class="feedback-pane-title" v-text="source.title"></span>
+        <a class="btn btn-close" @click.prevent="close">&#x2715</a>
+    </div>
+    <div class="feedback-body">
+		<template v-if="shown">
+			<div v-html="source.promptText"></div>
+			<div style="margin-bottom:20px" />
+			<div class="control-group" style="">
+				<label v-html="source.labelText" /> 
+				<div class="input-group">
+					<textarea rows="5" maxlength="2048" v-model="value" style="height: 92px;max-height:400px" v-auto-size="true" />
+				</div>
+			</div>
+			<button class="btn btn-primary" :disabled="noValue" @click.prevent="submit" v-text="source.buttonText" />
+		</template>
+		<template v-else>
+			<div class="thanks" v-html="source.thanks" />
+			<button class="btn btn-primary" @click.prevent="close" v-text="closeText" />
+		</template>
+	</div>
+</div>
+`,
+		components: {
+		},
+		props: {
+			visible: Boolean,
+			modelStack: Array,
+			close: Function,
+			source: Object
+		},
+		data() {
+			return {
+				value: "",
+				shown: true
+			};
+		},
+		computed: {
+			noValue() { return !this.value; },
+			closeText() { return locale.$Close;}
+		},
+		methods: {
+			text(key) {
+				return locale[key];
+			},
+			refresh() {
+			},
+			loadfeedbacks() {
+
+			},
+			submit() {
+				const root = window.$$rootUrl;
+				const url = urlTools.combine(root, 'shell/savefeedback');
+				const that = this;
+				let jsonData = utils.toJson({ text: this.value });
+				dataService.post(url, jsonData).then(function (result) {
+					//that.trace.splice(0, that.trace.length);
+					//console.dir(result);
+					that.shown = false;
+					that.value = '';
+					//result.forEach((val) => {
+						//that.trace.push(val);
+					//});
+				}).catch(function (result) {
+					console.dir(result);
+					that.$parent.$alert(that.source.alert);
+					that.close();
+					//alert('Щось пішло не так. Спробуйте ще через декілька хвилин');
+				});
+
+			}
+		},
+		watch: {
+			visible(val) {
+				if (!val) return;
+				this.shown = true;
+				this.value = '';
+				// load my feedbacks
+				this.loadfeedbacks();
+			}
+		},
+		created() {
 		}
 	});
 })();
@@ -6507,6 +7993,74 @@ Vue.component('a2-panel', {
     };
 
     app.components['std:doctitle'] = documentTitle;
+
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20180428-7171
+// components/megamenu.js
+
+
+(function () {
+
+	const menuTemplate =
+`<div class="dropdown-menu menu" role="menu">
+	<div class="super-menu" :class="cssClass" :style="cssStyle">
+		<div v-for="(m, mx) of topMenu" :key="mx" class="menu-group">
+			<div class="group-title" v-text="m.Name"></div>
+			<template v-for="(itm, ix) in m.menu">
+				<div class="divider" v-if=isDivider(itm) ></div>
+				<slot name="item" :menuItem="itm" v-else></slot>
+			</template>
+		</div>
+	</div>
+</div>
+`;
+
+	Vue.component('mega-menu', {
+		template: menuTemplate,
+		props: {
+			itemsSource: Array,
+			groupBy: String,
+			columns: Number,
+			width: String
+		},
+		data() {
+			return {
+
+			};
+		},
+		computed: {
+			cssClass() {
+				let cls = 'cols-' + (this.columns || 1);
+				if (this.width)
+					cls += ' with-width';
+				return cls;
+			},
+			cssStyle() {
+				if (this.width)
+					return { width: this.width };
+				return undefined;
+			},
+			topMenu() {
+				if (!this.itemsSource) return {};
+				return this.itemsSource.reduce((acc, itm) => {
+					let g = itm[this.groupBy] || '';
+					let ma = acc[g];
+					if (ma)
+						ma.menu.push(itm);
+					else
+						acc[g] = { Name: g, menu: [itm] };
+					return acc;
+				}, {});
+			}
+		},
+		methods: {
+			isDivider(itm) {
+				return itm.Name === '-';
+			}
+		}
+	});
 
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
@@ -6573,7 +8127,9 @@ Vue.directive('disable', {
 });
 
 
-/*20171029-7060*/
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+/*20180507-7077*/
 /* directives/dropdown.js */
 
 
@@ -6595,7 +8151,7 @@ Vue.directive('dropdown', {
 		el._close = function (ev) {
 			if (el._hide)
 				el._hide();
-            el.classList.remove('show');
+			el.classList.remove('show');
 		};
 
 		el.addEventListener('click', function (event) {
@@ -6607,23 +8163,23 @@ Vue.directive('dropdown', {
 			}
 			if (trg === el._btn) {
 				event.preventDefault();
-                event.stopPropagation();
+				event.stopPropagation();
 				let isVisible = el.classList.contains('show');
 				if (isVisible) {
 					if (el._hide)
 						el._hide();
-                    el.classList.remove('show');
-                } else {
-                    // not nested popup
-                    let outer = popup.closest(el, '.popup-body');
-                    if (outer) {
-                        popup.closeInside(outer);
-                    } else {
-                        popup.closeAll();
-                    }
+					el.classList.remove('show');
+				} else {
+					// not nested popup
+					let outer = popup.closest(el, '.popup-body');
+					if (outer) {
+						popup.closeInside(outer);
+					} else {
+						popup.closeAll();
+					}
 					if (el._show)
 						el._show();
-                    el.classList.add('show');
+					el.classList.add('show');
 				}
 			}
 		});
@@ -6836,7 +8392,7 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7167
+// 20180709-7243
 // controllers/base.js
 
 (function () {
@@ -6851,6 +8407,7 @@ Vue.directive('resize', {
 	const log = require('std:log');
 	const locale = window.$$locale;
 	const mask = require('std:mask');
+	const modelInfo = require('std:modelInfo');
 
 	const store = component('std:store');
 	const documentTitle = component("std:doctitle");
@@ -6869,16 +8426,14 @@ Vue.directive('resize', {
 		});
 	}
 
-	function getPagerInfo(mi) {
-		if (!mi) return undefined;
-		let x = { PageSize: mi.PageSize, Offset: mi.Offset, Dir: mi.SortDir, Order: mi.SortOrder };
-		if (mi.Filter)
-			for (let p in mi.Filter) {
-				let fVal = mi.Filter[p];
-				if (!fVal) continue; // empty value, skip it
-				x[p] = fVal;
+	function makeErrors(errs) {
+		let ra = [];
+		for (let x of errs) {
+			for (let y of x.e) {
+				ra.push(y.msg);
 			}
-		return x;
+		}
+		return ra.length ? ra : null;
 	}
 
 	const base = Vue.extend({
@@ -6981,11 +8536,18 @@ Vue.directive('resize', {
 				let url = root + '/_data/save';
 				let urlToSave = this.$indirectUrl || this.$baseUrl;
 				const isCopy = this.$data.$isCopy;
+				const validRequired = !!opts && opts.options && opts.options.validRequired;
+				if (validRequired && this.$data.$invalid) {
+					let errs = makeErrors(this.$data.$forceValidate());
+					this.$alert(locale.$MakeValidFirst, undefined, errs);
+					return;
+				}
 				return new Promise(function (resolve, reject) {
 					let jsonData = utils.toJson({ baseUrl: urlToSave, data: self.$data });
 					let wasNew = self.$baseUrl.indexOf('/new') !== -1;
 					dataservice.post(url, jsonData).then(function (data) {
-						self.$data.$merge(data);
+						self.$data.$merge(data, true);
+						self.$data.$emit('Model.saved', self.$data);
 						self.$data.$setDirty(false);
 						// data is a full model. Resolve requires only single element.
 						let dataToResolve;
@@ -7011,13 +8573,31 @@ Vue.directive('resize', {
 							self.$data.__baseUrl__ = urltools.replaceSegment(self.$data.__baseUrl__, newId, 'edit');
 						}
 						resolve(dataToResolve); // single element (raw data)
-						if (opts && opts.toast)
-							self.$toast(opts.toast);
+						let toast = opts && opts.toast ? opts.toast : null;
+						if (toast)
+							self.$toast(toast);
+						self.$notifyOwner(newId, toast);
 					}).catch(function (msg) {
 						self.$alertUi(msg);
 					});
 				});
 			},
+			$notifyOwner(id, toast) {
+				if (!window.opener) return;
+				if (!window.$$token) return;
+				let rq = window.opener.require;
+				if (!rq) return;
+				const bus = rq('std:eventBus');
+				if (!bus) return;
+				let dat = {
+					token: window.$$token.token,
+					update: window.$$token.update,
+					toast: toast || null,
+					id: id
+				};
+				bus.$emit('childrenSaved', dat);
+			},
+
 
 			$invoke(cmd, data, base) {
 				let self = this;
@@ -7065,6 +8645,7 @@ Vue.directive('resize', {
 
 			$reload(args) {
 				//console.dir('$reload was called for' + this.$baseUrl);
+				//debugger;
 				let self = this;
 				if (utils.isArray(args) && args.$isLazy()) {
 					// reload lazy
@@ -7076,7 +8657,16 @@ Vue.directive('resize', {
 				let root = window.$$rootUrl;
 				let url = root + '/_data/reload';
 				let dat = self.$data;
-				let mi = args ? getPagerInfo(args.$ModelInfo) : null;
+
+				let mi = args ? modelInfo.get(args.$ModelInfo) : null;
+				if (!args && !mi) {
+					// try to get first $ModelInfo
+					let modInfo = this.$data._findRootModelInfo();
+					if (modInfo) {
+						mi = modelInfo.get(modInfo);
+					}
+				}
+
 				return new Promise(function (resolve, reject) {
 					let dataToQuery = { baseUrl: urltools.replaceUrlQuery(self.$baseUrl, mi) };
 					if (utils.isDefined(dat.Query)) {
@@ -7091,6 +8681,7 @@ Vue.directive('resize', {
 							dat.$merge(data);
 							dat._setModelInfo_(undefined, data);
 							dat._fireLoad_();
+							resolve(dat);
 						} else {
 							throw new Error('Invalid response type for $reload');
 						}
@@ -7134,19 +8725,31 @@ Vue.directive('resize', {
 				return href;
 			},
 			$href(url, data) {
-				let dataToHref = data;
-				if (utils.isObjectExact(dataToHref))
-					dataToHref = dataToHref.$id;
-				let retUrl = urltools.combine(url, dataToHref);
-				return retUrl;
+				return urltools.createUrlForNavigate(url, data);
 			},
-			$navigate(url, data, newWindow) {
+			$navigate(url, data, newWindow, update) {
 				let urlToNavigate = urltools.createUrlForNavigate(url, data);
 				if (newWindow === true) {
-					window.open(urlToNavigate, "_blank");
+					let nwin = window.open(urlToNavigate, "_blank");
+					nwin.$$token = { token: this.__currentToken__, update: update };
 				}
 				else
 					this.$store.commit('navigate', { url: urlToNavigate });
+			},
+
+			$navigateSimple(url, newWindow, update) {
+				if (newWindow === true) {
+					let nwin = window.open(url, "_blank");
+					nwin.$$token = { token: this.__currentToken__, update: update };
+				}
+				else
+					this.$store.commit('navigate', { url: url });
+			},
+
+			$download(url) {
+				const root = window.$$rootUrl;
+				url = urltools.combine('/file', url.replace('.', '-'));
+				window.location = root + url;
 			},
 
 			$dbRemove(elem, confirm) {
@@ -7193,7 +8796,7 @@ Vue.directive('resize', {
 				this.$dbRemove(sel, confirm);
 			},
 
-			$openSelected(url, arr) {
+			$openSelected(url, arr, newwin, update) {
 				url = url || '';
 				let sel = arr.$selected;
 				if (!sel)
@@ -7205,10 +8808,14 @@ Vue.directive('resize', {
 						throw new Error(`Property '${url}' not found in ${sel.constructor.name} object`);
 					url = nUrl;
 				}
-				this.$navigate(url, sel.$id);
+				this.$navigate(url, sel.$id, newwin, update);
 			},
 
-			$hasSelected(arr) {
+			$hasSelected(arr, opts) {
+				if (opts && opts.validRequired) {
+					let root = this.$data;
+					if (!root.$valid) return false;
+				}
 				return arr && !!arr.$selected;
 			},
 
@@ -7226,10 +8833,11 @@ Vue.directive('resize', {
 				return dlgData.promise;
 			},
 
-			$alert(msg, title) {
+			$alert(msg, title, list) {
+				// TODO: tools
 				let dlgData = {
 					promise: null, data: {
-						message: msg, title: title, style: 'alert'
+						message: msg, title: title, style: 'alert', list: list
 					}
 				};
 				eventBus.$emit('confirm', dlgData);
@@ -7277,7 +8885,7 @@ Vue.directive('resize', {
 
 				function simpleMerge(target, src) {
 					for (let p in target) {
-						if (p in src) 
+						if (p in src)
 							target[p] = src[p];
 						else
 							target[p] = undefined;
@@ -7340,8 +8948,8 @@ Vue.directive('resize', {
 
 			$report(rep, arg, opts) {
 				if (this.$isReadOnly(opts)) return;
-
-				let cmd = opts.export ? 'export' : 'show';
+			
+				let cmd = opts && opts.export ? 'export' : 'show';
 
 				const doReport = () => {
 					let id = arg;
@@ -7354,8 +8962,9 @@ Vue.directive('resize', {
 					let qry = { base: baseUrl, rep: rep };
 					url = url + urltools.makeQueryString(qry);
 					// open in new window
-					if (opts.export)
+					if (opts && opts.export) {
 						window.location = url;
+					}
 					else
 						window.open(url, '_blank');
 				};
@@ -7378,7 +8987,9 @@ Vue.directive('resize', {
 				if (this.$isDirty) {
 					const root = this.$data;
 					if (opts && opts.validRequired && root.$invalid) {
-						this.$alert(locale.$MakeValidFirst);
+						let errs = makeErrors(root.$forceValidate());
+						//console.dir(errs);
+						this.$alert(locale.$MakeValidFirst, undefined, errs);
 						return;
 					}
 					this.$save().then((result) => eventBus.$emit('modalClose', result));
@@ -7391,10 +9002,14 @@ Vue.directive('resize', {
 				eventBus.$emit('modalClose', result);
 			},
 
-			$modalSelect(array) {
+			$modalSelect(array, opts) {
 				if (!('$selected' in array)) {
-					console.error('invalid array for $modalSelect');
+					console.error('Invalid array for $modalSelect');
 					return;
+				}
+				if (opts && opts.validRequired) {
+					let root = this.$data;
+					if (!root.$valid) return;
 				}
 				this.$modalClose(array.$selected);
 			},
@@ -7516,7 +9131,7 @@ Vue.directive('resize', {
 				}
 				*/
 
-				let mi = getPagerInfo(selfMi);
+				let mi = modelInfo.get(selfMi);
 				let xQuery = urltools.parseUrlAndQuery(self.$baseUrl, mi);
 				let newUrl = xQuery.url + urltools.makeQueryString(mi);
 				//console.dir(newUrl);
@@ -7578,7 +9193,9 @@ Vue.directive('resize', {
 						delete nq[p];
 					}
 				}
-				this.$data.__baseUrl__ = this.$store.replaceUrlSearch(this.$baseUrl, urltools.makeQueryString(nq));
+				//this.$data.__baseUrl__ = this.$store.replaceUrlSearch(this.$baseUrl, urltools.makeQueryString(nq));
+				let mi = source ? source.$ModelInfo : this.$data._findRootModelInfo();
+				modelInfo.copyfromQuery(mi, nq);
 				this.$reload(source);
 			},
 			__doInit__() {
@@ -7589,6 +9206,18 @@ Vue.directive('resize', {
 					caller = this.$caller.$data;
 				root._modelLoad_(caller);
 				root._seal_(root);
+			}, 
+			__notified(token) {
+				if (!token) return;
+				if (this.__currentToken__ !== token.token) return;
+				if (token.toast)
+					this.$toast(token.toast);
+				this.$reload(token.update || null).then(function (array) {
+					if (!token.id) return;
+					if (!utils.isArray(array)) return;
+					let el = array.find(itm => itm.$id === token.id);
+					if (el && el.$select) el.$select();
+				});
 			}
 		},
 		created() {
@@ -7599,11 +9228,13 @@ Vue.directive('resize', {
 			eventBus.$on('beginRequest', this.__beginRequest);
 			eventBus.$on('endRequest', this.__endRequest);
 			eventBus.$on('queryChange', this.__queryChange);
+			eventBus.$on('childrenSaved', this.__notified);
 
 			// TODO: delete this.__queryChange
 			this.$on('localQueryChange', this.__queryChange);
 			this.$on('cwChange', this.__cwChange);
 			this.__asyncCache__ = {};
+			this.__currentToken__ = window.app.nextToken();
 			log.time('create time:', __createStartTime, false);
 		},
 		beforeDestroy() {
@@ -7614,6 +9245,8 @@ Vue.directive('resize', {
 			eventBus.$off('beginRequest', this.__beginRequest);
 			eventBus.$off('endRequest', this.__endRequest);
 			eventBus.$off('queryChange', this.__queryChange);
+			eventBus.$off('childrenSaved', this.__notified);
+
 			this.$off('localQueryChange', this.__queryChange);
 			this.$off('cwChange', this.__cwChange);
 		},
@@ -7632,7 +9265,7 @@ Vue.directive('resize', {
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180408-7152*/
+/*20180705-7240*/
 /* controllers/shell.js */
 
 (function () {
@@ -7717,16 +9350,15 @@ Vue.directive('resize', {
 		<a :href="itemHref(item)" tabindex="-1" v-text="item.Name" @click.prevent="navigate(item)"></a>
 	</li>
 	<li class="aligner"></li>
-	<li :title="locale.$Help"><a :href="helpHref()" class="btn-help" @click.prevent="showHelp()"><i class="ico ico-help"></i></a></li>
+	<li v-if="hasHelp()" :title="locale.$Help"><a :href="helpHref()" class="btn-help" @click.prevent="showHelp()"><i class="ico ico-help"></i></a></li>
 </ul>
 `,
 		props: {
 			menu: Array
 		},
-		computed:
-		{
+		computed: {
 			seg0: () => store.getters.seg0,
-			locale() { return locale }
+			locale() { return locale; }
 		},
 		methods: {
 			isActive(item) {
@@ -7754,6 +9386,10 @@ Vue.directive('resize', {
 				if (am && am.Help)
 					return urlTools.helpHref(am.Help);
 				return urlTools.helpHref('');
+			},
+			hasHelp() {
+				let am = this.menu.find(x => this.isActive(x));
+				return am && am.Help;
 			}
 		}
 	};
@@ -7950,7 +9586,7 @@ Vue.directive('resize', {
 			'a2-side-bar-compact': a2SideBarCompact,
 			'a2-content-view': contentView,
 			'a2-modal': modal,
-			'a2-toastr' : toastr
+			'a2-toastr': toastr
 		},
 		props: {
 			menu: Array,
@@ -8041,6 +9677,17 @@ Vue.directive('resize', {
 				me.modals.push(dlg);
 			});
 
+			eventBus.$on('modaldirect', function (modal, prms) {
+				let root = window.$$rootUrl;
+				let url = urlTools.combine(root, '/_dialog', modal);
+				let dlg = { title: "dialog", url: url, prms: prms.data };
+				dlg.promise = new Promise(function (resolve, reject) {
+					dlg.resolve = resolve;
+				});
+				prms.promise = dlg.promise;
+				me.modals.push(dlg);
+			});
+
 			eventBus.$on('modalClose', function (result) {
 				let dlg = me.modals.pop();
 				if (result)
@@ -8076,6 +9723,7 @@ Vue.directive('resize', {
 				requestsCount: 0,
 				debugShowTrace: false,
 				debugShowModel: false,
+				feedbackVisible: false,
 				dataCounter: 0,
 				traceEnabled: log.traceEnabled()
 			};
@@ -8095,6 +9743,9 @@ Vue.directive('resize', {
 			about() {
 				this.$store.commit('navigate', { url: '/app/about' });
 			},
+			appLink(lnk) {
+				this.$store.commit('navigate', { url: lnk.url });
+			},
 			root() {
 				let opts = { title: null };
 				let currentUrl = this.$store.getters.url;
@@ -8110,17 +9761,27 @@ Vue.directive('resize', {
 			debugTrace() {
 				if (!window.$$debug) return;
 				this.debugShowModel = false;
-
+				this.feedbackVisible = false;
 				this.debugShowTrace = !this.debugShowTrace;
 			},
 			debugModel() {
 				if (!window.$$debug) return;
 				this.debugShowTrace = false;
+				this.feedbackVisible = false;
 				this.debugShowModel = !this.debugShowModel;
 			},
 			debugClose() {
 				this.debugShowModel = false;
 				this.debugShowTrace = false;
+				this.feedbackVisible = false;
+			},
+			showFeedback() {
+				this.debugShowModel = false;
+				this.debugShowTrace = false;
+				this.feedbackVisible = !this.feedbackVisible;
+			},
+			feedbackClose() {
+				this.feedbackVisible = false;
 			},
 			profile() {
 				alert('user profile');
@@ -8138,7 +9799,20 @@ Vue.directive('resize', {
 						return;
 					//alert(result);
 					//console.dir(result);
+					eventBus.$emit('toast', {
+						text: locale.$ChangePasswordSuccess, style: 'success'
+					});
+
 				});
+			},
+			$alert(msg, title, list) {
+				let dlgData = {
+					promise: null, data: {
+						message: msg, title: title, style: 'alert', list: list
+					}
+				};
+				eventBus.$emit('confirm', dlgData);
+				return dlgData.promise;
 			}
 		},
 		created() {

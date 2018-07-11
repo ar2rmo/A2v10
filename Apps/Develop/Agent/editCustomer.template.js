@@ -6,20 +6,33 @@
 const template = {
 	properties: {
 		"TRoot.$Cities": getCities,
-		"TRoot.$Streets": getStreets
+		"TRoot.$Streets": getStreets,
+		'TAgent.$Page0Valid': isPage0Valid,
+		'TAgent.$Page3Valid': isPage3Valid,
+		'TAgent.$Bit1': Boolean,
+		'TAgent.$Mask'() {
+			return this.$Bit1 ? '### ### ###' : '+38 (0##) ###-##-##';
+		},
+		'TAgent.$Placeholder'() {
+			return this.$Bit1 ? '000 000 000' : '+38 (000) 000-00-00';
+		}
 	},
 	events: {
 		"Model.load": modelLoad,
 		/**
 		 * clear dependent values
 		 */
-		"Agent.Address.Country.change": (addr) => { addr.City = ''; },
+		"Agent.Address.Country.change": (addr) => { addr.City = ''; addr.Street = '' },
 		"Agent.Address.City.change": (addr) => { addr.Street = ''; }
 	},
 	validators: {
 		"Agent.Name": 'Введите наименование',
-		"Agent.Code":
-			{ valid: duplicateCode, async: true, msg: "Контрагент с таким кодом ОКПО уже существует" }
+		"Agent.Code": [
+			'Введите код',
+			{ valid: duplicateCode, async: true, msg: "Контрагент с таким кодом ОКПО уже существует" },
+		],
+		'Agent.Memo': { valid: 'notBlank', msg: 'Введите примечание', severity:'warning'},
+		'Agent.Address.Build': 'Введите номер дома'
 	}
 };
 
@@ -63,6 +76,14 @@ function getStreets() {
 	if (!city) return null;
 	city.Streets.$load(); // ensure lazy
 	return city.Streets;
+}
+
+function isPage0Valid() {
+	return !!this.Name;
+}
+
+function isPage3Valid() {
+	return this.Name === 'VALID';
 }
 
 module.exports = template;

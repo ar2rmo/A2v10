@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180408-7152*/
+/*20180705-7240*/
 /* controllers/shell.js */
 
 (function () {
@@ -85,16 +85,15 @@
 		<a :href="itemHref(item)" tabindex="-1" v-text="item.Name" @click.prevent="navigate(item)"></a>
 	</li>
 	<li class="aligner"></li>
-	<li :title="locale.$Help"><a :href="helpHref()" class="btn-help" @click.prevent="showHelp()"><i class="ico ico-help"></i></a></li>
+	<li v-if="hasHelp()" :title="locale.$Help"><a :href="helpHref()" class="btn-help" @click.prevent="showHelp()"><i class="ico ico-help"></i></a></li>
 </ul>
 `,
 		props: {
 			menu: Array
 		},
-		computed:
-		{
+		computed: {
 			seg0: () => store.getters.seg0,
-			locale() { return locale }
+			locale() { return locale; }
 		},
 		methods: {
 			isActive(item) {
@@ -122,6 +121,10 @@
 				if (am && am.Help)
 					return urlTools.helpHref(am.Help);
 				return urlTools.helpHref('');
+			},
+			hasHelp() {
+				let am = this.menu.find(x => this.isActive(x));
+				return am && am.Help;
 			}
 		}
 	};
@@ -318,7 +321,7 @@
 			'a2-side-bar-compact': a2SideBarCompact,
 			'a2-content-view': contentView,
 			'a2-modal': modal,
-			'a2-toastr' : toastr
+			'a2-toastr': toastr
 		},
 		props: {
 			menu: Array,
@@ -409,6 +412,17 @@
 				me.modals.push(dlg);
 			});
 
+			eventBus.$on('modaldirect', function (modal, prms) {
+				let root = window.$$rootUrl;
+				let url = urlTools.combine(root, '/_dialog', modal);
+				let dlg = { title: "dialog", url: url, prms: prms.data };
+				dlg.promise = new Promise(function (resolve, reject) {
+					dlg.resolve = resolve;
+				});
+				prms.promise = dlg.promise;
+				me.modals.push(dlg);
+			});
+
 			eventBus.$on('modalClose', function (result) {
 				let dlg = me.modals.pop();
 				if (result)
@@ -444,6 +458,7 @@
 				requestsCount: 0,
 				debugShowTrace: false,
 				debugShowModel: false,
+				feedbackVisible: false,
 				dataCounter: 0,
 				traceEnabled: log.traceEnabled()
 			};
@@ -463,6 +478,9 @@
 			about() {
 				this.$store.commit('navigate', { url: '/app/about' });
 			},
+			appLink(lnk) {
+				this.$store.commit('navigate', { url: lnk.url });
+			},
 			root() {
 				let opts = { title: null };
 				let currentUrl = this.$store.getters.url;
@@ -478,17 +496,27 @@
 			debugTrace() {
 				if (!window.$$debug) return;
 				this.debugShowModel = false;
-
+				this.feedbackVisible = false;
 				this.debugShowTrace = !this.debugShowTrace;
 			},
 			debugModel() {
 				if (!window.$$debug) return;
 				this.debugShowTrace = false;
+				this.feedbackVisible = false;
 				this.debugShowModel = !this.debugShowModel;
 			},
 			debugClose() {
 				this.debugShowModel = false;
 				this.debugShowTrace = false;
+				this.feedbackVisible = false;
+			},
+			showFeedback() {
+				this.debugShowModel = false;
+				this.debugShowTrace = false;
+				this.feedbackVisible = !this.feedbackVisible;
+			},
+			feedbackClose() {
+				this.feedbackVisible = false;
 			},
 			profile() {
 				alert('user profile');
@@ -506,7 +534,20 @@
 						return;
 					//alert(result);
 					//console.dir(result);
+					eventBus.$emit('toast', {
+						text: locale.$ChangePasswordSuccess, style: 'success'
+					});
+
 				});
+			},
+			$alert(msg, title, list) {
+				let dlgData = {
+					promise: null, data: {
+						message: msg, title: title, style: 'alert', list: list
+					}
+				};
+				eventBus.$emit('confirm', dlgData);
+				return dlgData.promise;
 			}
 		},
 		created() {

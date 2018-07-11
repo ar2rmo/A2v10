@@ -40,7 +40,8 @@ namespace A2v10.Xaml
 			All = Visibility | Margin | Wrap | Tip | Content | TabIndex,
 			NoContent = Visibility | Margin | Wrap | Tip | TabIndex,
 			NoTabIndex = Visibility | Margin | Wrap | Tip | Content,
-			SpecialTab = Visibility | Margin | Wrap | Tip
+			SpecialTab = Visibility | Margin | Wrap | Tip,
+			SpecialWizardPage = Margin | Wrap | Tip
 		}
 
 		internal virtual void MergeAttributes(TagBuilder tag, RenderContext context, MergeAttrMode mode = MergeAttrMode.All)
@@ -117,14 +118,15 @@ namespace A2v10.Xaml
 				tag.MergeAttribute($":{attrName}", propValue.ToString());
 		}
 
-		internal void MergeCommandAttribute(TagBuilder tag, RenderContext context)
+		internal void MergeCommandAttribute(TagBuilder tag, RenderContext context, Boolean withHref = true)
 		{
 			var cmd = GetBindingCommand("Command");
 			if (cmd == null)
 				return;
 			cmd.MergeCommandAttributes(tag, context);
 			tag.MergeAttribute("@click.prevent", cmd.GetCommand(context));
-			tag.MergeAttribute(":href", cmd.GetHrefForCommand(context));
+			if (withHref)
+				tag.MergeAttribute(":href", cmd.GetHrefForCommand(context));
 		}
 
 		internal void MergeValueItemProp(TagBuilder input, RenderContext context, String valueName)
@@ -134,14 +136,17 @@ namespace A2v10.Xaml
 				return;
 			// split to path and property
 			String path = valBind.GetPath(context);
-			(String Path, String Prop) pp = SplitToPathProp(path);
-			if (String.IsNullOrEmpty(pp.Path) || String.IsNullOrEmpty(pp.Prop))
+			(String Path, String Prop) = SplitToPathProp(path);
+			if (String.IsNullOrEmpty(Path) || String.IsNullOrEmpty(Prop))
 				throw new XamlException($"invalid binding for {valueName} '{path}'");
-			input.MergeAttribute(":item", pp.Path);
-			input.MergeAttribute("prop", pp.Prop);
+			input.MergeAttribute(":item", Path);
+			input.MergeAttribute("prop", Prop);
 			if (valBind.DataType != DataType.String)
 				input.MergeAttribute("data-type", valBind.DataType.ToString());
-			if (!String.IsNullOrEmpty(valBind.Mask))
+			var maskBind = valBind.GetBinding("Mask");
+			if (maskBind != null)
+				input.MergeAttribute(":mask", maskBind.GetPathFormat(context));
+			else if (!String.IsNullOrEmpty(valBind.Mask))
 				input.MergeAttribute("mask", valBind.Mask);
 		}
 
@@ -152,11 +157,11 @@ namespace A2v10.Xaml
 				return;
 			// split to path and property
 			String path = valBind.GetPath(context);
-			var pp = SplitToPathProp(path);
-			if (String.IsNullOrEmpty(pp.Path) || String.IsNullOrEmpty(pp.Prop))
+			var (Path, Prop) = SplitToPathProp(path);
+			if (String.IsNullOrEmpty(Path) || String.IsNullOrEmpty(Prop))
 				throw new XamlException($"invalid binding for {valueName} '{path}'");
-			input.MergeAttribute(":item-to-validate", pp.Path);
-			input.MergeAttribute("prop-to-validate", pp.Prop);
+			input.MergeAttribute(":item-to-validate", Path);
+			input.MergeAttribute("prop-to-validate", Prop);
 		}
 
 		internal (String Path, String Prop) SplitToPathProp(String path)

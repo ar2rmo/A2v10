@@ -1,15 +1,22 @@
 ﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
 
+using A2v10.Infrastructure;
 using System;
 using System.Windows.Markup;
 
 namespace A2v10.Xaml
 {
 	[ContentProperty("Children")]
-	public class Block : UIElementBase, ITableControl
+	public class Block : UIElement, ITableControl
 	{
 
 		public UIElementCollection Children { get; set; } = new UIElementCollection();
+
+		public Length Height { get; set; }
+		public Boolean Border { get; set; }
+		public Boolean Scroll { get; set; }
+		public TextAlign Align { get; set; }
+		public TextColorStyle Color { get; set; }
 
 		internal virtual void RenderChildren(RenderContext context)
 		{
@@ -22,9 +29,15 @@ namespace A2v10.Xaml
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
 			var div = new TagBuilder("div", null, IsInGrid);
-			if (onRender != null)
-				onRender(div);
+			onRender?.Invoke(div);
 			MergeAttributes(div, context, MergeAttrMode.Margin | MergeAttrMode.Visibility);
+			if (Height != null)
+				div.MergeStyle("height", Height.Value);
+			div.AddCssClassBool(Border, "bordered-pane");
+			div.AddCssClassBool(Scroll, "scrollable-pane");
+			if (Color != TextColorStyle.Default)
+				div.AddCssClass("text-color-" + Color.ToString().ToKebabCase());
+			MergeAlign(div, context, Align);
 			div.RenderStart(context);
 			RenderChildren(context);
 			div.RenderEnd(context);

@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7167
+// 20180630-7236
 // services/datamodel.js
 
 (function () {
@@ -28,6 +28,7 @@
 	const validators = require('std:validators');
 	const utils = require('std:utils');
 	const log = require('std:log');
+	const period = require('std:period');
 
 	let __initialized__ = false;
 
@@ -96,6 +97,9 @@
 				let mp = trg._meta_.markerProps[prop];
 				shadow[prop] = mp;
 				break;
+			case period.constructor:
+				shadow[prop] = new propCtor(source[prop]);
+				break;
 			default:
 				shadow[prop] = new propCtor(source[prop] || null, pathdot + prop, trg);
 				break;
@@ -108,12 +112,14 @@
 			},
 			set(val) {
 				let eventWasFired = false;
+				let skipDirty = prop.startsWith('$$');
 				//TODO: emit and handle changing event
 				let ctor = this._meta_.props[prop];
 				if (ctor.type) ctor = ctor.type;
 				val = ensureType(ctor, val);
 				if (val === this._src_[prop])
 					return;
+				let oldVal = this._src_[prop];
 				if (this._src_[prop] && this._src_[prop].$set) {
 					// object
 					this._src_[prop].$set(val);
@@ -121,14 +127,14 @@
 				} else {
 					this._src_[prop] = val;
 				}
-				if (!prop.startsWith('$$')) // skip special properties
-					this._root_.$setDirty(true);
+				if (!skipDirty) // skip special properties
+					this._root_.$setDirty(true, this._path_);
 				if (this._lockEvents_) return; // events locked
 				if (eventWasFired) return; // was fired
 				if (!this._path_)
 					return;
 				let eventName = this._path_ + '.' + prop + '.change';
-				this._root_.$emit(eventName, this, val);
+				this._root_.$emit(eventName, this, val, oldVal);
 			}
 		});
 	}
@@ -197,13 +203,13 @@
 	}
 
 	function createObject(elem, source, path, parent) {
-		const ctorname = elem.constructor.name;		
+		const ctorname = elem.constructor.name;
 		let startTime = null;
 		if (ctorname === 'TRoot')
 			startTime = performance.now();
 		parent = parent || elem;
 		defHidden(elem, SRC, {});
-		defHidden(elem, PATH, path);
+		defHidden(elem, PATH, path || '');
 		defHidden(elem, ROOT, parent._root_ || parent);
 		defHidden(elem, PARENT, parent);
 		defHidden(elem, ERRORS, null, true);
@@ -282,6 +288,7 @@
 				}
 			}
 			elem._setModelInfo_ = setRootModelInfo;
+			elem._findRootModelInfo = findRootModelInfo;
 			elem._enableValidate_ = true;
 			elem._needValidate_ = false;
 			elem._modelLoad_ = (caller) => {
@@ -309,6 +316,7 @@
 			let ctor = elem._meta_.props[p];
 			if (ctor.type) ctor = ctor.type;
 			if (utils.isPrimitiveCtor(ctor)) continue;
+			if (ctor === period.constructor) continue;
 			let val = elem[p];
 			if (utils.isArray(val)) {
 				val.forEach(itm => seal(itm));
@@ -326,6 +334,15 @@
 			elem.$ModelInfo = data.$ModelInfo[p];
 			return; // first element only
 		}
+	}
+
+	function findRootModelInfo() {
+		for (let p in this._meta_.props) {
+			let x = this[p];
+			if (x.$ModelInfo)
+				return x.$ModelInfo;
+		}
+		return null;
 	}
 
 	function isReadOnly() {
@@ -593,6 +610,10 @@
 				return this._root_._host_.$viewModel;
 			return null;
 		});
+
+		obj.$isValid = function (props) {
+			return true;
+		}
 	}
 
 	function defineObject(obj, meta, arrayItem) {
@@ -910,11 +931,19 @@
 		return errs.length ? errs : null;
 	}
 
-	function validateAll() {
+	function forceValidateAll() {
+		let me = this;
+		me._needValidate_ = true;
+		return me._validateAll_(true);
+	}
+
+	function validateAll(force) {
 		var me = this;
 		if (!me._host_) return;
 		if (!me._needValidate_) return;
 		me._needValidate_ = false;
+		if (force)
+			validators.removeWeak();
 		var startTime = performance.now();
 		let tml = me.$template;
 		if (!tml) return;
@@ -929,12 +958,16 @@
 		}
 		var e = performance.now();
 		log.time('validation time:', startTime);
+		return allerrs;
 		//console.dir(allerrs);
 	}
 
-	function setDirty(val) {
+	function setDirty(val, path) {
 		if (this.$root.$readOnly)
 			return;
+		if (path && path.toLowerCase().startsWith('query'))
+			return;
+		// TODO: template.options.skipDirty
 		this.$dirty = val;
 	}
 
@@ -957,7 +990,16 @@
 		return undefined;
 	}
 
-	function merge(src) {
+	function isSkipMerge(root, prop) {
+		if (prop.startsWith('$$')) return true; // special properties
+		let t = root.$template;
+		let opts = t && t.options;
+		let bo = opts && opts.bindOnce;
+		if (!bo) return false;
+		return bo.indexOf(prop) !== -1;
+	}
+
+	function merge(src, afterSave) {
 		let oldId = this.$id__;
 		try {
 			if (src === null)
@@ -965,7 +1007,7 @@
 			this._root_._enableValidate_ = false;
 			this._lockEvents_ += 1;
 			for (var prop in this._meta_.props) {
-				if (prop.startsWith('$$')) continue; // skip special properties (saved)
+				if (afterSave && isSkipMerge(this._root_, prop)) continue;
 				let ctor = this._meta_.props[prop];
 				if (ctor.type) ctor = ctor.type;
 				let trg = this[prop];
@@ -1023,6 +1065,7 @@
 		root.prototype._delegate_ = getDelegate;
 		root.prototype._validate_ = validate;
 		root.prototype._validateAll_ = validateAll;
+		root.prototype.$forceValidate = forceValidateAll;
 		// props cache for t.construct
 		if (!template) return;
 		let xProp = {};

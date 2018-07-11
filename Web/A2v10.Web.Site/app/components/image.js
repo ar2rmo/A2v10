@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180405-7149
+// 20180428-7171
 // components/image.js
 
 (function () {
@@ -23,7 +23,8 @@
 <div class="a2-image">
 	<img v-if="hasImage" :src="href" :style="cssStyle" @click.prevent="clickOnImage"/>
 	<a class="remove-image" v-if="hasRemove" @click.prevent="removeImage">&#x2715;</a>
-	<a2-upload v-if="isUploadVisible" :style="uploadStyle" :item="itemForUpload" :base="base" :prop="prop" :new-item="newItem" :tip="tip" :read-only='readOnly'/>
+	<a2-upload v-if="isUploadVisible" :style="uploadStyle" accept="image/*"
+		:item="itemForUpload" :base="base" :prop="prop" :new-item="newItem" :tip="tip" :read-only='readOnly'/>
 </div>
 `,
 		props: {
@@ -46,7 +47,7 @@
 			href: function () {
 				if (this.newItem)
 					return undefined;
-				let root = window.$rootUrl;
+				let root = window.$$rootUrl;
 				let id = this.item[this.prop];
 				if (!id) return undefined;
 				return url.combine(root, '_image', this.base, this.prop, id);
@@ -56,7 +57,7 @@
 				return locale.$ClickToDownloadPicture;
 			},
 			cssStyle() {
-				return { width: this.width, height: this.height };
+				return { maxWidth: this.width, maxHeight: this.height };
 			},
 			uploadStyle() {
 				let w = { width: this.width, height: this.height };
@@ -106,7 +107,7 @@
 		},
 		computed: {
 			href: function () {
-				let root = window.$rootUrl;
+				let root = window.$$rootUrl;
 				return url.combine(root, '_static_image', this.url.replace(/\./g, '-'));
 			}
 		}

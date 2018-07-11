@@ -12,15 +12,22 @@ namespace A2v10.Xaml
 	{
 
 		#region Attached Properties
-		static Lazy<IDictionary<Object, Int32>> _attachedColumn = new Lazy<IDictionary<Object, Int32>>(() => new Dictionary<Object, Int32>());
-		static Lazy<IDictionary<Object, Int32>> _attachedRow = new Lazy<IDictionary<Object, Int32>>(() => new Dictionary<Object, Int32>());
-		static Lazy<IDictionary<Object, Int32>> _attachedColSpan = new Lazy<IDictionary<Object, Int32>>(() => new Dictionary<Object, Int32>());
-		static Lazy<IDictionary<Object, Int32>> _attachedRowSpan = new Lazy<IDictionary<Object, Int32>>(() => new Dictionary<Object, Int32>());
-		static Lazy<IDictionary<Object, VerticalAlign>> _attachedVAlign = new Lazy<IDictionary<Object, VerticalAlign>>(() => new Dictionary<Object, VerticalAlign>());
+		[ThreadStatic]
+		static IDictionary<Object, Int32> _attachedColumn;
+		[ThreadStatic]
+		static IDictionary<Object, Int32> _attachedRow;
+		[ThreadStatic]
+		static IDictionary<Object, Int32> _attachedColSpan;
+		[ThreadStatic]
+		static IDictionary<Object, Int32> _attachedRowSpan;
+		[ThreadStatic]
+		static IDictionary<Object, VerticalAlign> _attachedVAlign;
 
 
 		public static void SetCol(Object obj, Int32 col)
 		{
+			if (_attachedColumn == null)
+				_attachedColumn = new Dictionary<Object, Int32>();
 			AttachedHelpers.SetAttached(_attachedColumn, obj, col);
 		}
 
@@ -31,6 +38,8 @@ namespace A2v10.Xaml
 
 		public static void SetRow(Object obj, Int32 row)
 		{
+			if (_attachedRow == null)
+				_attachedRow = new Dictionary<Object, Int32>();
 			AttachedHelpers.SetAttached(_attachedRow, obj, row);
 		}
 
@@ -41,6 +50,8 @@ namespace A2v10.Xaml
 
 		public static void SetColSpan(Object obj, Int32 span)
 		{
+			if (_attachedColSpan == null)
+				_attachedColSpan = new Dictionary<Object, Int32>();
 			AttachedHelpers.SetAttached(_attachedColSpan, obj, span);
 		}
 
@@ -51,6 +62,8 @@ namespace A2v10.Xaml
 
 		public static void SetRowSpan(Object obj, Int32 span)
 		{
+			if (_attachedRowSpan == null)
+				_attachedRowSpan = new Dictionary<Object, Int32>();
 			AttachedHelpers.SetAttached(_attachedRowSpan, obj, span);
 		}
 
@@ -61,6 +74,8 @@ namespace A2v10.Xaml
 
 		public static void SetVAlign(Object obj, VerticalAlign vAlign)
 		{
+			if (_attachedVAlign == null)
+				_attachedVAlign = new Dictionary<Object, VerticalAlign>();
 			AttachedHelpers.SetAttached(_attachedVAlign, obj, vAlign);
 		}
 
@@ -69,45 +84,14 @@ namespace A2v10.Xaml
 			return AttachedHelpers.GetAttached(_attachedVAlign, obj);
 		}
 
-		internal static void RemoveAttached(Object obj)
+		public static void ClearAttached()
 		{
-			AttachedHelpers.RemoveAttached(_attachedRow, obj);
-			AttachedHelpers.RemoveAttached(_attachedColumn, obj);
-			AttachedHelpers.RemoveAttached(_attachedRowSpan, obj);
-			AttachedHelpers.RemoveAttached(_attachedColSpan, obj);
-			AttachedHelpers.RemoveAttached(_attachedVAlign, obj);
+			_attachedRow = null;
+			_attachedColumn = null;
+			_attachedRowSpan = null;
+			_attachedColSpan = null;
+			_attachedVAlign = null;
 		}
-
-		internal static void CheckAttachedObjects()
-		{
-			var gridType = typeof(Grid);
-			AttachedHelpers.CheckParentAttached(_attachedRow, gridType);
-			AttachedHelpers.CheckParentAttached(_attachedColumn, gridType);
-			AttachedHelpers.CheckParentAttached(_attachedRowSpan, gridType);
-			AttachedHelpers.CheckParentAttached(_attachedColSpan, gridType);
-			AttachedHelpers.CheckParentAttached(_attachedVAlign, gridType);
-		}
-
-		internal static void ClearAttachedObjects()
-		{
-			if (_attachedRow.IsValueCreated) _attachedRow.Value.Clear();
-			if (_attachedColumn.IsValueCreated) _attachedColumn.Value.Clear();
-			if (_attachedRowSpan.IsValueCreated) _attachedRowSpan.Value.Clear();
-			if (_attachedColSpan.IsValueCreated) _attachedColSpan.Value.Clear();
-			if (_attachedVAlign.IsValueCreated) _attachedVAlign.Value.Clear();
-		}
-
-#if DEBUG
-		internal static void DebugCheckAttached()
-		{
-			if (_attachedRow.IsValueCreated && _attachedRow.Value.Count > 0 ||
-				_attachedColumn.IsValueCreated && _attachedColumn.Value.Count > 0 ||
-				_attachedColSpan.IsValueCreated && _attachedColSpan.Value.Count > 0 || 
-				_attachedRowSpan.IsValueCreated && _attachedRowSpan.Value.Count > 0
-			)
-				throw new XamlException("Grid. Invalid attached state");
-		}
-#endif
 		#endregion
 
 
@@ -147,8 +131,7 @@ namespace A2v10.Xaml
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
 			var grid = new TagBuilder("div", "grid", IsInGrid);
-			if (onRender != null)
-				onRender(grid);
+			onRender?.Invoke(grid);
 			MergeAttributes(grid, context);
 			if (Height != null)
 				grid.MergeStyle("height", Height.Value);
@@ -166,18 +149,29 @@ namespace A2v10.Xaml
 			foreach (var ch in Children)
 			{
 				ch.IsInGrid = true;
-				using (context.GridContext(GetRow(ch), GetCol(ch), GetRowSpan(ch), GetColSpan(ch), GetVAlign(ch)))
+				if (ch is GridGroup gg)
 				{
-					ch.RenderElement(context);
+					var grpTemplate = new TagBuilder("template");
+					gg.MergeAttributes(grpTemplate, context, MergeAttrMode.Visibility);
+					grpTemplate.RenderStart(context);
+					foreach (var gc in gg.Children)
+					{
+						gc.IsInGrid = true;
+						using (context.GridContext(GetRow(gc), GetCol(gc), GetRowSpan(gc), GetColSpan(gc), GetVAlign(gc)))
+						{
+							gc.RenderElement(context);
+						}
+					}
+					grpTemplate.RenderEnd(context);
+				}
+				else
+				{
+					using (context.GridContext(GetRow(ch), GetCol(ch), GetRowSpan(ch), GetColSpan(ch), GetVAlign(ch)))
+					{
+						ch.RenderElement(context);
+					}
 				}
 			}
-		}
-
-		internal override void OnDispose()
-		{
-			base.OnDispose();
-			foreach (var ch in Children)
-				RemoveAttached(ch);
 		}
 	}
 
@@ -194,8 +188,10 @@ namespace A2v10.Xaml
 			var coll = new RowDefinitions();
 			foreach (var row in val.Split(','))
 			{
-				var rd = new RowDefinition();
-				rd.Height = GridLength.FromString(row.Trim());
+				var rd = new RowDefinition
+				{
+					Height = GridLength.FromString(row.Trim())
+				};
 				coll.Add(rd);
 			}
 			return coll;
@@ -224,8 +220,10 @@ namespace A2v10.Xaml
 			var coll = new ColumnDefinitions();
 			foreach (var row in val.Split(','))
 			{
-				var cd = new ColumnDefinition();
-				cd.Width = GridLength.FromString(row.Trim());
+				var cd = new ColumnDefinition
+				{
+					Width = GridLength.FromString(row.Trim())
+				};
 				coll.Add(cd);
 			}
 			return coll;
@@ -244,7 +242,7 @@ namespace A2v10.Xaml
 
 	public class RowDefinitionsConverter : TypeConverter
 	{
-		public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+		public override Boolean CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
 		{
 			if (sourceType == typeof(String))
 				return true;
@@ -253,7 +251,7 @@ namespace A2v10.Xaml
 			return false;
 		}
 
-		public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+		public override Object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
 		{
 			if (value == null)
 				return null;
@@ -269,7 +267,7 @@ namespace A2v10.Xaml
 
 	public class ColumnDefinitionsConverter : TypeConverter
 	{
-		public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+		public override Boolean CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
 		{
 			if (sourceType == typeof(String))
 				return true;
@@ -278,7 +276,7 @@ namespace A2v10.Xaml
 			return false;
 		}
 
-		public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+		public override Object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
 		{
 			if (value == null)
 				return null;

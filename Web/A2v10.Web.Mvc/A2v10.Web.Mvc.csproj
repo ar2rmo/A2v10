@@ -62,25 +62,25 @@
     <Reference Include="Owin, Version=1.0.0.0, Culture=neutral, PublicKeyToken=f0ebd12fd5e55cc5, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Owin.1.0\lib\net40\Owin.dll</HintPath>
     </Reference>
-    <Reference Include="Stimulsoft.Base, Version=2016.1.0.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
+    <Reference Include="Stimulsoft.Base, Version=2018.2.2.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\Vendors\Stimulsoft_2018\Stimulsoft.Base.dll</HintPath>
-      <Private>True</Private>
     </Reference>
-    <Reference Include="Stimulsoft.Report, Version=2016.1.0.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
+    <Reference Include="Stimulsoft.Data, Version=2018.2.2.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\Vendors\Stimulsoft_2018\Stimulsoft.Data.dll</HintPath>
+    </Reference>
+    <Reference Include="Stimulsoft.Report, Version=2018.2.2.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\Vendors\Stimulsoft_2018\Stimulsoft.Report.dll</HintPath>
-      <Private>True</Private>
     </Reference>
-    <Reference Include="Stimulsoft.Report.Mvc, Version=2016.1.0.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
+    <Reference Include="Stimulsoft.Report.Mvc, Version=2018.2.2.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\Vendors\Stimulsoft_2018\Stimulsoft.Report.Mvc.dll</HintPath>
-      <Private>True</Private>
     </Reference>
-    <Reference Include="Stimulsoft.Report.Web, Version=2016.1.0.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
+    <Reference Include="Stimulsoft.Report.Web, Version=2018.2.2.0, Culture=neutral, PublicKeyToken=ebe6666cba19647a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\Vendors\Stimulsoft_2018\Stimulsoft.Report.Web.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
@@ -91,23 +91,22 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Web.Helpers, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.4\lib\net45\System.Web.Helpers.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.6\lib\net45\System.Web.Helpers.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.Mvc, Version=5.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.Mvc.5.2.4\lib\net45\System.Web.Mvc.dll</HintPath>
+    <Reference Include="System.Web.Mvc, Version=5.2.6.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.Mvc.5.2.6\lib\net45\System.Web.Mvc.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.Razor.3.2.4\lib\net45\System.Web.Razor.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.Razor.3.2.6\lib\net45\System.Web.Razor.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.WebPages, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.4\lib\net45\System.Web.WebPages.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.6\lib\net45\System.Web.WebPages.dll</HintPath>
     </Reference>
-    <Reference Include="System.Web.WebPages.Deployment, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.4\lib\net45\System.Web.WebPages.Deployment.dll</HintPath>
+    <Reference Include="System.Web.WebPages.Deployment, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.6\lib\net45\System.Web.WebPages.Deployment.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.WebPages.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.4\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.6\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
     </Reference>
     <Reference Include="WebActivatorEx, Version=2.0.0.0, Culture=neutral, PublicKeyToken=7b26dc2a43f6a0d4, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -115,7 +114,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Configuration\WebLocalizer.cs" />
     <Compile Include="Controllers\ReportController.cs" />
     <Compile Include="Filters\ExecutingFilterAttribute.cs" />
     <Compile Include="Filters\IsAjaxOnlyAttribute.cs" />
@@ -125,8 +123,6 @@
     <Compile Include="Identity\EmailService.cs" />
     <Compile Include="Identity\IdentityExtensions.cs" />
     <Compile Include="Start\RazorGeneratorMvcStart.cs" />
-    <Compile Include="Configuration\WebApplicationHost.cs" />
-    <Compile Include="Configuration\WebProfiler.cs" />
     <Compile Include="Controllers\AccountController.cs" />
     <Compile Include="Controllers\ManageController.cs" />
     <Compile Include="Controllers\ShellController.cs" />
@@ -211,7 +207,9 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
+    <None Include="app.config">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="packages.config" />
     <Content Include="Views\Account\SendCode.cshtml">
       <Generator>RazorGenerator</Generator>
@@ -282,6 +280,10 @@
       <Project>{8AB56ABE-3894-40EE-A5B7-36B57B70D1BE}</Project>
       <Name>A2v10.Infrastructure</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\Shared\A2v10.Interop\A2v10.Interop.csproj">
+      <Project>{39661034-47AA-4BDF-9B19-C835B614B545}</Project>
+      <Name>A2v10.Interop</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Shared\A2v10.Messaging\A2v10.Messaging.csproj">
       <Project>{d83666a0-acf5-47e6-94cf-732dddabbea2}</Project>
       <Name>A2v10.Messaging</Name>
@@ -305,6 +307,10 @@
     <ProjectReference Include="..\..\Shared\A2v10.Xaml\A2v10.Xaml.csproj">
       <Project>{E0577880-9B04-4A2A-B791-8FDB47CAA3BC}</Project>
       <Name>A2v10.Xaml</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\A2v10.Web.Config\A2v10.Web.Config.csproj">
+      <Project>{c53f9ed8-90a1-43da-9ec4-8bcdb33e5d8f}</Project>
+      <Name>A2v10.Web.Config</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup />

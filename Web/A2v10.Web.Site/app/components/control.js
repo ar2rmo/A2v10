@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180424-7163
+// 20180629-7234
 // components/control.js
 
 (function () {
@@ -52,7 +52,7 @@
 			},
 			inputClass() {
 				let cls = '';
-				if (this.align !== 'left')
+				if (this.align && this.align !== 'left')
 					cls += 'text-' + this.align;
 				if (this.isNegative) cls += ' negative-red';
 				return cls;
@@ -76,10 +76,16 @@
 			}
 		},
 		mounted() {
+			// direct parent only
+			if (this.$parent.$registerControl)
+				this.$parent.$registerControl(this);
 			if (!this.mask) return;
 			mask.mountElement(this.$refs.input, this.mask);
 		},
 		beforeDestroy() {
+			// direct parent only
+			if (this.$parent.$unregisterControl)
+				this.$parent.$unregisterControl(this);
 			if (!this.mask) return;
 			mask.unmountElement(this.$refs.input, this.mask);
 		},
@@ -88,11 +94,18 @@
 				// method! no cache!
 				return !this.invalid();
 			},
-			invalid() {
+			invalid(out) {
 				// method! no cache!
 				let err = this.errors;
 				if (!err) return false;
+				if (out) {
+					out.warn = err.every(r => r.severity === 'warning');
+					out.info = err.every(r => r.info === 'info');
+				}
 				return err.length > 0;
+			},
+			pending() {
+				return this.errors && this.errors.pending > 0;
 			},
 			cssClass() {
 				// method! no cached!!!
@@ -107,6 +120,13 @@
 			},
 			test() {
 				alert('from base control');
+			}
+		},
+		watch: {
+			mask() {
+				mask.setMask(this.$refs.input, this.mask);
+				if (this.updateValue)
+					this.updateValue(this.$refs.input.value);
 			}
 		}
 	};

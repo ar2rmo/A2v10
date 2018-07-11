@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180425-7164*/
+/*20180629-7234*/
 /* services/mask.js */
 
 app.modules['std:mask'] = function () {
@@ -12,7 +12,8 @@ app.modules['std:mask'] = function () {
 		getMasked,
 		getUnmasked,
 		mountElement,
-		unmountElement
+		unmountElement,
+		setMask
 	};
 
 	function isMaskChar(ch) {
@@ -44,6 +45,42 @@ app.modules['std:mask'] = function () {
 				j++;
 			} else {
 				str += mc;
+			}
+		}
+		return str;
+	}
+
+	function fitMask(mask, value) {
+		let str = '';
+		let j = 0;
+
+		function nextValueChar() {
+			let ch;
+			while (true) {
+				ch = value[j];
+				if (!ch) return PLACE_CHAR;
+				// TODO: this is for digits only!
+				j++;
+				if (ch >= '0' && ch <= '9') {
+					return ch;
+				}
+			}
+		}
+
+		let ch = nextValueChar();
+		
+		for (let i = 0; i < mask.length; i++) {
+			let mc = mask[i];
+			if (isSpaceChar(mc)) {
+				str += mc;
+			}
+			else if (isMaskChar(mc)) {
+				str += ch;
+				ch = nextValueChar();
+			} else {
+				str += mc;
+				if (mc === ch)
+					ch = nextValueChar();
 			}
 		}
 		return str;
@@ -88,6 +125,24 @@ app.modules['std:mask'] = function () {
 		el.removeEventListener('paste', pasteHandler);
 	}
 
+	function setMask(el, mask) {
+		if (!el) return;
+		if (!mask) {
+			// remove mask
+			unmountElement(el, mask);
+			el.value = '';
+		} else if (el.__opts) {
+			// change mask
+			el.__opts.mask = mask;
+			//console.dir('set new mask');
+			el.value = getMasked(mask, '');
+		} else {
+			// set new
+			mountElement(el, mask);
+			el.value = getMasked(mask, '');
+		}
+	}
+
 	function getCaretPosition(input) {
 		if (!input)
 			return 0;
@@ -120,6 +175,7 @@ app.modules['std:mask'] = function () {
 	}
 
 	function setCaretPosition(input, pos, fit) {
+		//console.dir('set position');
 		if (!input) return;
 		if (input.offsetWidth === 0 || input.offsetHeight === 0) {
 			return; // Input's hidden
@@ -132,6 +188,7 @@ app.modules['std:mask'] = function () {
 	}
 
 	function setRangeText(input, text, s, e) {
+		//console.dir('set range text');
 		if (input.setRangeText) {
 			input.setRangeText(text, s, e);
 			return;
@@ -147,6 +204,22 @@ app.modules['std:mask'] = function () {
 		setRangeText(input, '', input.selectionStart, input.selectionEnd);
 	}
 
+	function clearSelectionFull(ev, input) {
+		if (ev.which !== 46) return false;
+		let s = input.selectionStart;
+		let e = input.selectionEnd;
+		let l = input.value.length;
+		if (s === 0 && e === l) {
+			//console.dir(`s: ${s}, e:${e} v:${input.value.length}`);
+			input.value = getMasked(input.__opts.mask, '');
+			setCaretPosition(input, 0, 'r');
+			ev.preventDefault();
+			ev.stopPropagation();
+			return true;
+		}
+		return false;
+	}
+
 	function setCurrentChar(input, char) {
 		let pos = getCaretPosition(input);
 		let mask = input.__opts.mask;
@@ -159,13 +232,57 @@ app.modules['std:mask'] = function () {
 		}
 	}
 
+	function isAccel(e, input) {
+		if (e.which >= 112 && e.which <= 123)
+			return true; // f1-f12
+		if (e.which === 16 || e.which === 17)
+			return true; // ctrl || shift
+		if (e.which >= 112 && e.which <= 123)
+			return true; // f1-f12
+		if (e.which === 9) return true; // tab
+		if (e.which === 13) {
+			fireChange(input);
+			setTimeout(() => {
+				let d = 'l'; // last
+				if (!input.value) {
+					input.value = getMasked(input.__opts.mask, '');
+					d = 'r'; // first
+				}
+				setCaretPosition(input, d === 'r' ? 0 : 32768, d);
+			}, 10);
+			return true; // enter
+		}
+		if (e.ctrlKey) {
+			switch (e.which) {
+				case 86: // V
+				case 67: // C
+				case 65: // A
+				case 88: // X
+				case 90: // Z
+				case 45: // Ins
+					return true;
+			}
+		} else if (e.shiftKey) {
+			switch (e.which) {
+				case 45: // ins
+				case 46: // del
+				case 37: // left
+				case 39: // right
+				case 36: // home
+				case 35: // end
+					return true;
+			}
+		}
+		return false;
+	}
+
 	function keydownHandler(e) {
-		let isCtrlZ = e.which === 90 && e.ctrlKey; //ctrl+z (undo)
+		if (isAccel(e, this)) return;
 		let handled = false;
+		if (clearSelectionFull(e, this)) return;
 		let pos = getCaretPosition(this);
+		//console.dir(e.which);
 		switch (e.which) {
-			case 9: /* tab */
-				break;
 			case 37: /* left */
 				setCaretPosition(this, pos - 1, 'l');
 				handled = true;
@@ -199,8 +316,6 @@ app.modules['std:mask'] = function () {
 				handled = true;
 				break;
 			default:
-				if (e.which >= 112 && e.which <= 123)
-					break; // f1-f12
 				if (e.key.length === 1)
 					setCurrentChar(this, e.key);
 				handled = true;
@@ -216,7 +331,7 @@ app.modules['std:mask'] = function () {
 		fireChange(this);
 	}
 
-	function focusHandler(e) {
+	function focusHandler(/*e*/) {
 		if (!this.value)
 			this.value = getMasked(this.__opts.mask, '');
 		setTimeout(() => {
@@ -226,6 +341,9 @@ app.modules['std:mask'] = function () {
 
 	function pasteHandler(e) {
 		e.preventDefault();
+		let dat = e.clipboardData.getData('text/plain');
+		if (!dat) return;
+		this.value = fitMask(this.__opts.mask, dat);
 	}
 
 

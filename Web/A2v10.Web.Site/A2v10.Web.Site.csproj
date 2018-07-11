@@ -52,17 +52,22 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="app\app.js" />
+    <Content Include="app\components\calendar.js" />
     <Content Include="app\components\collectionview.js" />
     <Content Include="app\components\control.js" />
     <Content Include="app\components\datepicker.js" />
     <Content Include="app\components\debug.js" />
     <Content Include="app\components\doctitle.js" />
+    <Content Include="app\components\feedback.js" />
     <Content Include="app\components\graphics.js" />
+    <Content Include="app\components\attachments.js" />
     <Content Include="app\components\image.js" />
     <Content Include="app\components\list.js" />
+    <Content Include="app\components\megamenu.js" />
     <Content Include="app\components\newbutton.js" />
     <Content Include="app\components\pager.js" />
     <Content Include="app\components\panel.js" />
+    <Content Include="app\components\periodpicker.js" />
     <Content Include="app\components\popover.js" />
     <Content Include="app\components\selector.js" />
     <Content Include="app\components\sheet.js" />
@@ -71,6 +76,7 @@
     <Content Include="app\components\taskpad.js" />
     <Content Include="app\components\toastr.js" />
     <Content Include="app\components\upload.js" />
+    <Content Include="app\components\wizard.js" />
     <Content Include="app\controllers\shell.js" />
     <Content Include="app\controllers\base.js" />
     <Content Include="app\components\datagrid.js" />
@@ -79,6 +85,7 @@
     <Content Include="app\components\textbox.js" />
     <Content Include="app\components\treeview.js" />
     <Content Include="app\components\validator.js" />
+    <Content Include="app\controllers\standalone.js" />
     <Content Include="app\directives\autosize.js" />
     <Content Include="app\directives\disable.js" />
     <Content Include="app\directives\dropdown.js" />
@@ -97,7 +104,10 @@
     <Content Include="app\services\http.js" />
     <Content Include="app\services\log.js" />
     <Content Include="app\services\mask.js" />
+    <Content Include="app\services\modelinfo.js" />
+    <Content Include="app\services\period.js" />
     <Content Include="app\services\popup.js" />
+    <Content Include="app\services\tools.js" />
     <Content Include="app\services\url.js" />
     <Content Include="app\services\utils.js" />
     <Content Include="app\services\validators.js" />
@@ -136,6 +146,7 @@
     <Content Include="Localization\en.xml" />
     <Content Include="Localization\ru.xml" />
     <Content Include="Localization\uk.xml" />
+    <Content Include="scripts\commonsite.js" />
     <Content Include="scripts\d3.min.js" />
     <Content Include="scripts\jasmine\boot.js" />
     <Content Include="scripts\jasmine\console.js" />
@@ -145,6 +156,8 @@
     <Content Include="scripts\locale-ru.min.js" />
     <Content Include="scripts\locale-uk.min.js" />
     <Content Include="scripts\main.js" />
+    <Content Include="TestPages\standalonemodel.html" />
+    <Content Include="TestPages\Test.xml" />
     <Content Include="TestPages\checkbox.html" />
     <Content Include="TestPages\collectionview2.html" />
     <Content Include="TestPages\collectionview.html" />
@@ -157,6 +170,7 @@
     <Content Include="TestPages\formcontrol2.html" />
     <Content Include="TestPages\datepicker.js" />
     <Content Include="TestPages\generator.js" />
+    <Content Include="TestPages\timeline.html" />
     <Content Include="TestPages\icons.html" />
     <Content Include="TestPages\listcomponent.html" />
     <Content Include="TestPages\mask.html" />
@@ -194,14 +208,18 @@
     <Content Include="TestPages\datagridwithdata.html" />
     <Content Include="TestPages\datagrid.html" />
     <Content Include="TestPages\formcontrol.html" />
-    <Content Include="Web.config" />
+    <Content Include="Web.config">
+      <SubType>Designer</SubType>
+    </Content>
     <Content Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </Content>
     <Content Include="Web.Release.config">
       <DependentUpon>Web.config</DependentUpon>
     </Content>
-    <Content Include="packages.config" />
+    <Content Include="packages.config">
+      <SubType>Designer</SubType>
+    </Content>
     <Content Include="Less\Utlis.less" />
     <Content Include="Less\DataGrid.less" />
     <Content Include="Less\Normalize.less" />
@@ -241,6 +259,9 @@
     <Content Include="Less\SideBar.less" />
     <Content Include="Less\SideBar.Compact.less" />
     <Content Include="Less\Image.less" />
+    <Content Include="Less\Wizard.less" />
+    <Content Include="Less\AppPages.less" />
+    <Content Include="Less\Feedback.less" />
     <None Include="Less\Site.magenta.less" />
     <Content Include="Less\Variables.Magenta.less" />
     <Content Include="Less\Text.less" />
@@ -248,7 +269,9 @@
     <Content Include="Less\SuperMenu.less" />
     <Content Include="Less\Toastr.less" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="app\server\" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\A2v10.Web.Mvc\A2v10.Web.Mvc.csproj">
       <Project>{478240ab-9772-4f70-8e31-bd0303cbf836}</Project>
@@ -277,19 +300,18 @@
           <IISUrl>http://localhost:56358/</IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
-          <CustomServerUrl>
-          </CustomServerUrl>
+          <CustomServerUrl>http://localhost:81</CustomServerUrl>
           <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
         </WebProjectProperties>
       </FlavorProperties>
     </VisualStudio>
   </ProjectExtensions>
-  <Import Project="..\..\packages\BuildBundlerMinifier.2.6.375\build\BuildBundlerMinifier.targets" Condition="Exists('..\..\packages\BuildBundlerMinifier.2.6.375\build\BuildBundlerMinifier.targets')" />
+  <Import Project="..\..\packages\BuildBundlerMinifier.2.8.391\build\BuildBundlerMinifier.targets" Condition="Exists('..\..\packages\BuildBundlerMinifier.2.8.391\build\BuildBundlerMinifier.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\..\packages\BuildBundlerMinifier.2.6.375\build\BuildBundlerMinifier.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\BuildBundlerMinifier.2.6.375\build\BuildBundlerMinifier.targets'))" />
+    <Error Condition="!Exists('..\..\packages\BuildBundlerMinifier.2.8.391\build\BuildBundlerMinifier.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\BuildBundlerMinifier.2.8.391\build\BuildBundlerMinifier.targets'))" />
   </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.

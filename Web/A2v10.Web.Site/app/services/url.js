@@ -1,11 +1,12 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180426-7167*/
+/*20180619-7227*/
 /* services/url.js */
 
 app.modules['std:url'] = function () {
 
 	const utils = require('std:utils');
+	const period = require('std:period');
 
 	return {
 		combine,
@@ -49,6 +50,8 @@ app.modules['std:url'] = function () {
 		if (!utils.isDefined(obj)) return '';
 		if (utils.isDate(obj)) {
 			return utils.format(obj, "DateUrl");
+		} else if (period.isPeriod(obj)) {
+			return obj.format('DateUrl');
 		} else if (utils.isObjectExact(obj)) {
 			if (obj.constructor.name === 'Object') {
 				if (!utils.isDefined(obj.Id))
@@ -124,15 +127,18 @@ app.modules['std:url'] = function () {
 
 	function makeBaseUrl(url) {
 		let x = (url || '').split('/');
-		if (x.length === 6)
-			return x.slice(2, 4).join('/');
+		let len = x.length;
+		if (len >= 6)
+			return x.slice(2, len - 2).join('/');
 		return url;
 	}
 
 	function parseUrlAndQuery(url, querySrc) {
 		let query = {};
-		for (let p in querySrc)
+		for (let p in querySrc) {
+			if (p.startsWith('_')) continue;
 			query[p] = toUrl(querySrc[p]); // all values are string
+		}
 		let rv = { url: url, query: query };
 		if (url.indexOf('?') !== -1) {
 			let a = url.split('?');

@@ -7,8 +7,8 @@
 	</Page.Resources>
 	<Page.Toolbar>
 		<Toolbar Style="Transparent">
-			<Button Icon="Add" Tip="Создать счет2" Command="{BindCmd Create, Url={StaticResource OpenUrl}, Argument={Bind Root.$ForCreate}}">@[Create]</Button>
-			<Button Icon="ArrowOpen" Command="{BindCmd OpenSelected, Url={StaticResource OpenUrl}, Argument={Bind Documents}}">Открыть</Button>
+			<Button Icon="Add" Tip="Создать счет" Command="{BindCmd Create, Url={StaticResource OpenUrl}, Argument={Bind Root.$ForCreate}}">@[Create]</Button>
+			<Button Icon="ArrowOpen" Command="{BindCmd OpenSelected, Url={StaticResource OpenUrl}, Argument={Bind Documents}, NewWindow=False}">Открыть</Button>
 			<Button Icon="Delete" Command="{BindCmd DbRemoveSelected, Argument={Bind Documents}, Confirm='@[ConfirmDeleteDocument]'}">@[Delete]</Button>
 			<Button Icon="Download" Content="Експорт" Command="{BindCmd Export}"/>
 			<Separator />
@@ -20,19 +20,26 @@
 					</DropDownMenu>
 				</Button.DropDown>
 			</Button>
-			<!--
-			<Button Style="Green" Icon="Plus" Content="Create new" Toolbar.Align="Right">
-				<Button.DropDown>
-					<DropDownMenu Direction="DownRight">
-						<MenuItem Content="First element"></MenuItem>
-					</DropDownMenu>
-				</Button.DropDown>
-			</Button>
-			-->
+			<DatePicker Value="{Bind Parent.Filter.Period.From}"/>
+			<Button Icon="DashboardOutline" Content="Wizard" Command="{BindCmd Dialog, Action=Show, Url='/Sales/Invoice/Wizard'}"/>
+			<Button Icon="FileLink" Content="XML" Command="{BindCmd Report, Report='TestXml', Export=True, Argument={Bind Documents.$selected}}"/>
+			<Radio Value="{Bind Documents.Count}" CheckedValue="4" Label="Radio 1" Disabled="True"/>
+			<PeriodPicker Value="{Bind Parent.Filter.Period}" Width="15rem" Placement="BottomRight" Toolbar.Align="Right"/>
+			<Button Icon="Upload" Content="Upload" Command="{BindCmd Dialog, Action=Show, Url='/Sales/Invoice/UploadWizard'}"/>
 		</Toolbar>
 	</Page.Toolbar>
 	<Page.CollectionView>
-		<CollectionView ItemsSource="{Bind Documents}" RunAt="ServerUrl"/>
+		<CollectionView ItemsSource="{Bind Documents}" RunAt="ServerUrl">
+			<CollectionView.Filter>
+				<FilterDescription>
+					<!--
+					<FilterItem Property="From" DataType="Date" />
+					<FilterItem Property="To" DataType="Date" />
+					-->
+					<FilterItem Property="Period" DataType="Period" />
+				</FilterDescription>
+			</CollectionView.Filter>
+		</CollectionView>
 	</Page.CollectionView>
 	<Page.Pager>
 		<Pager Source="{Bind Parent.Pager}" />
@@ -66,10 +73,10 @@
 		<DataGridColumn Fit="True">
 			<TagLabel Content="{Bind $State}" Style="{Bind $StateStyle}"/>
 		</DataGridColumn>
-		<DataGridColumn Header="@[Date]" Content="{Bind Date, DataType=Date}" Align="Center" Fit="True" />
-		<DataGridColumn Header="@[No]" Content="{Bind No}" Fit="True" Align="Right"/>
+		<DataGridColumn Header="@[Date]" Content="{Bind Date, DataType=Date}" Align="Center" Fit="True" Wrap="NoWrap"/>
+		<DataGridColumn Header="@[No]" Content="{Bind No}" Fit="True" Align="Right" Wrap="NoWrap"/>
 		<DataGridColumn Header="@[Purchaser]" Content="{Bind Agent.Name}" Width="100"/>
-		<DataGridColumn Header="@[Sum]" Content="{Bind Sum, DataType=Currency}" Align="Right" Fit="True"/>
+		<DataGridColumn Header="@[Sum]" Content="{Bind Sum, DataType=Currency}" Align="Right" Fit="True" Wrap="NoWrap"/>
 		<DataGridColumn Header="@[Memo]" Content="{Bind Memo}" Width="150"/>
 		<DataGridColumn Fit="True">
 			<CommandBar Visibility="Active">

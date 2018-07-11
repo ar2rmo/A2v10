@@ -1,9 +1,13 @@
 ﻿;
-@About=Про программу
+@About=Про систему
+@Confidentiality=Конфедіційність
+@Contacts=Конакти
 @Version=Версія
 @Debug=Відладка
 @Quit=Вихід
 @Tracing=Трасування
+@Settings=Налаштування
+@Feedback=Зворотній зв'язок
 @DataModel=Модель даних
 @Profiling=Профілювання
 @Profile=Профіль
@@ -42,6 +46,7 @@
 @Print=Друк
 @Search=Пошук
 @Help=Допомога
+@Export=Експорт
 ;
 @General=Загальні
 @Properties=Властивості
@@ -69,3 +74,5 @@
 ;
 @Error.EnterName=Введіть назву елемента
 @Error.DuplicateCode=Елемент з таким кодом вже існує
+@Error.Exception=Щось пішло не так, як очікувалося :-(
+@Error.FileFormatException=Некоректний формат файлу

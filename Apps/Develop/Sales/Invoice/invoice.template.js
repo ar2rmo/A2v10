@@ -9,6 +9,7 @@ const template = {
 		'TDocument.Sum': cmn.docTotalSum,
 		//'TDocument.$DatePlusOne'() { return utils.date.add(this.Date, -2, 'day');},
 		'TDocument.$canShipment': canShipment,
+		'TDocument.$checked': Boolean,
 		'TDocLink.$Mark'() { return this.Done ? 'success' : null; }
 	},
 	validators: {
@@ -18,10 +19,11 @@ const template = {
 	},
 	events: {
 		'Model.load': modelLoad,
+		'Model.saved'(root) { console.dir(root);},
 		'Document.Rows[].add': (arr, row) => row.Qty = 1,
 		'Document.Rows[].Entity.Article.change': cmn.findArticle,
 		'Document.Agent.change': (doc) => { console.dir('Agent.change'); },
-		'Document.Date.change': (doc) => { console.dir('Date.change'); }
+		'Document.Date.change': (doc, newVal, oldVal) => { console.dir(`Date.change nv:${newVal}, ov:${oldVal}`); }
 	},
 	commands: {
 		apply: cmn.docApply,

@@ -1,9 +1,13 @@
 ﻿;
 @About=About
+@Confidentiality=Confidentiality
+@Contacts=Contacts
 @Version=Version
 @Debug=Debug
 @Quit=Quit
 @Tracing=Tracing
+@Settings=Settings
+@Feedback=Feedback
 @DataModel=Data model
 @Profiling=Profiling
 @Profile=Profile
@@ -42,6 +46,7 @@
 @Print=Print
 @Search=Search
 @Help=Help
+@Export=Export
 ;
 @General=General
 @Properties=Properties
@@ -69,3 +74,6 @@
 ;
 @Error.EnterName=Enter item name
 @Error.DuplicateCode=Duplicate code
+@Error.Exception=Something went wrong as expected :-(
+@Error.FileFormatException=File contains corrupted data
+

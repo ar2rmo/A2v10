@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 
 using A2v10.Infrastructure;
 using System.IO;
+using System.Text;
 
 namespace A2v10.Request
 {
@@ -30,6 +31,7 @@ namespace A2v10.Request
 		Command,
 		Data,
 		Image,
+		Upload,
 		Report,
 		Export
 	}
@@ -49,6 +51,7 @@ namespace A2v10.Request
 		public String path;
 		public String data;
 		public String report;
+		public String upload;
 	}
 
 
@@ -99,9 +102,9 @@ namespace A2v10.Request
 				var cm = CurrentModel;
 				if (String.IsNullOrEmpty(cm))
 					return null;
-				String action = 
-					index ? "Index" : 
-					copy  ? "Copy"  : "Load";
+				String action =
+					index ? "Index" :
+					copy ? "Copy" : "Load";
 				return $"[{CurrentSchema}].[{cm}.{action}]";
 			}
 		}
@@ -274,7 +277,8 @@ namespace A2v10.Request
 
 	public class RequestAction : RequestView
 	{
-		public RequestExport export { get; set; }
+		[JsonProperty("export")]
+		public RequestExport Export { get; set; }
 	}
 
 	public class RequestDialog : RequestView
@@ -290,6 +294,7 @@ namespace A2v10.Request
 	{
 		none,
 		sql,
+		clr,
 		startProcess,
 		resumeProcess
 	}
@@ -300,6 +305,7 @@ namespace A2v10.Request
 		public CommandType type;
 		public String procedure;
 		public String file;
+		public String clrType;
 
 		[JsonIgnore]
 		public String CommandProcedure => $"[{CurrentSchema}].[{procedure}]";
@@ -314,11 +320,21 @@ namespace A2v10.Request
 		}
 	}
 
+	public enum RequestReportType
+	{
+		stimulsoft,
+		xml
+	}
+
 	public class RequestReport : RequestBase
 	{
 		public String report;
 		public String name;
 		public String procedure;
+		public IList<String> xmlSchemas;
+		public RequestReportType type;
+		public String encoding;
+		public Boolean validate;
 
 		public ExpandoObject variables;
 
@@ -336,6 +352,21 @@ namespace A2v10.Request
 				return $"[{CurrentSchema}].[{cm}.Report]";
 			}
 		}
+
+		[JsonIgnore]
+		public Boolean HasPath => type == RequestReportType.stimulsoft;
+	}
+
+	public enum RequestUploadParseType
+	{
+		none,
+		excel
+	}
+
+
+	public class RequestUpload : RequestBase
+	{
+		public RequestUploadParseType parse;
 	}
 
 	public class RequestImage : RequestBase
@@ -350,6 +381,7 @@ namespace A2v10.Request
 		private String _popup;
 		private String _command;
 		private String _report;
+		private String _upload;
 		private String _data;
 		private RequestUrlKind _kind;
 
@@ -365,11 +397,18 @@ namespace A2v10.Request
 		[JsonIgnore]
 		internal RequestUrlKind CurrentKind => _kind;
 
-		public Dictionary<String, RequestAction> actions { get; set; } = new Dictionary<String, RequestAction>(StringComparer.InvariantCultureIgnoreCase);
-		public Dictionary<String, RequestDialog> dialogs { get; set; } = new Dictionary<String, RequestDialog>(StringComparer.InvariantCultureIgnoreCase);
-		public Dictionary<String, RequestPopup> popups { get; set; } = new Dictionary<String, RequestPopup>(StringComparer.InvariantCultureIgnoreCase);
-		public Dictionary<String, RequestCommand> commands { get; set; } = new Dictionary<String, RequestCommand>(StringComparer.InvariantCultureIgnoreCase);
-		public Dictionary<String, RequestReport> reports { get; set; } = new Dictionary<String, RequestReport>(StringComparer.InvariantCultureIgnoreCase);
+		[JsonProperty("actions")]
+		public Dictionary<String, RequestAction> Actions { get; set; } = new Dictionary<String, RequestAction>(StringComparer.InvariantCultureIgnoreCase);
+		[JsonProperty("dialogs")]
+		public Dictionary<String, RequestDialog> Dialogs { get; set; } = new Dictionary<String, RequestDialog>(StringComparer.InvariantCultureIgnoreCase);
+		[JsonProperty("popups")]
+		public Dictionary<String, RequestPopup> Popups { get; set; } = new Dictionary<String, RequestPopup>(StringComparer.InvariantCultureIgnoreCase);
+		[JsonProperty("commands")]
+		public Dictionary<String, RequestCommand> Commands { get; set; } = new Dictionary<String, RequestCommand>(StringComparer.InvariantCultureIgnoreCase);
+		[JsonProperty("reports")]
+		public Dictionary<String, RequestReport> Reports { get; set; } = new Dictionary<String, RequestReport>(StringComparer.InvariantCultureIgnoreCase);
+		[JsonProperty("uploads")]
+		public Dictionary<String, RequestUpload> Uploads { get; set; } = new Dictionary<String, RequestUpload>(StringComparer.InvariantCultureIgnoreCase);
 
 
 		[JsonIgnore]
@@ -409,11 +448,11 @@ namespace A2v10.Request
 		{
 			get
 			{
-				if (actions.Count == 0)
+				if (Actions.Count == 0)
 					throw new RequestModelException($"There are no actions in model '{_modelPath}'");
 				if (String.IsNullOrEmpty(_action))
 					throw new RequestModelException($"Invalid empty action in url for model {_modelPath}");
-				if (actions.TryGetValue(_action.ToLowerInvariant(), out RequestAction ma))
+				if (Actions.TryGetValue(_action.ToLowerInvariant(), out RequestAction ma))
 					return ma;
 				throw new RequestModelException($"Action '{_action}' not found in model {_modelPath}");
 			}
@@ -423,12 +462,11 @@ namespace A2v10.Request
 		{
 			get
 			{
-				if (dialogs.Count == 0)
+				if (Dialogs.Count == 0)
 					throw new RequestModelException($"There are no dialogs in model '{_modelPath}'");
 				if (String.IsNullOrEmpty(_dialog))
 					throw new RequestModelException($"Invalid empty dialog in url for {_modelPath}");
-				RequestDialog da;
-				if (dialogs.TryGetValue(_dialog, out da))
+				if (Dialogs.TryGetValue(_dialog, out RequestDialog da))
 					return da;
 				throw new RequestModelException($"Dialog '{_dialog}' not found in model {_modelPath}");
 			}
@@ -438,12 +476,11 @@ namespace A2v10.Request
 		{
 			get
 			{
-				if (popups.Count == 0)
+				if (Popups.Count == 0)
 					throw new RequestModelException($"There are no popups in model '{_modelPath}'");
 				if (String.IsNullOrEmpty(_popup))
 					throw new RequestModelException($"Invalid empty popup in url for {_modelPath}");
-				RequestPopup pa;
-				if (popups.TryGetValue(_popup, out pa))
+				if (Popups.TryGetValue(_popup, out RequestPopup pa))
 					return pa;
 				throw new RequestModelException($"Popup '{_popup}' not found in model {_modelPath}");
 			}
@@ -469,32 +506,39 @@ namespace A2v10.Request
 
 		private void EndInit()
 		{
-			foreach (var a in actions.Values)
+			foreach (var a in Actions.Values)
 				a.SetParent(this);
-			foreach (var c in commands.Values)
+			foreach (var c in Commands.Values)
 				c.SetParent(this);
-			foreach (var d in dialogs.Values)
+			foreach (var d in Dialogs.Values)
 				d.SetParent(this);
-			foreach (var p in popups.Values)
+			foreach (var p in Popups.Values)
 				p.SetParent(this);
-			foreach (var r in reports.Values)
+			foreach (var r in Reports.Values)
 				r.SetParent(this);
+			foreach (var u in Uploads.Values)
+				u.SetParent(this);
 		}
 
 		public RequestCommand GetCommand(String command)
 		{
-			RequestCommand cmd;
-			if (commands.TryGetValue(command, out cmd))
+			if (Commands.TryGetValue(command, out RequestCommand cmd))
 				return cmd;
 			throw new RequestModelException($"Command '{command}' not found in model.json");
 		}
 
 		public RequestReport GetReport()
 		{
-			RequestReport rep;
-			if (reports.TryGetValue(_report, out rep))
+			if (Reports.TryGetValue(_report, out RequestReport rep))
 				return rep;
 			throw new RequestModelException($"Report '{_report}' not found");
+		}
+
+		public RequestUpload GetUpload()
+		{
+			if (Uploads.TryGetValue(_upload, out RequestUpload upload))
+				return upload;
+			throw new RequestModelException($"Upload '{_upload}' not found");
 		}
 
 		public static RequestModelInfo GetModelInfo(RequestUrlKind kind, String normalizedUrl)
@@ -534,6 +578,9 @@ namespace A2v10.Request
 				case RequestUrlKind.Image:
 					mi.action = action;
 					break;
+				case RequestUrlKind.Upload:
+					mi.upload = action;
+					break;
 				case RequestUrlKind.Report:
 					mi.report = action;
 					break;
@@ -553,8 +600,7 @@ namespace A2v10.Request
 			await StartWatcher(host, bAdmin);
 			if (_redirect == null)
 				return path;
-			String outPath;
-			if (_redirect.TryGetValue(path, out outPath))
+			if (_redirect.TryGetValue(path, out String outPath))
 				return outPath;
 			return path;
 		}
@@ -575,8 +621,10 @@ namespace A2v10.Request
 			}
 			if (host.IsDebugConfiguration && _redirectWatcher == null)
 			{
-				_redirectWatcher = new FileSystemWatcher(Path.GetDirectoryName(redFilePath), "*.json");
-				_redirectWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.Attributes | NotifyFilters.LastAccess;
+				_redirectWatcher = new FileSystemWatcher(Path.GetDirectoryName(redFilePath), "*.json")
+				{
+					NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.Attributes | NotifyFilters.LastAccess
+				};
 				_redirectWatcher.Changed += (sender, e) =>
 				{
 					_redirectLoaded = false;
@@ -598,6 +646,7 @@ namespace A2v10.Request
 			rm._popup = mi.popup;
 			rm._command = mi.command;
 			rm._report = mi.report;
+			rm._upload = mi.upload;
 			rm._data = mi.data;
 			rm._modelPath = pathForLoad;
 			rm._id = ((mi.id == "0") || (mi.id == "new")) ? null : mi.id;
@@ -627,6 +676,11 @@ namespace A2v10.Request
 			{
 				kind = RequestUrlKind.Image;
 				baseUrl = baseUrl.Substring(8);
+			}
+			else if (baseUrl.StartsWith("/_upload"))
+			{
+				kind = RequestUrlKind.Upload;
+				baseUrl = baseUrl.Substring(9);
 			}
 			else if (baseUrl.StartsWith("/_report"))
 			{

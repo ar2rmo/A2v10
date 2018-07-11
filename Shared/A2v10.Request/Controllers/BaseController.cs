@@ -13,17 +13,21 @@ using A2v10.Infrastructure.Utilities;
 using System.Net;
 using A2v10.Data.Interfaces;
 using System.Threading;
+using System.Web;
 
 namespace A2v10.Request
 {
 	public partial class BaseController
 	{
-		protected IApplicationHost _host;
-		protected IDbContext _dbContext;
-		protected IRenderer _renderer;
-		protected IWorkflowEngine _workflowEngine;
-		protected ILocalizer _localizer;
-		protected IDataScripter _scripter;
+		protected readonly IApplicationHost _host;
+		protected readonly IDbContext _dbContext;
+		protected readonly IRenderer _renderer;
+		protected readonly IWorkflowEngine _workflowEngine;
+		protected readonly ILocalizer _localizer;
+		protected readonly IDataScripter _scripter;
+		protected readonly IMessageService _messageService;
+
+		const String NO_VIEW = "\b_NO_VIEW_\b";
 
 		public BaseController()
 		{
@@ -31,10 +35,11 @@ namespace A2v10.Request
 			IServiceLocator locator = ServiceLocator.Current;
 			_host = locator.GetService<IApplicationHost>();
 			_dbContext = locator.GetService<IDbContext>();
-			_renderer = locator.GetService<IRenderer>();
-			_workflowEngine = locator.GetService<IWorkflowEngine>();
+			_renderer = locator.GetServiceOrNull<IRenderer>();
+			_workflowEngine = locator.GetServiceOrNull<IWorkflowEngine>();
 			_localizer = locator.GetService<ILocalizer>();
 			_scripter = locator.GetService<IDataScripter>();
+			_messageService = locator.GetServiceOrNull<IMessageService>();
 		}
 
 		public Boolean IsDebugConfiguration => _host.IsDebugConfiguration;
@@ -77,8 +82,20 @@ namespace A2v10.Request
 					await RenderChangePassword(writer, loadPrms);
 					break;
 				default:
-					throw new RequestModelException($"Invalid application Url: {pathInfo}");
+					// find page
+					if (kind != RequestUrlKind.Page)
+						throw new RequestModelException($"Invalid application Url: {pathInfo}");
+					await RenderAppPage(writer, segs[1]);
+					break;
 			}
+		}
+
+		public async Task RenderModel(String pathInfo, ExpandoObject loadPrms, TextWriter writer)
+		{
+			RequestModel rm = await RequestModel.CreateFromUrl(_host, Admin, RequestUrlKind.Page, pathInfo);
+			RequestView rw = rm.GetCurrentAction(RequestUrlKind.Page);
+			rw.view = NO_VIEW; // no view here
+			await Render(rw, writer, loadPrms);
 		}
 
 		public async Task RenderElementKind(RequestUrlKind kind, String pathInfo, ExpandoObject loadPrms, TextWriter writer)
@@ -166,11 +183,21 @@ namespace A2v10.Request
 			if (rw.indirect)
 				rw = await LoadIndirect(rw, model, loadPrms);
 
-			String viewName = rw.GetView();
 			String rootId = "el" + Guid.NewGuid().ToString();
+			String modelScript = null;
 
-			String modelScript = await WriteModelScript(rw, model, rootId);
+			String viewName = rw.GetView();
+			if (viewName == NO_VIEW)
+			{
+				modelScript = await WriteModelScriptModel(rw, model, rootId);
+				writer.Write(modelScript);
+				return;
+			}
 
+			if (_renderer == null)
+				throw new InvalidOperationException("Service 'IRenderer' not registered");
+
+			modelScript = await WriteModelScript(rw, model, rootId);
 			// TODO: use view engines
 			// try xaml
 			String fileName = rw.GetView() + ".xaml";
@@ -227,6 +254,51 @@ namespace A2v10.Request
 		}
 
 
+		async Task<String> WriteModelScriptModel(RequestView rw, IDataModel model, String rootId)
+		{
+			StringBuilder output = new StringBuilder();
+			String dataModelText = "null";
+			String templateText = "{}";
+			StringBuilder sbRequired = new StringBuilder();
+			if (model != null)
+			{
+				// write model script
+				String fileTemplateText = null;
+				if (rw.template != null)
+				{
+					fileTemplateText = await _host.ReadTextFile(Admin, rw.Path, rw.template + ".js");
+					AddRequiredModules(sbRequired, fileTemplateText);
+					templateText = CreateTemplateForWrite(_localizer.Localize(null, fileTemplateText));
+				}
+				dataModelText = JsonConvert.SerializeObject(model.Root, StandardSerializerSettings);
+			}
+
+const String scriptText =
+@"
+'use strict';
+window.$currentModule = function() {
+	$(RequiredModules)
+
+
+	$(ModelScript)
+
+	const rawData = $(DataModelText);
+	const template = $(TemplateText);
+	return {
+		dataModel: modelData(template, rawData)
+	};
+};";
+			const String emptyModel = "function modelData() {return null;}";
+			var text = new StringBuilder(scriptText);
+			text.Replace("$(DataModelText)", dataModelText);
+			text.Replace("$(TemplateText)", _localizer.Localize(null, templateText));
+			text.Replace("$(RequiredModules)", sbRequired != null ? sbRequired.ToString() : String.Empty);
+			String modelScript = model !=null ? model.CreateScript(_scripter) : emptyModel;
+			text.Replace("$(ModelScript)", modelScript);
+			output.Append(text);
+			return output.ToString();
+		}
+
 		async Task<String> WriteModelScript(RequestView rw, IDataModel model, String rootId)
 		{
 			StringBuilder output = new StringBuilder();
@@ -247,7 +319,7 @@ namespace A2v10.Request
 			}
 
 
-			const String scriptHeader =
+const String scriptHeader =
 @"
 <script type=""text/javascript"">
 
@@ -258,10 +330,13 @@ $(RequiredModules)
 (function() {
 	const DataModelController = component('baseController');
 
+	const utils = require('std:utils');
+	const uPeriod = require('std:period');
+
 	const rawData = $(DataModelText);
 	const template = $(TemplateText);
 ";
-			const String scriptFooter =
+const String scriptFooter =
 @"
 const vm = new DataModelController({
 	el:'#$(RootId)',
@@ -269,7 +344,11 @@ const vm = new DataModelController({
 		inDialog: {type: Boolean, default: $(IsDialog)},
 		pageTitle: {type: String}
 	},
-	data: modelData(template, rawData)
+	data: modelData(template, rawData),
+	computed: {
+		utils() { return utils; },
+		period() { return uPeriod; }
+	},
 });
 
 	vm.$data._host_ = {
@@ -462,6 +541,14 @@ const vm = new DataModelController({
 			}
 		}
 
+		public void WriteScriptException(Exception ex, TextWriter writer)
+		{
+			if (ex.InnerException != null)
+				ex = ex.InnerException;
+			ProfileException(ex);
+			writer.Write($"alert(`{ex.Message.Replace("\\", "\\\\").Replace("'", "\\'")}`)");
+		}
+
 		public void WriteHtmlException(Exception ex, TextWriter writer)
 		{
 			if (ex.InnerException != null)
@@ -472,7 +559,34 @@ const vm = new DataModelController({
 			if (IsDebugConfiguration)
 				writer.Write($"<div class=\"app-exception\"><div class=\"message\">{msg}</div><div class=\"stack-trace\">{stackTrace}</div></div>");
 			else
+			{
+				msg = Localize("@[Error.Exception]");
 				writer.Write($"<div class=\"app-exception\"><div class=\"message\">{msg}</div></div>");
+			}
+		}
+
+
+		public void WriteExceptionStatus(Exception ex, HttpResponseBase response)
+		{
+			if (ex.InnerException != null)
+				ex = ex.InnerException;
+			ProfileException(ex);
+			response.SuppressContent = false;
+			response.StatusCode = 255; // CUSTOM ERROR!!!!
+			response.ContentType = "text/plain";
+			response.StatusDescription = "Custom server error";
+			response.Write(Localize(ex.Message));
+		}
+
+		public void SendSupportEMail(String body)
+		{
+			if (_messageService == null)
+				throw new InvalidOperationException($"Service 'IMessageService' not registered");
+			String to = Host.SupportEmail;
+			if (String.IsNullOrEmpty(to))
+				return;
+			String subject = "Feedback from service";
+			_messageService.Send(to, subject, body);
 		}
 	}
 }

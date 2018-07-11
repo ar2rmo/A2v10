@@ -1,9 +1,9 @@
-/*
+ï»¿/*
 ------------------------------------------------
-Copyright © 2008-2018 Alex Kukhtin
+Copyright Â© 2008-2018 Alex Kukhtin
 
-Last updated : 25 apr 2018
-module version : 7163
+Last updated : 10 may 2018
+module version : 7165
 */
 ------------------------------------------------
 set noexec off;
@@ -21,9 +21,9 @@ go
 ------------------------------------------------
 set nocount on;
 if not exists(select * from a2sys.Versions where Module = N'std:admin')
-	insert into a2sys.Versions (Module, [Version]) values (N'std:admin', 7059);
+	insert into a2sys.Versions (Module, [Version]) values (N'std:admin', 7165);
 else
-	update a2sys.Versions set [Version] = 7059 where Module = N'std:admin';
+	update a2sys.Versions set [Version] = 7165 where Module = N'std:admin';
 go
 ------------------------------------------------
 if not exists(select * from INFORMATION_SCHEMA.SCHEMATA where SCHEMA_NAME=N'a2admin')
@@ -139,7 +139,9 @@ begin
 		where [!!RowNumber] > @Offset and [!!RowNumber] <= @Offset + @PageSize
 	order by [!!RowNumber];
 
-	select [!$System!] = null, [!!PageSize] = 20;
+	select [!$System!] = null, [!Users!PageSize] = @PageSize, 
+		[!Users!SortOrder] = @Order, [!Users!SortDir] = @Dir,
+		[!Users!Offset] = @Offset, [!Users.Fragment!Filter] = @Fragment;
 end
 go
 
@@ -375,7 +377,10 @@ begin
 	order by [!!RowNumber];
 
 
-	select [!$System!] = null, [!!PageSize] = 20;
+	select [!$System!] = null, [!Groups!PageSize] = @PageSize, 
+		[!Groups!SortOrder] = @Order, [!Groups!SortDir] = @Dir,
+		[!Groups!Offset] = @Offset, [!Groups.Fragment!Filter] = @Fragment;
+
 end
 go
 ------------------------------------------------
@@ -602,7 +607,9 @@ begin
 	order by [!!RowNumber]; 
 
 
-	select [!$System!] = null, [!!PageSize] = 20;
+	select [!$System!] = null, [!Roles!PageSize] = @PageSize, 
+		[!Roles!SortOrder] = @Order, [!Roles!SortDir] = @Dir,
+		[!Roles!Offset] = @Offset, [!Roles.Fragment!Filter] = @Fragment;
 end
 go
 ------------------------------------------------
@@ -794,11 +801,11 @@ begin
 	insert into @menu(id, p0, [name], [url], icon, [order])
 	values
 		(900, null, N'Admin',           null,        null,     0),
-		(901, 900,  N'Àäìèíèñòðàòîð',   N'identity', null,     10),
-		(902, 900,  N'Áèçíåñ ïðîöåññû', N'process',  null,     20),
-		(910, 901,  N'Ïîëüçîâàòåëè',    N'user',     N'user',  10),
-		(911, 901,  N'Ãðóïïû',          N'group',    N'users', 10),
-		(912, 901,  N'Ðîëè',            N'role',     N'users', 20);
+		(901, 900,  N'ÐŸÐ¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ñ‚ÐµÐ»Ð¸',   N'identity', null,     10),
+		(902, 900,  N'Ð‘Ð¸Ð·Ð½ÐµÑ Ð¿Ñ€Ð¾Ñ†ÐµÑÑÑ‹', N'process',  null,     20),
+		(910, 901,  N'ÐŸÐ¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ñ‚ÐµÐ»Ð¸',    N'user',     N'user',  10),
+		(911, 901,  N'Ð“Ñ€ÑƒÐ¿Ð¿Ñ‹',          N'group',    N'users', 10),
+		(912, 901,  N'Ð Ð¾Ð»Ð¸',            N'role',     N'users', 20);
 			
 	merge a2ui.Menu as target
 	using @menu as source
@@ -820,9 +827,9 @@ go
 if not exists(select * from a2security.Users where Id <> 0)
 begin
 	set nocount on;
-	insert into a2security.Users(Id, UserName, SecurityStamp, PasswordHash, PersonName)
+	insert into a2security.Users(Id, UserName, SecurityStamp, PasswordHash, PersonName, EmailConfirmed)
 	values (99, N'admin@admin.com', N'c9bb451a-9d2b-4b26-9499-2d7d408ce54e', N'AJcfzvC7DCiRrfPmbVoigR7J8fHoK/xdtcWwahHDYJfKSKSWwX5pu9ChtxmE7Rs4Vg==',
-		N'System administrator');
+		N'System administrator', 1);
 	insert into a2security.UserGroups(UserId, GroupId) values (99, 77), (99, 1); /*predefined values*/
 end
 go

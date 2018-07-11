@@ -3,6 +3,8 @@
 using System;
 using System.Windows.Markup;
 
+using A2v10.Infrastructure;
+
 namespace A2v10.Xaml
 {
 	[ContentProperty("Children")]
@@ -14,6 +16,7 @@ namespace A2v10.Xaml
 		public Pager Pager { get; set; }
 		public String Title { get; set; }
 
+		public BackgroundStyle Background { get; set; }
 		public CollectionView CollectionView { get; set; }
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
@@ -23,20 +26,19 @@ namespace A2v10.Xaml
 
 			// render page OR colleciton view
 
-			Action<TagBuilder> addGridAction = (tag) =>
+			void addGridAction(TagBuilder tag)
 			{
 				if (!isGridPage)
 					return;
 				tag.AddCssClass("page-grid");
 				if (Taskpad != null)
 				{
-					var tp = Taskpad as Taskpad;
-					if (tp != null && tp.Width != null)
+					if (Taskpad is Taskpad tp && tp.Width != null)
 					{
 						tag.MergeStyle("grid-template-columns", $"1fr {tp.Width.Value}");
 					}
 				}
-			};
+			}
 
 			if (CollectionView != null)
 			{
@@ -44,6 +46,7 @@ namespace A2v10.Xaml
 				{
 					tag.AddCssClass("page").AddCssClass("absolute");
 					addGridAction(tag);
+					AddAttributes(tag);
 					tag.MergeAttribute("id", context.RootId);
 				});
 			}
@@ -52,6 +55,7 @@ namespace A2v10.Xaml
 				page = new TagBuilder("div", "page absolute");
 				page.MergeAttribute("id", context.RootId);
 				addGridAction(page);
+				AddAttributes(page);
 				page.RenderStart(context);
 			}
 
@@ -78,6 +82,13 @@ namespace A2v10.Xaml
 					throw new InvalidProgramException();
 				page.RenderEnd(context);
 			}
+		}
+
+		void AddAttributes(TagBuilder tag)
+		{
+			if (Background != BackgroundStyle.None)
+				tag.AddCssClass("background-" + Background.ToString().ToKebabCase());
+			tag.AddCssClass(CssClass);
 		}
 
 		void RenderTitle(RenderContext context)

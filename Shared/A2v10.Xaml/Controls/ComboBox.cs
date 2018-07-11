@@ -15,6 +15,7 @@ namespace A2v10.Xaml
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
 			var option = new TagBuilder("option");
+			MergeAttributes(option, context, MergeAttrMode.Visibility);
 			if (Value != null)
 			{
 				if (Value is IJavaScriptSource)
@@ -46,6 +47,8 @@ namespace A2v10.Xaml
 	{
 		public Object ItemsSource { get; set; }
 		public String DisplayProperty { get; set; }
+		public Boolean ShowValue { get; set; }
+		public TextAlign Align { get; set; }
 
 		ComboBoxItems _children;
 
@@ -67,12 +70,13 @@ namespace A2v10.Xaml
 		{
 			CheckDisabledModel(context);
 			var combo = new TagBuilder("select", null, IsInGrid);
-			if (onRender != null)
-				onRender(combo);
+			onRender?.Invoke(combo);
 			combo.MergeAttribute("is", "combobox");
 			combo.MergeAttribute("v-cloak", String.Empty);
 			combo.MergeAttribute("display", DisplayProperty);
 			MergeAttributes(combo, context);
+			MergeAlign(combo, context, Align);
+			MergeBoolAttribute(combo, context, nameof(ShowValue), ShowValue);
 			MergeDisabled(combo, context);
 			var isBind = GetBinding(nameof(ItemsSource));
 			if (isBind != null)

@@ -34,23 +34,20 @@ namespace A2v10.Web.Mvc.Identity
 
 			public AppUser GetById(Int64 id)
 			{
-				AppUser user = null;
-				if (_mapIds.TryGetValue(id, out user))
+				if (_mapIds.TryGetValue(id, out AppUser user))
 					return user;
 				return null;
 			}
 			public AppUser GetByName(String name)
 			{
-				AppUser user = null;
-				if (_mapNames.TryGetValue(name, out user))
+				if (_mapNames.TryGetValue(name, out AppUser user))
 					return user;
 				return null;
 			}
 
 			public AppUser GetByEmail(String email)
 			{
-				AppUser user = null;
-				if (_mapEmails.TryGetValue(email, out user))
+				if (_mapEmails.TryGetValue(email, out AppUser user))
 					return user;
 				return null;
 			}
@@ -107,11 +104,13 @@ namespace A2v10.Web.Mvc.Identity
 			await _dbContext.ExecuteAsync(DataSource, "[a2security].[CreateUser]", user);
 			if (_host.IsMultiTenant)
 			{
+				/*
 				var createdUser = await FindByIdAsync(user.Id);
 				_host.TenantId = createdUser.Tenant;
 				// TODO: GetTenantSegment!!!!
 				await _dbContext.ExecuteAsync(null, "[a2security].[CreateTenantUser]", createdUser);
 				CacheUser(createdUser);
+				*/
 			}
 			else
 			{
@@ -166,10 +165,25 @@ namespace A2v10.Web.Mvc.Identity
 			{
 				await _dbContext.ExecuteAsync<AppUser>(DataSource, "[a2security].[ConfirmEmail]", user);
 				user.ClearModified(UserModifiedFlag.EmailConfirmed);
+				if (user.EmailConfirmed)
+				{
+					await CreateTenantUser(user);
+				}
 			}
 		}
 
 		#endregion
+
+		async Task CreateTenantUser(AppUser user)
+		{
+			if (_host.IsMultiTenant)
+			{
+				var createdUser = await FindByIdAsync(user.Id);
+				_host.TenantId = createdUser.Tenant;
+				// TODO: GetTenantSegment!!!!
+				await _dbContext.ExecuteAsync(null, "[a2security].[CreateTenantUser]", createdUser);
+			}
+		}
 
 		void CacheUser(AppUser user)
 		{
@@ -177,9 +191,9 @@ namespace A2v10.Web.Mvc.Identity
 		}
 
 		#region IDisposable Support
-		private bool disposedValue = false; // To detect redundant calls
+		private Boolean disposedValue = false; // To detect redundant calls
 
-		protected virtual void Dispose(bool disposing)
+		protected virtual void Dispose(Boolean disposing)
 		{
 			if (!disposedValue)
 			{
@@ -289,13 +303,13 @@ namespace A2v10.Web.Mvc.Identity
 		#endregion
 
 		#region IUserTwoFactorStore
-		public Task SetTwoFactorEnabledAsync(AppUser user, bool enabled)
+		public Task SetTwoFactorEnabledAsync(AppUser user, Boolean enabled)
 		{
 			user.TwoFactorEnabled = enabled;
 			return Task.FromResult(0);
 		}
 
-		public Task<bool> GetTwoFactorEnabledAsync(AppUser user)
+		public Task<Boolean> GetTwoFactorEnabledAsync(AppUser user)
 		{
 			return Task.FromResult(user.TwoFactorEnabled);
 		}
@@ -310,15 +324,18 @@ namespace A2v10.Web.Mvc.Identity
 
 		public Task<String> GetEmailAsync(AppUser user)
 		{
-			return Task.FromResult(user.Email);
+			String mail = user.Email;
+			if (String.IsNullOrEmpty(mail))
+				mail = user.UserName; // user name as email
+			return Task.FromResult(mail);
 		}
 
-		public Task<bool> GetEmailConfirmedAsync(AppUser user)
+		public Task<Boolean> GetEmailConfirmedAsync(AppUser user)
 		{
 			return Task.FromResult(user.EmailConfirmed);
 		}
 
-		public Task SetEmailConfirmedAsync(AppUser user, bool confirmed)
+		public Task SetEmailConfirmedAsync(AppUser user, Boolean confirmed)
 		{
 			user.EmailConfirmed = confirmed;
 			user.SetModified(UserModifiedFlag.EmailConfirmed);
@@ -354,7 +371,7 @@ namespace A2v10.Web.Mvc.Identity
 			return Task.FromResult(user.PhoneNumberConfirmed);
 		}
 
-		public Task SetPhoneNumberConfirmedAsync(AppUser user, bool confirmed)
+		public Task SetPhoneNumberConfirmedAsync(AppUser user, Boolean confirmed)
 		{
 			user.PhoneNumberConfirmed = confirmed;
 			return Task.FromResult(0);
@@ -383,9 +400,11 @@ namespace A2v10.Web.Mvc.Identity
              * доступ через 
              * var user = HttpContext.Current.User.Identity as ClaimsIdentity;
              */
-			IList<Claim> list = new List<Claim>();
-			list.Add(new Claim("PersonName", user.PersonName ?? String.Empty));
-			list.Add(new Claim("TenantId", user.Tenant.ToString()));
+			IList<Claim> list = new List<Claim>
+			{
+				new Claim("PersonName", user.PersonName ?? String.Empty),
+				new Claim("TenantId", user.Tenant.ToString())
+			};
 			if (user.IsAdmin)
 				list.Add(new Claim("Admin", "Admin"));
 			/*

@@ -1,8 +1,10 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180426-7166
+// 20180523-7193
 
 // components/selector.js
+
+/*TODO*/
 
 (function () {
 	const popup = require('std:popup');
@@ -21,13 +23,11 @@
 	<label v-if="hasLabel" v-text="label" />
 	<div class="input-group">
 		<input v-focus v-model="query" :class="inputClass" :placeholder="placeholder"
-			@input="debouncedUpdate"
-			@blur.stop="cancel"
-			@keydown.stop="keyUp"
+			@input="debouncedUpdate" @blur.stop="cancel" @keydown="keyDown" @keyup="keyUp"
 			:disabled="disabled" />
 		<slot></slot>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
-		<div class="selector-pane" v-if="isOpen" ref="pane">
+		<div class="selector-pane" v-if="isOpen" ref="pane" :class="paneClass">
 			<div class="selector-body" :style="bodyStyle">
 				<slot name="pane" :items="items" :is-item-active="isItemActive" :item-name="itemName" :hit="hit" :slotStyle="slotStyle">
 					<ul class="selector-ul">
@@ -57,7 +57,8 @@
 			fetch: Function,
 			listWidth: String,
 			listHeight: String,
-			createNew: Function
+			createNew: Function,
+			placement: String
 		},
 		data() {
 			return {
@@ -88,10 +89,15 @@
 					hit: this.hit
 				};
 			},
+			paneClass() {
+				if (this.placement)
+					return "panel-" + this.placement;
+			},
 			bodyStyle() {
 				let s = {};
-				if (this.listWidth)
-					s.width = this.listWidth;
+				if (this.listWidth) {
+					s.minWidth = this.listWidth;
+				}
 				if (this.listHeight)
 					s.maxHeight = this.listHeight;
 				return s;
@@ -145,10 +151,19 @@
 				this.isOpen = false;
 			},
 			keyUp(event) {
-				if (!this.isOpen) return;
+				if (this.isOpen && event.which === 27) {
+					event.preventDefault();
+					event.stopPropagation();
+					this.cancel();
+				}
+			},
+			keyDown(event) {
+				if (!this.isOpen)
+					return;
+				event.stopPropagation();
 				switch (event.which) {
 					case 27: // esc
-						this.cancel();
+						event.preventDefault();
 						break;
 					case 13: // enter
 						if (this.current === -1) return;
@@ -176,21 +191,23 @@
 			},
 			hit(itm) {
 				let obj = this.item[this.prop];
-				if (obj.$merge)
-					obj.$merge(itm, true /*fire*/);
-				else
-					platform.set(this.item, this.prop, itm);
 				this.query = this.valueText;
 				this.isOpen = false;
 				this.isOpenNew = false;
+				this.$nextTick(() => {
+					if (obj.$merge)
+						obj.$merge(itm, true /*fire*/);
+					else
+						platform.set(this.item, this.prop, itm);
+				});
 			},
 			clear() {
-				let obj = this.item[this.prop];
-				if (obj.$empty)
-					obj.$empty();
 				this.query = '';
 				this.isOpen = false;
 				this.isOpenNew = false;
+				let obj = this.item[this.prop];
+				if (obj.$empty)
+					obj.$empty();
 			},
 			scrollIntoView() {
 				this.$nextTick(() => {
@@ -230,7 +247,12 @@
 				//console.dir(this.createNew);
 				this.isOpen = false;
 				if (this.createNew) {
-					this.createNew(this.query);
+					let elem = this.item[this.prop];
+					let arg = {
+						elem: elem,
+						text: this.query
+					};
+					this.createNew(arg);
 				}
 			}
 		},

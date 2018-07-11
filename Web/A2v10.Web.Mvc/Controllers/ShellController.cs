@@ -20,6 +20,10 @@ using A2v10.Infrastructure;
 using A2v10.Request;
 using A2v10.Web.Mvc.Identity;
 using A2v10.Web.Mvc.Filters;
+using A2v10.Web.Mvc.Models;
+using A2v10.Request.Models;
+using System.Web;
+using Microsoft.AspNet.Identity.Owin;
 
 namespace A2v10.Web.Mvc.Controllers
 {
@@ -89,6 +93,10 @@ namespace A2v10.Web.Mvc.Controllers
 			{
 				await Render(pathInfo.Substring(6), RequestUrlKind.Page);
 			}
+			else if (pathInfo.StartsWith("_model/"))
+			{
+				await RenderModel(pathInfo.Substring(7));
+			}
 			else if (pathInfo.StartsWith("_dialog/"))
 			{
 				await Render(pathInfo.Substring(8), RequestUrlKind.Dialog);
@@ -106,9 +114,17 @@ namespace A2v10.Web.Mvc.Controllers
 			{
 				await Image("/" + pathInfo); // with _image prefix
 			}
+			else if (pathInfo.StartsWith("_upload/"))
+			{
+				await Upload("/" + pathInfo); // with _image prefix
+			}
 			else if (pathInfo.StartsWith("_export/"))
 			{
 				await Export("/" + pathInfo);
+			}
+			else if (pathInfo.StartsWith("file/"))
+			{
+				LoadFile(pathInfo.Substring(5));
 			}
 			else if (pathInfo.StartsWith("_static_image/"))
 			{
@@ -125,19 +141,40 @@ namespace A2v10.Web.Mvc.Controllers
 			try
 			{
 				Response.ContentType = "text/html";
-				var prms = new Dictionary<String, String>();
-				prms.Add("$(RootUrl)", RootUrl);
-				prms.Add("$(HelpUrl)", _baseController.Host.HelpUrl);
-				prms.Add("$(PersonName)", User.Identity.GetUserPersonName());
-				prms.Add("$(Theme)", _baseController.Host.Theme);
-				prms.Add("$(Build)", _baseController.Host.AppBuild);
-				prms.Add("$(Locale)", _baseController.CurrentLang);
-				prms.Add("$(Minify)", _baseController.IsDebugConfiguration ? String.Empty : "min.");
+				var prms = new Dictionary<String, String>
+				{
+					{ "$(RootUrl)", RootUrl },
+					{ "$(HelpUrl)", _baseController.Host.HelpUrl },
+					{ "$(PersonName)", User.Identity.GetUserPersonName() },
+					{ "$(Theme)", _baseController.Host.Theme },
+					{ "$(Build)", _baseController.Host.AppBuild },
+					{ "$(Locale)", _baseController.CurrentLang },
+					{ "$(Minify)", _baseController.IsDebugConfiguration ? String.Empty : "min." },
+					{ "$(Description)", _baseController.Host.AppDescription }
+				};
 				_baseController.Layout(Response.Output, prms);
 			}
 			catch (Exception ex)
 			{
 				_baseController.WriteHtmlException(ex, Response.Output);
+			}
+		}
+
+		async Task RenderModel(String pathInfo)
+		{
+			try
+			{
+				Response.ContentType = "text/javascript";
+				ExpandoObject loadPrms = new ExpandoObject();
+				loadPrms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
+				loadPrms.Set("UserId", UserId);
+				if (_baseController.Host.IsMultiTenant)
+					loadPrms.Set("TenantId", TenantId);
+				await _baseController.RenderModel(pathInfo, loadPrms, Response.Output);
+			}
+			catch (Exception ex)
+			{
+				_baseController.WriteScriptException(ex, Response.Output);
 			}
 		}
 
@@ -150,7 +187,7 @@ namespace A2v10.Web.Mvc.Controllers
 			{
 				Response.ContentType = "text/html";
 				ExpandoObject loadPrms = new ExpandoObject();
-				loadPrms.Append(Request.QueryString, toPascalCase: true);
+				loadPrms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
 				loadPrms.Set("UserId", UserId);
 				if (_baseController.Host.IsMultiTenant)
 					loadPrms.Set("TenantId", TenantId);
@@ -204,12 +241,10 @@ namespace A2v10.Web.Mvc.Controllers
 		{
 			try
 			{
-				ImageInfo info = _baseController.StaticImage(url);
-				if (info == null)
+				AttachmentInfo info = _baseController.StaticImage(url);
+				if (info == null || info.Stream == null)
 					return;
 				Response.ContentType = info.Mime;
-				if (info.Stream == null)
-					return;
 				Response.BinaryWrite(info.Stream);
 			}
 			catch (Exception ex)
@@ -225,7 +260,7 @@ namespace A2v10.Web.Mvc.Controllers
 			{
 				ExpandoObject prms = new ExpandoObject();
 				ExpandoObject loadPrms = new ExpandoObject();
-				loadPrms.Append(Request.QueryString, toPascalCase: true);
+				loadPrms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
 				loadPrms.Set("UserId", UserId);
 				if (_baseController.Host.IsMultiTenant)
 					loadPrms.Set("TenantId", TenantId);
@@ -237,6 +272,29 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 		}
 
+		void LoadFile(String path)
+		{
+			// HTTP GET
+			try
+			{
+				Int32 ix = path.LastIndexOf('-');
+				if (ix != -1)
+					path = path.Substring(0, ix) + "." + path.Substring(ix + 1);
+				String fullPath = _baseController.Host.MakeFullPath(false, "_files/" + path, "");
+				if (!System.IO.File.Exists(fullPath))
+					throw new FileNotFoundException($"File not found '{path}'");
+				Response.ContentType = MimeMapping.GetMimeMapping(path);
+				using (var stream = System.IO.File.OpenRead(fullPath))
+				{
+					stream.CopyTo(Response.OutputStream);
+				}
+			}
+			catch (Exception ex)
+			{
+				_baseController.WriteHtmlException(ex, Response.Output);
+			}
+		}
+
 		async Task Image(String url)
 		{
 			if (Request.HttpMethod == "POST")
@@ -245,15 +303,33 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 			else
 			{
-				await LoadImage(url);
+				await LoadAttachment(url);
 			}
 		}
 
-		async Task LoadImage(String url)
+		async Task Upload(String url)
+		{
+			if (Request.HttpMethod != "POST")
+				throw new RequestModelException("Invalid HttpMethod for upload");
+			if (IsNotAjax())
+				return;
+			Response.ContentType = "application/json";
+			try
+			{
+				var files = Request.Files;
+				await _baseController.SaveUploads(TenantId, url, files, UserId, Response.Output);
+			}
+			catch (Exception ex)
+			{
+				WriteExceptionStatus(ex);
+			}
+		}
+
+		async Task LoadAttachment(String url)
 		{
 			try
 			{
-				ImageInfo info = await _baseController.Image(TenantId, url, UserId);
+				AttachmentInfo info = await _baseController.Attachment(TenantId, url, UserId);
 				if (info == null)
 					return;
 				Response.ContentType = info.Mime;
@@ -288,7 +364,7 @@ namespace A2v10.Web.Mvc.Controllers
 			try
 			{
 				var files = Request.Files;
-				var list = await _baseController.SaveImages(TenantId, url, files, UserId);
+				var list = await _baseController.SaveAttachments(TenantId, url, files, UserId);
 				var rval = new ExpandoObject();
 				rval.Set("status", "OK");
 				rval.Set("ids", list);
@@ -309,6 +385,10 @@ namespace A2v10.Web.Mvc.Controllers
 				ShellTrace();
 			else if (pathInfo.StartsWith("shell/appstyles"))
 				ShellAppStyles();
+			else if (pathInfo.StartsWith("shell/appscripts"))
+				ShellAppScripts();
+			else if (pathInfo.StartsWith("shell/savefeedback"))
+				await ShellSaveFeedback();
 			else
 				throw new RequestModelException($"Invalid shell action: '{pathInfo}'");
 		}
@@ -348,19 +428,47 @@ namespace A2v10.Web.Mvc.Controllers
 		void ShellAppStyles()
 		{
 			Response.ContentType = "text/css";
-			Response.Write(_baseController.GetAppStyleConent());
+			_baseController.GetAppStyleConent(Response.Output);
 		}
+
+		void ShellAppScripts()
+		{
+			Response.ContentType = "text/javascript";
+			_baseController.GetAppScriptConent(Response.Output);
+		}
+
+		async Task ShellSaveFeedback()
+		{
+			Response.ContentType = "application/json";
+			try
+			{
+				String json = null;
+				using (var tr = new StreamReader(Request.InputStream))
+				{
+					json = tr.ReadToEnd();
+				}
+				var model = JsonConvert.DeserializeObject<SaveFeedbackModel>(json);
+				model.UserId = this.UserId;
+				await _baseController.SaveFeedback(model);
+				Response.Output.Write($"{{\"status\": \"OK\"}}");
+
+				var context = HttpContext.GetOwinContext();
+				var userManager = context.GetUserManager<AppUserManager>();
+				var appUser = userManager.FindById(this.UserId);
+
+				String text = $"UserId: {appUser.Id}<br>UserName: {appUser.PersonName}<br>Login: {appUser.UserName}<br></br><p>{model.Text}</p>";
+				_baseController.SendSupportEMail(text);
+			}
+			catch (Exception ex)
+			{
+				WriteExceptionStatus(ex);
+			}
+		}
+
 
 		protected void WriteExceptionStatus(Exception ex)
 		{
-			if (ex.InnerException != null)
-				ex = ex.InnerException;
-			_baseController.ProfileException(ex);
-			Response.SuppressContent = false;
-			Response.StatusCode = 255; // CUSTOM ERROR!!!!
-			Response.ContentType = "text/plain";
-			Response.StatusDescription = "Custom server error";
-			Response.Write(_baseController.Localize(ex.Message));
+			_baseController.WriteExceptionStatus(ex, Response);
 		}
 	}
 }

@@ -21,6 +21,8 @@ namespace A2v10.Xaml
 		internal String GetJsValue(RenderContext context)
 		{
 			var bind = GetBinding(nameof(Value));
+			if (bind != null)
+				return bind.GetPathFormat(context);
 			switch (DataType)
 			{
 				case DataType.String:
@@ -42,15 +44,15 @@ namespace A2v10.Xaml
 					if (bind == null)
 						return "null";
 					return bind.GetPathFormat(context);
-				/*
-                case DataType.Date:
-                    {
-                        if (Value == null)
-                            return "require('std:utils').date.zero()";
-                        DateTime dt = (DateTime)Value;
-                        return $"'{dt.ToString("yyyy-MM-ddTHH\\:mm\\:ss.000Z")}'";
-                    }
-                */
+				case DataType.Date:
+					if (Value == null)
+						return "utils.date.zero()";
+					DateTime dt = (DateTime) Value;
+					return $"utils.date.create({dt.Year}, {dt.Month}, {dt.Day})";
+				case DataType.Period:
+					if (Value == null)
+						return "period.all()";
+					return "null"; // TODO: initial value
 				default:
 					throw new NotImplementedException("type for FilterItem");
 			}
@@ -75,9 +77,11 @@ namespace A2v10.Xaml
 		{
 			foreach (var x in from.Split(','))
 			{
-				var item = new FilterItem();
-				item.DataType = DataType.String;
-				item.Property = x.Trim();
+				var item = new FilterItem
+				{
+					DataType = DataType.String,
+					Property = x.Trim()
+				};
 				Items.Add(item);
 			}
 		}
@@ -100,7 +104,7 @@ namespace A2v10.Xaml
 
 	internal class FilterDescriptionConverter : TypeConverter
 	{
-		public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+		public override Boolean CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
 		{
 			if (sourceType == typeof(String))
 				return true;
@@ -109,7 +113,7 @@ namespace A2v10.Xaml
 			return false;
 		}
 
-		public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+		public override Object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
 		{
 			if (value == null)
 				return null;

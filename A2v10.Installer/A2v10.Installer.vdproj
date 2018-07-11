@@ -249,6 +249,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_324D3FF2D9564FFD81D787A93601D4D1"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_3291FCB53626433093FD7B62353667D1"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -257,6 +263,12 @@
         {
         "MsmKey" = "8:_33E114CD464DB89891E0C66B69D689D5"
         "OwnerKey" = "8:_9C927A6A432B4A7CA17744306F2D299A"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_3672B9AB558B41EDB138278AAC23F149"
+        "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -489,6 +501,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_7358069E141C54049479FF853F6CE688"
+        "OwnerKey" = "8:_5ED8701D8D9A48249DC6C98B212D8671"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_78763B8B6B085F021F6282159B4C8FCE"
         "OwnerKey" = "8:_2EC6F2BBEED3426D8CFE355DF2831DEF"
         "MsmSig" = "8:_UNDEFINED"
@@ -497,6 +515,18 @@
         {
         "MsmKey" = "8:_78763B8B6B085F021F6282159B4C8FCE"
         "OwnerKey" = "8:_C47573131DFEB42CFF5F8655FC925B9D"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_78763B8B6B085F021F6282159B4C8FCE"
+        "OwnerKey" = "8:_216FCDE5524E066D452FB58B83267C06"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_78763B8B6B085F021F6282159B4C8FCE"
+        "OwnerKey" = "8:_C057E6B88771478A8461C9C6A05DDFF9"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -513,6 +543,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_78763B8B6B085F021F6282159B4C8FCE"
+        "OwnerKey" = "8:_324D3FF2D9564FFD81D787A93601D4D1"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_7E01656825EF4A60999DD7CEBE024F1B"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -520,6 +556,12 @@
         "Entry"
         {
         "MsmKey" = "8:_7E2D2175BF5147339DCD1286B0C47174"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_8F42A6FFE18C423D8469C16FBC5F716C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -723,6 +765,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_C13EE85F72D246489983F27523E18E18"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_C2D5D44D6D5E4A7EA53C496FCAB9E709"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -772,12 +820,6 @@
         "Entry"
         {
         "MsmKey" = "8:_D3F3FC38ABD54147973A482A3A19E7D3"
-        "OwnerKey" = "8:_UNDEFINED"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_D4DCD25BA3A4419AB4947D38EEC3B481"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1072,6 +1114,12 @@
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
+        "OwnerKey" = "8:_3672B9AB558B41EDB138278AAC23F149"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_UNDEFINED"
         "OwnerKey" = "8:_3291FCB53626433093FD7B62353667D1"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1079,6 +1127,12 @@
         {
         "MsmKey" = "8:_UNDEFINED"
         "OwnerKey" = "8:_FF64764C4354394B627542C0B19A8A02"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_UNDEFINED"
+        "OwnerKey" = "8:_324D3FF2D9564FFD81D787A93601D4D1"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -1274,7 +1328,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Xaml, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Xaml, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_08550F6CFED173D2078D348741E9D67A"
@@ -1305,7 +1359,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Workflow, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Workflow, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_09A3E508FA0945709F38BF56549174BA"
@@ -1429,7 +1483,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Data.Interfaces, Version=10.0.7125.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Data.Interfaces, Version=10.0.7141.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_150A314519853FCF8C483EAF7E7BF873"
@@ -1511,7 +1565,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Reports, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Reports, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_204EACB57C334149235D50AEED08BBB7"
@@ -1542,7 +1596,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Data, Version=10.0.7125.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Data, Version=10.0.7141.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_216FCDE5524E066D452FB58B83267C06"
@@ -1593,7 +1647,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Web.Site, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Web.Site, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_232ED0121B334D84873A3011B1168065"
@@ -1624,7 +1678,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Data.Interfaces, Version=10.0.7125.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Data.Interfaces, Version=10.0.7141.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_2BA4DF8C824B4CBDB677EF3A04D5B8D3"
@@ -1686,7 +1740,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Request, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Request, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_2EC6F2BBEED3426D8CFE355DF2831DEF"
@@ -1717,7 +1771,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_315219A25E0944B48E404CA7237456F6"
@@ -1744,11 +1798,42 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_324D3FF2D9564FFD81D787A93601D4D1"
+            {
+            "AssemblyRegister" = "3:1"
+            "AssemblyIsInGAC" = "11:FALSE"
+            "AssemblyAsmDisplayName" = "8:BuildSql, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL"
+                "ScatterAssemblies"
+                {
+                    "_324D3FF2D9564FFD81D787A93601D4D1"
+                    {
+                    "Name" = "8:BuildSql.exe"
+                    "Attributes" = "3:512"
+                    }
+                }
+            "SourcePath" = "8:..\\Tools\\BuildSql\\bin\\Release\\BuildSql.exe"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_EF23EE953FAB4DE69EE75E00B413FF81"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_3291FCB53626433093FD7B62353667D1"
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Xaml, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Xaml, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_3291FCB53626433093FD7B62353667D1"
@@ -1779,7 +1864,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Runtime, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Runtime, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_33E114CD464DB89891E0C66B69D689D5"
@@ -1806,11 +1891,42 @@
             "IsDependency" = "11:TRUE"
             "IsolateTo" = "8:"
             }
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_3672B9AB558B41EDB138278AAC23F149"
+            {
+            "AssemblyRegister" = "3:1"
+            "AssemblyIsInGAC" = "11:FALSE"
+            "AssemblyAsmDisplayName" = "8:Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL"
+                "ScatterAssemblies"
+                {
+                    "_3672B9AB558B41EDB138278AAC23F149"
+                    {
+                    "Name" = "8:Newtonsoft.Json.dll"
+                    "Attributes" = "3:512"
+                    }
+                }
+            "SourcePath" = "8:..\\Tools\\BuildSql\\bin\\Release\\Newtonsoft.Json.dll"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_EF23EE953FAB4DE69EE75E00B413FF81"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_384353D2B8F24D19A02EDA3203073AD1"
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Reports, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Reports, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_384353D2B8F24D19A02EDA3203073AD1"
@@ -2116,7 +2232,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:System.Web.Mvc, Version=5.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:System.Web.Mvc, Version=5.2.6.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_5BCFFEAC5164B38D58CA6B1FF1833D13"
@@ -2167,7 +2283,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Web.Mvc, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Web.Mvc, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_5ED8701D8D9A48249DC6C98B212D8671"
@@ -2371,7 +2487,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Interop, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Interop, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_7358069E141C54049479FF853F6CE688"
@@ -2455,6 +2571,26 @@
             "TargetName" = "8:main.js"
             "Tag" = "8:"
             "Folder" = "8:_F18DC6FD7C45400F8EAB21E5ED8B92F1"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8F42A6FFE18C423D8469C16FBC5F716C"
+            {
+            "SourcePath" = "8:..\\SqlScripts\\a2v10messaging.sql"
+            "TargetName" = "8:a2v10messaging.sql"
+            "Tag" = "8:"
+            "Folder" = "8:_700A39D0EB1B49B88280033DB7F60418"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2646,7 +2782,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Script, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Script, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_A8435CFF9BF935F5B34A040065866CC3"
@@ -2728,7 +2864,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Infrastructure, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Infrastructure, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_B21C455D5E53C308BBC4D31376F84522"
@@ -2810,7 +2946,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Data, Version=10.0.7125.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Data, Version=10.0.7141.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_C057E6B88771478A8461C9C6A05DDFF9"
@@ -2823,6 +2959,26 @@
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_5F073250C209473F8D20A96E8AF91309"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_C13EE85F72D246489983F27523E18E18"
+            {
+            "SourcePath" = "8:..\\Web\\A2v10.Web.Site\\scripts\\locale-en.min.js"
+            "TargetName" = "8:locale-en.min.js"
+            "Tag" = "8:"
+            "Folder" = "8:_F18DC6FD7C45400F8EAB21E5ED8B92F1"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2881,7 +3037,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Request, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Request, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_C47573131DFEB42CFF5F8655FC925B9D"
@@ -3030,26 +3186,6 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D4DCD25BA3A4419AB4947D38EEC3B481"
-            {
-            "SourcePath" = "8:..\\SqlScripts\\a2msg.sql"
-            "TargetName" = "8:a2msg.sql"
-            "Tag" = "8:"
-            "Folder" = "8:_700A39D0EB1B49B88280033DB7F60418"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D6E4A5155E00497CBB6410011FCCC86D"
             {
             "SourcePath" = "8:..\\Web\\A2v10.Web.Site\\scripts\\d3.min.js"
@@ -3145,7 +3281,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Messaging, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Messaging, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_E70480515A1DE66EE6315EB12027BE6A"
@@ -3247,7 +3383,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:A2v10.Workflow, Version=10.0.7168.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:A2v10.Workflow, Version=10.0.7243.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_F1F0EEC026283B24209C2523DA109BED"
@@ -3318,7 +3454,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
                     "_FF64764C4354394B627542C0B19A8A02"
@@ -3482,6 +3618,17 @@
                         {
                         }
                     }
+                    "{9EF0B969-E518-4E46-987F-47570745A589}:_EF23EE953FAB4DE69EE75E00B413FF81"
+                    {
+                    "Name" = "8:tools"
+                    "AlwaysCreate" = "11:FALSE"
+                    "Condition" = "8:"
+                    "Transitive" = "11:FALSE"
+                    "Property" = "8:_1D2835C1C2054D5E95E8E621FC0BBACE"
+                        "Folders"
+                        {
+                        }
+                    }
                     "{9EF0B969-E518-4E46-987F-47570745A589}:_F18DC6FD7C45400F8EAB21E5ED8B92F1"
                     {
                     "Name" = "8:scripts"
@@ -3511,15 +3658,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:A2v10"
-        "ProductCode" = "8:{8B25F0DE-970D-480E-A5D7-A1632FD0231F}"
-        "PackageCode" = "8:{3E4FA245-2FF0-4EA4-AE0F-3C58D01DF81E}"
+        "ProductCode" = "8:{C2E96251-087B-4097-A73C-94BD3CDEA898}"
+        "PackageCode" = "8:{9E1807EC-502B-440D-AD7F-39419288405C}"
         "UpgradeCode" = "8:{D090570F-4DC5-41C8-B875-E4EACBDE870A}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:10.0.7168"
+        "ProductVersion" = "8:10.0.7243"
         "Manufacturer" = "8:Alex Kukhtin"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

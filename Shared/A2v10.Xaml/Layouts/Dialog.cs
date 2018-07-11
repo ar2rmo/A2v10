@@ -25,6 +25,10 @@ namespace A2v10.Xaml
 
 		public UIElementCollection Buttons { get; set; } = new UIElementCollection();
 
+		internal virtual void OnCreateContent(TagBuilder tag)
+		{
+		}
+
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
 			var dialog = new TagBuilder("div", "modal");
@@ -38,6 +42,7 @@ namespace A2v10.Xaml
 			RenderLoadIndicator(context);
 
 			var content = new TagBuilder("div", "modal-content");
+			OnCreateContent(content);
 			if (Height != null)
 				content.MergeStyle("height", Height.Value);
 			if (Padding != null)
@@ -99,43 +104,47 @@ namespace A2v10.Xaml
 				.Render(context);
 		}
 
-		void RenderFooter(RenderContext context)
+		protected virtual void RenderFooter(RenderContext context)
 		{
 			if (Buttons.Count == 0 && !HasHelp)
 				return;
 			var footer = new TagBuilder("div", "modal-footer");
 			footer.RenderStart(context);
 
-			if (HasHelp)
-			{
-				//<a class="btn-help"><i class="ico ico-help"></i>Справка</a>
-				var ha = new TagBuilder("a", "btn-help");
-				// TODO: Help path
-				var hbind = GetBinding(nameof(HelpUrl));
-				if (hbind != null)
-				{
-					String hpath = hbind.GetPathFormat(context);
-					ha.MergeAttribute("@click.prevent", $"$showHelp({hpath})");
-					ha.MergeAttribute(":href", $"$helpHref({hpath})");
-				}
-				else if (!String.IsNullOrEmpty(HelpUrl))
-				{
-					ha.MergeAttribute("@click.prevent", $"$showHelp('{HelpUrl}')");
-					ha.MergeAttribute(":href", $"$helpHref('{HelpUrl}')");
-				}
-				ha.RenderStart(context);
-				new TagBuilder("i", "ico ico-help")
-					.Render(context);
-				context.Writer.Write(context.Localize("@[Help]"));
-				ha.RenderEnd(context);
-				new TagBuilder("div", "aligner").Render(context);
-			}
-
+			RenderHelp(context);
 			foreach (var b in Buttons)
 				b.RenderElement(context);
+
 			footer.RenderEnd(context);
 		}
 
-		Boolean HasHelp => GetBinding(nameof(HelpUrl)) != null || !String.IsNullOrEmpty(HelpUrl);
+		protected Boolean HasHelp => GetBinding(nameof(HelpUrl)) != null || !String.IsNullOrEmpty(HelpUrl);
+
+		protected virtual void RenderHelp(RenderContext context)
+		{
+			if (!HasHelp)
+				return;
+			//<a class="btn-help"><i class="ico ico-help"></i>Справка</a>
+			var ha = new TagBuilder("a", "btn-help");
+			// TODO: Help path
+			var hbind = GetBinding(nameof(HelpUrl));
+			if (hbind != null)
+			{
+				String hpath = hbind.GetPathFormat(context);
+				ha.MergeAttribute("@click.prevent", $"$showHelp({hpath})");
+				ha.MergeAttribute(":href", $"$helpHref({hpath})");
+			}
+			else if (!String.IsNullOrEmpty(HelpUrl))
+			{
+				ha.MergeAttribute("@click.prevent", $"$showHelp('{HelpUrl}')");
+				ha.MergeAttribute(":href", $"$helpHref('{HelpUrl}')");
+			}
+			ha.RenderStart(context);
+			new TagBuilder("i", "ico ico-help")
+				.Render(context);
+			context.Writer.Write(context.Localize("@[Help]"));
+			ha.RenderEnd(context);
+			new TagBuilder("div", "aligner").Render(context);
+		}
 	}
 }

@@ -3,7 +3,7 @@
 @import "Utlis.less";
 
 
-@popover-brd-color: #aaa;
+@popover-brd-color: @light-gray-color;
 @arrow-size: 9px;
 @arrow-gap: 6px;
 @popup-bk-color: #fffce9;
@@ -12,7 +12,7 @@
 @popup-bk-color-red: #fedbdb;
 @popup-bk-color-blue: #e5f1fe;
 
-@popover-text-color: #78b925;
+@popover-text-color: @link-color; // @success-base-color;
 @popover-hover-color: darken(@popover-text-color, 10%);
 
 .popover-wrapper {
@@ -40,13 +40,14 @@
 		position: absolute;
 		cursor: default;
 		color: @text-color;
-		padding: 6px;
+		padding: 4px 6px 6px 6px;
 		background-color: @popup-bk-color;
 		border: 1px solid @popover-brd-color;
 		min-width: 150px;
 		min-height: 30px;
 		text-align: left;
-		box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.3);
+		//box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.3);
+		box-shadow: 3px 3px 10px 0 rgba(174, 174, 174, .5), 0 5px 40px 0 rgba(0, 0, 0, .15);
 		z-index: @popup-index;
 
 		> .arrow {

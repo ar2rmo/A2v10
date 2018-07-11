@@ -5,17 +5,17 @@ using System.Dynamic;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-
-using A2v10.Infrastructure;
 using System.Collections.Generic;
+
 using A2v10.Data.Interfaces;
+using A2v10.Infrastructure;
 
 namespace A2v10.Messaging
 {
 	public class MessageProcessor : IMessaging
 	{
-		private IApplicationHost _host;
-		private IDbContext _dbContext;
+		readonly private IApplicationHost _host;
+		readonly private IDbContext _dbContext;
 
 		public MessageProcessor(IApplicationHost host, IDbContext dbContext)
 		{
@@ -39,8 +39,7 @@ namespace A2v10.Messaging
 
 		void ConvertToNameValueArray(ExpandoObject msg, String name)
 		{
-			var val = msg.Get<ExpandoObject>(name) as IDictionary<String, Object>;
-			if (val == null)
+			if (!(msg.Get<ExpandoObject>(name) is IDictionary<String, Object> val))
 				return;
 			var arr = new List<Object>();
 			foreach (var v in val)

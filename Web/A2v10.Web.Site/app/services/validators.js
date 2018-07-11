@@ -1,21 +1,23 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180425-7165*/
+/*20180705-7241*/
 /*validators.js*/
 
 app.modules['std:validators'] = function () {
 
 	const utils = require('std:utils');
+	const eventBus = require('std:eventBus');
 	const ERROR = 'error';
 
 	// from chromium ? https://stackoverflow.com/questions/46155/how-to-validate-an-email-address-in-javascript
 	const EMAIL_REGEXP = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
 	const URL_REGEXP = /^[a-z][a-z\d.+-]*:\/*(?:[^:@]+(?::[^@]+)?@)?(?:[^\s:/?#]+|\[[a-f\d:]+\])(?::\d+)?(?:\/[^?#]*)?(?:\?[^#]*)?(?:#.*)?$/i;
 
-	const validateMap = new WeakMap();
+	let validateMap = new WeakMap();
 
 	return {
-		validate: validateItem
+		validate: validateItem,
+		removeWeak
 	};
 
 	function validateStd(rule, val) {
@@ -33,8 +35,36 @@ app.modules['std:validators'] = function () {
 		return true;
 	}
 
+	function removeWeak() {
+		validateMap = new WeakMap();
+	}
+
+	function addToWeak(rule, item, val) {
+		let valMap;
+		if (validateMap.has(rule)) {
+			valMap = validateMap.get(rule);
+		} else {
+			valMap = new WeakMap(); // internal
+			validateMap.set(rule, valMap);
+		}
+		if (utils.isObjectExact(val) && '$id' in val)
+			val = val.$id;
+		let valRes = { val: val, result: null };
+		valMap.set(item, valRes);
+		return valRes;
+	}
+
+
+	function getValForCompare(o1) {
+		if (utils.isObjectExact(o1) && '$id' in o1) {
+			return o1.$id;
+		}
+		return o1;
+	}
+
 	function validateImpl(rules, item, val, ff) {
 		let retval = [];
+		retval.pending = 0;
 		rules.forEach(function (rule) {
 			const sev = rule.severity || ERROR;
 			if (utils.isFunction(rule.applyIf)) {
@@ -43,39 +73,66 @@ app.modules['std:validators'] = function () {
 			if (utils.isString(rule)) {
 				if (!validateStd('notBlank', val))
 					retval.push({ msg: rule, severity: ERROR });
+			} else if (utils.isFunction(rule)) {
+				let vr = rule(item, val);
+				if (utils.isString(vr) && vr) {
+					retval.push({ msg: vr, severity: sev });
+				} else if (utils.isObject(vr)) {
+					retval.push({ msg: vr.msg, severity: vr.severity || sev });
+				}
 			} else if (utils.isString(rule.valid)) {
 				if (!validateStd(rule.valid, val))
 					retval.push({ msg: rule.msg, severity: sev });
 			} else if (utils.isFunction(rule.valid)) {
 				if (rule.async) {
-					if (validateMap.has(item)) {
-						if (validateMap.get(item) === val) {
-							// Let's skip already validated values
+					if (validateMap.has(rule)) {
+						let vmset = validateMap.get(rule);
+						if (vmset.has(item)) {
+							let vmv = vmset.get(item);
+
+							if (vmv.val === getValForCompare(val)) {
+								// Let's skip already validated values
+								if (vmv.result)
+									retval.push(vmv.result);
+								return;
+							}
+						} else {
+							// First call. Save valid value.
+							addToWeak(rule, item, val);
 							return;
 						}
+					} else {
+						// First call. Save valid value.
+						addToWeak(rule, item, val);
+						return;
 					}
 				}
 				let vr = rule.valid(item, val);
 				if (vr && vr.then) {
+					retval.pending += 1;
 					if (!rule.async) {
 						console.error('Async rules should be marked async:true');
 						return;
 					}
-					validateMap.set(item, val);
+					let valRes = addToWeak(rule, item, val);
 					vr.then((result) => {
 						let dm = { severity: sev, msg: rule.msg };
 						let nu = false;
 						if (utils.isString(result)) {
 							dm.msg = result;
+							valRes.result = dm;
 							retval.push(dm);
 							nu = true;
 						} else if (!result) {
 							retval.push(dm);
+							valRes.result = dm;
 							nu = true;
 						}
 						// need to update the validators
 						item._root_._needValidate_ = true;
 						if (nu && ff) ff();
+						retval.pending -= 1;
+						eventBus.$emit('pendingValidate');
 					});
 				}
 				else if (utils.isString(vr)) {
@@ -97,6 +154,8 @@ app.modules['std:validators'] = function () {
 		if (utils.isArray(rules))
 			arr = rules;
 		else if (utils.isObject(rules))
+			arr.push(rules);
+		else if (utils.isFunction(rules))
 			arr.push(rules);
 		else if (utils.isString(rules))
 			arr.push({ valid: 'notBlank', msg: rules });

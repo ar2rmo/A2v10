@@ -1,14 +1,17 @@
 ﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
 
+using System.Web;
+
 using A2v10.Data;
 using A2v10.Data.Interfaces;
 using A2v10.Infrastructure;
 using A2v10.Messaging;
 using A2v10.Request;
-using A2v10.Web.Mvc.Configuration;
+using A2v10.Web.Config;
+using A2v10.Web.Mvc.Identity;
 using A2v10.Workflow;
 using A2v10.Xaml;
-using System.Web;
+using Microsoft.AspNet.Identity;
 
 namespace A2v10.Web.Mvc.Start
 {
@@ -31,6 +34,8 @@ namespace A2v10.Web.Mvc.Start
 				IWorkflowEngine workflowEngine = new WorkflowEngine(host, dbContext);
 				IMessaging messaging = new MessageProcessor(host, dbContext);
 				IDataScripter scripter = new VueDataScripter();
+				ILogger logger = new WebLogger(host, dbContext);
+				IMessageService emailService = new EmailService(logger);
 
 				locator.RegisterService<IDbContext>(dbContext);
 				locator.RegisterService<IProfiler>(profiler);
@@ -40,6 +45,9 @@ namespace A2v10.Web.Mvc.Start
 				locator.RegisterService<IMessaging>(messaging);
 				locator.RegisterService<ILocalizer>(localizer);
 				locator.RegisterService<IDataScripter>(scripter);
+				locator.RegisterService<ILogger>(logger);
+				locator.RegisterService<IMessageService>(emailService);
+				locator.RegisterService<IIdentityMessageService>(emailService as IIdentityMessageService);
 
 				HttpContext.Current.Items.Add("ServiceLocator", locator);
 			};
