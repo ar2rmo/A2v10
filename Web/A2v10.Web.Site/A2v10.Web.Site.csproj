@@ -111,10 +111,10 @@
     <Content Include="app\services\url.js" />
     <Content Include="app\services\utils.js" />
     <Content Include="app\services\validators.js" />
-    <Content Include="css\bowtie.css" />
-    <Content Include="css\fonts\bowtie.svg" />
     <Content Include="Content\jasmine\jasmine.css" />
     <Content Include="Content\jasmine\jasmine_favicon.png" />
+    <Content Include="css\bowtie.css" />
+    <Content Include="css\fonts\bowtie.svg" />
     <Content Include="css\site.compact.css" />
     <Content Include="css\site.compact.min.css">
       <DependentUpon>site.compact.css</DependentUpon>
@@ -217,9 +217,6 @@
     <Content Include="Web.Release.config">
       <DependentUpon>Web.config</DependentUpon>
     </Content>
-    <Content Include="packages.config">
-      <SubType>Designer</SubType>
-    </Content>
     <Content Include="Less\Utlis.less" />
     <Content Include="Less\DataGrid.less" />
     <Content Include="Less\Normalize.less" />
@@ -268,6 +265,7 @@
     <Content Include="Less\Variables.Compact.less" />
     <Content Include="Less\SuperMenu.less" />
     <Content Include="Less\Toastr.less" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="app\server\" />

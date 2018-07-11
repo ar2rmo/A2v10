@@ -101,6 +101,7 @@
     <Content Include="Resources\locale-ru.js" />
     <Content Include="Resources\locale-en.js" />
     <Content Include="Resources\locale-uk.js" />
+    <None Include="packages.config" />
     <None Include="Resources\mask.js" />
   </ItemGroup>
   <ItemGroup>
@@ -108,9 +109,6 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
