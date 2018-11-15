@@ -71,9 +71,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="handlers\ProxyHandler.ashx.cs">
-      <DependentUpon>ProxyHandler.ashx</DependentUpon>
-    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -324,7 +321,6 @@
     <Content Include="css\fonts\A2v10.woff" />
     <Content Include="css\fonts\A2v10.woff2" />
     <Content Include="Less\Data_URI.less" />
-    <Content Include="handlers\ProxyHandler.ashx" />
     <None Include="Less\Site.magenta.less" />
     <Content Include="Less\Variables.Magenta.less" />
     <Content Include="Less\Text.less" />
@@ -335,6 +331,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="app\server\" />
+    <Folder Include="handlers\" />
     <Folder Include="scripts\eusign\" />
   </ItemGroup>
   <ItemGroup>
