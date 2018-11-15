@@ -40,14 +40,19 @@
   <ItemGroup>
     <Compile Include="AppInfo.cs" />
     <Compile Include="BaseLocalizer.cs" />
+    <Compile Include="ClrHelpers.cs" />
     <Compile Include="CollectionHelpers.cs" />
     <Compile Include="DynamicHelpers.cs" />
     <Compile Include="IBackgroundTasksManager.cs" />
     <Compile Include="IControllerProfiler.cs" />
     <Compile Include="IControllerTenant.cs" />
+    <Compile Include="IExternalLoginManager.cs" />
     <Compile Include="IInvokeTarget.cs" />
     <Compile Include="ILogger.cs" />
     <Compile Include="IMessageService.cs" />
+    <Compile Include="ISmsService.cs" />
+    <Compile Include="IUserId.cs" />
+    <Compile Include="IUserStateManager.cs" />
     <Compile Include="Permissions.cs" />
     <Compile Include="IApplicationHost.cs" />
     <Compile Include="ILocalizer.cs" />

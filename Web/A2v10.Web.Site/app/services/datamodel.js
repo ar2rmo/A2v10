@@ -1,15 +1,11 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180630-7236
+// 20181112-7355
 // services/datamodel.js
 
 (function () {
 
 	"use strict";
-
-    /* TODO:
-    1. changing event
-    */
 
 	const META = '_meta_';
 	const PARENT = '_parent_';
@@ -66,7 +62,13 @@
 		return val;
 	}
 
+	function propFromPath(path) {
+		let propIx = path.lastIndexOf('.');
+		return path.substring(propIx + 1);
+	}
+
 	function defSource(trg, source, prop, parent) {
+
 		let propCtor = trg._meta_.props[prop];
 		if (propCtor.type) propCtor = propCtor.type;
 		let pathdot = trg._path_ ? trg._path_ + '.' : '';
@@ -93,6 +95,10 @@
 				let srcval = source[prop] || null;
 				shadow[prop] = srcval ? new Date(srcval) : utils.date.zero();
 				break;
+			case File:
+			case Object:
+				shadow[prop] = null;
+				break;
 			case TMarker: // marker for dynamic property
 				let mp = trg._meta_.markerProps[prop];
 				shadow[prop] = mp;
@@ -113,13 +119,16 @@
 			set(val) {
 				let eventWasFired = false;
 				let skipDirty = prop.startsWith('$$');
-				//TODO: emit and handle changing event
 				let ctor = this._meta_.props[prop];
 				if (ctor.type) ctor = ctor.type;
 				val = ensureType(ctor, val);
 				if (val === this._src_[prop])
 					return;
 				let oldVal = this._src_[prop];
+				let changingEvent = (this._path_ || 'Root') + '.' + prop + '.changing';
+				let ret = this._root_.$emit(changingEvent, this, val, oldVal, prop);
+				if (ret === false)
+					return;
 				if (this._src_[prop] && this._src_[prop].$set) {
 					// object
 					this._src_[prop].$set(val);
@@ -131,10 +140,8 @@
 					this._root_.$setDirty(true, this._path_);
 				if (this._lockEvents_) return; // events locked
 				if (eventWasFired) return; // was fired
-				if (!this._path_)
-					return;
-				let eventName = this._path_ + '.' + prop + '.change';
-				this._root_.$emit(eventName, this, val, oldVal);
+				let eventName = (this._path_ || 'Root') + '.' + prop + '.change';
+				this._root_.$emit(eventName, this, val, oldVal, prop);
 			}
 		});
 	}
@@ -147,6 +154,7 @@
 		const props = templ._props_;
 		if (!props) return;
 		let objname = ctor.name;
+
 		if (objname in props) {
 			for (let p in props[objname]) {
 				let propInfo = props[objname][p];
@@ -243,8 +251,15 @@
 				if (x[0] === '$' || x[0] === '_')
 					continue;
 				let sx = this[x];
-				if (utils.isObject(sx) && '$valid' in sx) {
-					let sx = this[x];
+				if (utils.isArray(sx)) {
+					for (let i = 0; i < sx.length; i++) {
+						let ax = sx[i];
+						if (utils.isObject(ax) && '$valid' in ax) {
+							if (!ax.$valid)
+								return false;
+						}
+					}
+				} else if (utils.isObject(sx) && '$valid' in sx) {
 					if (!sx.$valid)
 						return false;
 				}
@@ -297,12 +312,15 @@
 				__initialized__ = true;
 			};
 			elem._fireLoad_ = () => {
-				elem.$emit('Model.load', elem, _lastCaller);
-				elem._root_.$setDirty(false);
+				platform.defer(() => {
+					elem.$emit('Model.load', elem, _lastCaller);
+					elem._root_.$setDirty(false);
+				});
 			};
 			defHiddenGet(elem, '$readOnly', isReadOnly);
+			defHiddenGet(elem, '$stateReadOnly', isStateReadOnly);
 			defHiddenGet(elem, '$isCopy', isModelIsCopy);
-			elem._seal_ = seal;
+			elem._seal_ = seal
 		}
 		if (startTime) {
 			log.time('create root time:', startTime, false);
@@ -348,8 +366,19 @@
 	function isReadOnly() {
 		if ('__modelInfo' in this) {
 			let mi = this.__modelInfo;
-			if (utils.isDefined(mi.ReadOnly))
-				return mi.ReadOnly;
+			if (utils.isDefined(mi.ReadOnly) && mi.ReadOnly)
+				return true;
+			if (utils.isDefined(mi.StateReadOnly) && mi.StateReadOnly)
+				return true;
+		}
+		return false;
+	}
+
+	function isStateReadOnly() {
+		if ('__modelInfo' in this) {
+			let mi = this.__modelInfo;
+			if (utils.isDefined(mi.StateReadOnly) && mi.StateReadOnly)
+				return true;
 		}
 		return false;
 	}
@@ -468,8 +497,7 @@
 		arr.$isLazy = function () {
 			const meta = this.$parent._meta_;
 			if (!meta.$lazy) return false;
-			let propIx = this._path_.lastIndexOf('.');
-			let prop = this._path_.substring(propIx + 1);
+			let prop = propFromPath(this._path_);
 			return meta.$lazy.indexOf(prop) !== -1;
 		};
 
@@ -480,18 +508,25 @@
 
 		arr.$loadLazy = function () {
 			return new Promise((resolve, reject) => {
-				if (this.$loaded) { resolve(self); return; }
+				if (this.$loaded) { resolve(this); return; }
 				if (!this.$parent) { resolve(this); return; }
 				const meta = this.$parent._meta_;
 				if (!meta.$lazy) { resolve(this); return; }
-				let propIx = this._path_.lastIndexOf('.');
-				let prop = this._path_.substring(propIx + 1);
+				let prop = propFromPath(this._path_);
 				if (!meta.$lazy.indexOf(prop) === -1) { resolve(this); return; }
 				this.$vm.$loadLazy(this.$parent, prop).then(() => resolve(this));
 			});
 		};
 
 		arr.$append = function (src) {
+			return this.$insert(src, 'end');
+		};
+
+		arr.$prepend = function (src) {
+			return this.$insert(src, 'start');
+		};
+
+		arr.$insert = function (src, to) {
 			const that = this;
 
 			function append(src, select) {
@@ -501,8 +536,19 @@
 				let er = that._root_.$emit(addingEvent, that/*array*/, newElem/*elem*/);
 				if (er === false)
 					return; // disabled
-				let len = that.push(newElem);
-				let ne = that[len - 1]; // maybe newly created reactive element
+				let len = that.length;
+				let ne = null;
+				switch (to) {
+					case 'end':
+						len = that.push(newElem);
+						ne = that[len - 1]; // maybe newly created reactive element
+						break;
+					case 'start':
+						that.unshift(newElem);
+						ne = that[0];
+						len = 1; 
+						break;
+				}
 				if ('$RowCount' in that) that.$RowCount += 1;
 				let eventName = that._path_ + '[].add';
 				that._root_.$setDirty(true);
@@ -514,7 +560,8 @@
 				// set RowNumber
 				if ('$rowNo' in newElem._meta_) {
 					let rowNoProp = newElem._meta_.$rowNo;
-					newElem[rowNoProp] = len; // 1-based
+					for (let i = 0; i < that.length; i++)
+						that[i][rowNoProp] = i + 1; // 1-based
 				}
 				return ne;
 			}
@@ -567,15 +614,15 @@
 			if (!this.length) return;
 			if (index >= this.length)
 				index -= 1;
-			if (this.length > index) {
-				this[index].$select();
-			}
 			// renumber rows
 			if ('$rowNo' in item._meta_) {
 				let rowNoProp = item._meta_.$rowNo;
 				for (let i = 0; i < this.length; i++) {
 					this[i][rowNoProp] = i + 1; // 1-based
 				}
+			}
+			if (this.length > index) {
+				this[index].$select();
 			}
 		};
 
@@ -611,9 +658,15 @@
 			return null;
 		});
 
+		defHiddenGet(obj, "$ctrl", function () {
+			if (this._root_ && this._root_._host_)
+				return this._root_._host_.$ctrl;
+			return null;
+		});
+
 		obj.$isValid = function (props) {
 			return true;
-		}
+		};
 	}
 
 	function defineObject(obj, meta, arrayItem) {
@@ -716,7 +769,7 @@
 			// fire event
 			log.info('handle: ' + event);
 			let func = events[event];
-			let rv = func.call(undefined, ...arr);
+			let rv = func.call(this, ...arr);
 			if (rv === false)
 				log.info(event + ' returns false');
 			return rv;
@@ -744,6 +797,10 @@
 
 		const optsCheckValid = opts && opts.validRequired === true;
 		const optsCheckRO = opts && opts.checkReadOnly === true;
+		const optsCheckArg = opts && opts.checkArgument === true;
+
+		if (optsCheckArg && !arg)
+			return false;
 
 		if (cmdf.checkReadOnly === true || optsCheckRO) {
 			if (this.$root.$readOnly)
@@ -934,7 +991,10 @@
 	function forceValidateAll() {
 		let me = this;
 		me._needValidate_ = true;
-		return me._validateAll_(true);
+		var retArr = me._validateAll_(false);
+		me._validateAll_(true); // and validate async again
+		return retArr;
+
 	}
 
 	function validateAll(force) {
@@ -967,12 +1027,15 @@
 			return;
 		if (path && path.toLowerCase().startsWith('query'))
 			return;
+		if (isNoDirty(this.$root))
+			return;
 		// TODO: template.options.skipDirty
 		this.$dirty = val;
 	}
 
 	function empty() {
 		this.$set({});
+		return this;
 	}
 
 	function setElement(src) {
@@ -991,12 +1054,17 @@
 	}
 
 	function isSkipMerge(root, prop) {
-		if (prop.startsWith('$$')) return true; // special properties
 		let t = root.$template;
 		let opts = t && t.options;
 		let bo = opts && opts.bindOnce;
 		if (!bo) return false;
 		return bo.indexOf(prop) !== -1;
+	}
+
+	function isNoDirty(root) {
+		let t = root.$template;
+		let opts = t && t.options;
+		return opts && opts.noDirty;
 	}
 
 	function merge(src, afterSave) {
@@ -1007,11 +1075,14 @@
 			this._root_._enableValidate_ = false;
 			this._lockEvents_ += 1;
 			for (var prop in this._meta_.props) {
+				if (prop.startsWith('$$')) continue; // always skip
 				if (afterSave && isSkipMerge(this._root_, prop)) continue;
 				let ctor = this._meta_.props[prop];
 				if (ctor.type) ctor = ctor.type;
 				let trg = this[prop];
 				if (Array.isArray(trg)) {
+					if (trg.$loaded)
+						trg.$loaded = false; // may be lazy
 					trg.$copy(src[prop]);
 					// copy rowCount
 					if ('$RowCount' in trg) {
@@ -1045,12 +1116,11 @@
 		let newId = this.$id__;
 		let fireChange = false;
 		if (utils.isDefined(newId) && utils.isDefined(oldId))
-			fireChange =  newId !== oldId; // check id, no fire event
+			fireChange = newId !== oldId; // check id, no fire event
 		if (fireChange) {
-			//console.warn(`fire change. old:${oldId}, new:${newId}`);
-			// emit .change event for all object
+			// emit .change event for entire object
 			let eventName = this._path_ + '.change';
-			this._root_.$emit(eventName, this.$parent, this);
+			this._root_.$emit(eventName, this.$parent, this, this, propFromPath(this._path_));
 		}
 	}
 
@@ -1113,3 +1183,4 @@
 		enumData: enumData
 	};
 })();
+

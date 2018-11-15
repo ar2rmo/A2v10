@@ -1,17 +1,18 @@
 ﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
 
+using System;
 using System.Web;
 
 using A2v10.Data;
 using A2v10.Data.Interfaces;
+using A2v10.Data.Providers;
 using A2v10.Infrastructure;
 using A2v10.Messaging;
 using A2v10.Request;
 using A2v10.Web.Config;
-using A2v10.Web.Mvc.Identity;
+using A2v10.Web.Identity;
 using A2v10.Workflow;
 using A2v10.Xaml;
-using Microsoft.AspNet.Identity;
 
 namespace A2v10.Web.Mvc.Start
 {
@@ -36,6 +37,10 @@ namespace A2v10.Web.Mvc.Start
 				IDataScripter scripter = new VueDataScripter();
 				ILogger logger = new WebLogger(host, dbContext);
 				IMessageService emailService = new EmailService(logger);
+				ISmsService smsService = new SmsService(dbContext, logger);
+				IExternalLoginManager externalLoginManager = new ExternalLoginManager(dbContext);
+				IUserStateManager userStateManager = new WebUserStateManager(host, dbContext);
+				IExternalDataProvider dataProvider = new ExternalDataContext();
 
 				locator.RegisterService<IDbContext>(dbContext);
 				locator.RegisterService<IProfiler>(profiler);
@@ -47,13 +52,18 @@ namespace A2v10.Web.Mvc.Start
 				locator.RegisterService<IDataScripter>(scripter);
 				locator.RegisterService<ILogger>(logger);
 				locator.RegisterService<IMessageService>(emailService);
-				locator.RegisterService<IIdentityMessageService>(emailService as IIdentityMessageService);
+				locator.RegisterService<ISmsService>(smsService);
+				locator.RegisterService<IExternalLoginManager>(externalLoginManager);
+				locator.RegisterService<IUserStateManager>(userStateManager);
+				locator.RegisterService<IExternalDataProvider>(dataProvider);
 
 				HttpContext.Current.Items.Add("ServiceLocator", locator);
 			};
 
 			ServiceLocator.GetCurrentLocator = () =>
 			{
+				if (HttpContext.Current == null)
+					throw new InvalidProgramException("There is no http context");
 				var locator = HttpContext.Current.Items["ServiceLocator"];
 				if (locator == null)
 					new ServiceLocator();

@@ -20,9 +20,10 @@ using A2v10.Infrastructure;
 using A2v10.Request;
 using A2v10.Reports;
 using A2v10.Web.Mvc.Filters;
-using A2v10.Web.Mvc.Identity;
+using A2v10.Web.Identity;
 using A2v10.Data.Interfaces;
 using A2v10.Interop;
+using Newtonsoft.Json;
 
 namespace A2v10.Web.Mvc.Controllers
 {
@@ -151,6 +152,8 @@ namespace A2v10.Web.Mvc.Controllers
 						return ExportStiReport(ri);
 					case RequestReportType.xml:
 						return ExportXmlReport(ri);
+					case RequestReportType.json:
+						return ExportJsonReport(ri);
 				}
 			}
 			catch (Exception ex)
@@ -167,18 +170,19 @@ namespace A2v10.Web.Mvc.Controllers
 		ActionResult ExportStiReport(ReportInfo ri)
 		{
 			var r = StiReportExtensions.CreateReport(ri.ReportPath, ri.Name);
-			if (ri.DataModel != null)
-			{
-				var dynModel = ri.DataModel.GetDynamic();
-				foreach (var x in dynModel)
-					r.RegBusinessObject(x.Key, x.Value);
-			}
+			r.AddDataModel(ri.DataModel);
 			if (ri.Variables != null)
 				r.AddVariables(ri.Variables);
-			var ms = new MemoryStream();
+			// var ms = new MemoryStream();
 			// saveFileDialog: true -> download
-			// saveFileDialog: false -> show
+			// saveFileDialog: false -> show			
 			return StiMvcReportResponse.ResponseAsPdf(r, StiReportExtensions.GetPdfExportSettings(), saveFileDialog: true);
+		}
+
+		ActionResult ExportJsonReport(ReportInfo ri)
+		{
+			String json = JsonConvert.SerializeObject(ri.DataModel.Root, Formatting.Indented);
+			return Content(json, "application/json", Encoding.UTF8);
 		}
 
 		ActionResult ExportXmlReport(ReportInfo ri)
@@ -281,12 +285,7 @@ namespace A2v10.Web.Mvc.Controllers
 					throw new InvalidProgramException("invalid data");
 				var path = ri.ReportPath;
 				var r = StiReportExtensions.CreateReport(path, ri.Name);
-				if (ri.DataModel != null)
-				{
-					var dynModel = ri.DataModel.GetDynamic();
-					foreach (var x in dynModel)
-						r.RegBusinessObject(x.Key, x.Value);
-				}
+				r.AddDataModel(ri.DataModel);
 				var vars = ri.Variables;
 				if (vars != null)
 					r.AddVariables(vars);

@@ -5,7 +5,6 @@
 
 	const token = '$(Token)';
 
-
 	$(Utils)
 	$(Locale)
 
@@ -17,6 +16,7 @@
 			rememberMe: false,
 			processing: false,
 			info: $(PageData),
+			appLinks: $(AppLinks),
 			submitted: false,
 			serverError: '',
 			emailError: ''
@@ -101,6 +101,9 @@
 			},
 			reload() {
 				window.location.reload();
+			},
+			getReferUrl(url) {
+				return getReferralUrl(url);
 			}
 		}
 	});

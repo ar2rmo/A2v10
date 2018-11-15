@@ -1,6 +1,6 @@
 ﻿
 
-@tb-control-height: 1.65rem;
+@tb-control-height: 1.77rem;
 
 .toolbar {
 	display: flex;
@@ -20,6 +20,11 @@
 		flex-wrap:nowrap;
 	}
 
+	> .control-group.first-elem {
+		label {
+			margin-left:6px;
+		}
+	}
 
 	&.transparent {
 		background-color: transparent;
@@ -37,11 +42,11 @@
 
 	> .btn, 
 	> .dropdown > .btn {
-		padding: 3px 6px 4px 6px;
+		padding: 4px 6px 5px 6px;
 	}
 
 	.btn-tb {
-		padding: 3px 6px 4px 6px;
+		padding: 4px 6px 5px 6px;
 		white-space: nowrap;
 		//background-color: @toolbar-bg-color;
 		background-color: transparent;
@@ -188,5 +193,5 @@
 }
 
 .data-grid td > .commandbar {
-	margin:-4px;
+	margin:-3px;
 }

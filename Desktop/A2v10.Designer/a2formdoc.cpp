@@ -1,3 +1,4 @@
+// Copyright © 2012-2017 Alex Kukhtin. All rights reserved.
 
 #include "stdafx.h"
 
@@ -8,6 +9,7 @@
 #endif
 
 #include "formitem.h"
+#include "formtool.h"
 #include "a2formdoc.h"
 
 #include "mainfrm.h"
@@ -57,6 +59,7 @@ void CA2FormDocument::ClearSelection()
 BEGIN_MESSAGE_MAP(CA2FormDocument, CDocument)
 	ON_UPDATE_COMMAND_UI(ID_EDIT_UNDO, OnUpdateEditUndo)
 	ON_UPDATE_COMMAND_UI(ID_EDIT_REDO, OnUpdateEditRedo)
+	ON_UPDATE_COMMAND_UI(ID_FILE_SAVE, OnUpdateFileSave)
 END_MESSAGE_MAP()
 
 // virtual 
@@ -75,14 +78,14 @@ void CA2FormDocument::Xml2Form()
 	tinyxml2::XMLElement* pNode = m_xmlDocument.RootElement();
 	if (pNode != nullptr) {
 		CString name = pNode->Name();
-		m_pRoot = CFormItem::CreateNode(name, nullptr);
+		m_pRoot = CFormItem::CreateNode(name);
 		if (m_pRoot == nullptr) {
 			CString msg;
 			msg.Format(L"Can't create root element '%s'", name);
 			AfxMessageBox(msg);
 			return;
 		}
-		m_pRoot->Construct(this, pNode);
+		m_pRoot->ConstructFromXml(this, pNode);
 	}
 }
 
@@ -94,12 +97,12 @@ CFormItem* CA2FormDocument::ObjectAt(CPoint point)
 void CA2FormDocument::CreateRootElement()
 {
 	ATLASSERT(m_pRoot == nullptr);
-	auto root = m_xmlDocument.NewElement(L"Dialog");
+	auto root = m_xmlDocument.NewElement(L"Form");
 	root->SetAttribute(L"xmlns", L"clr-namespace:A2v10.Xaml;assembly=A2v10.Xaml");
 	root->SetAttribute(L"xmlns:x", L"http://schemas.microsoft.com/winfx/2006/xaml");
 	m_xmlDocument.InsertEndChild(root);
 	m_pRoot = new CFormElement();
-	m_pRoot->Construct(this, root);
+	m_pRoot->ConstructFromXml(this, root);
 	SetXmlTextFromXml();
 }
 
@@ -160,6 +163,7 @@ void CA2FormDocument::LoadDocument(CFile* pFile, CXamlEditView* pView)
 		// set text to Scintilla view
 		ansiText.ReleaseBuffer();
 		Xml2Form();
+		DoLayout();
 	}
 	catch (CXmlError& error) {
 		// set invalid text to view ????
@@ -167,6 +171,13 @@ void CA2FormDocument::LoadDocument(CFile* pFile, CXamlEditView* pView)
 		error.ReportError();
 		THROW(new CUserException());
 	}
+}
+
+void CA2FormDocument::DoLayout() 
+{
+	ATLASSERT(m_pRoot);
+	m_pRoot->Measure(CSize(-1, -1));
+	m_pRoot->Arrange(CRect(0, 0, 0, 0));
 }
 
 void CA2FormDocument::SetXmlFromXmlText()
@@ -191,7 +202,10 @@ void CA2FormDocument::SetXmlTextFromXml()
 
 void CA2FormDocument::SaveDocument(CFile* pFile, CXamlEditView* pView)
 {
+	if (!IsModified())
+		return;
 	ATLASSERT(pView);
+	UpdateAllViews(nullptr, HINT_CLEAR_SELECTION);
 	try
 	{
 		if (IsModifiedXml()) {
@@ -202,8 +216,11 @@ void CA2FormDocument::SaveDocument(CFile* pFile, CXamlEditView* pView)
 		ParseXml(utf8Text.c_str());
 		BYTE hdr[3] = { 0xef, 0xbb, 0xbf }; // UTF-8 signature
 		pFile->Write(hdr, 3);
-		pFile->Write((LPCSTR) utf8Text.c_str(), utf8Text.length());
+		pFile->Write((LPCSTR) utf8Text.c_str(), utf8Text.length() - 1); // null terminator
+		m_undo.Clear();
 		Xml2Form(); // always
+		DoLayout();
+		CFormTool::OnCancel();
 	}
 	catch (CXmlError& err) {
 		err.ReportError();
@@ -268,24 +285,27 @@ void CA2FormDocument::SetModifiedFlag(BOOL bModified /*= TRUE*/)
 		SetModifiedText(false);
 	}
 	__super::SetModifiedFlag(bModified);
-	UpdateFrameCounts();        // will cause name change in views
+	UpdateFrameCounts(); // will cause name change in views
 }
 
-void CA2FormDocument::DrawContent(const RENDER_INFO& ri)
+void CA2FormDocument::DrawContent(const RENDER_INFO& ri, CFormItemWeakList& selection)
 {
 	ATLASSERT(m_pRoot != nullptr);
+	if (!m_pRoot) return;
 	ri.pDC->SetBkMode(TRANSPARENT);
 	HGDIOBJ pOldFont = ri.pDC->SelectObject(CTheme::GetUIFont(CTheme::FontUiDefault));
 
 	m_pRoot->Draw(ri);
-	DrawSelection(ri);
+	DrawSelection(ri, selection);
 
 	ri.pDC->SelectObject(pOldFont);
 }
 
-void CA2FormDocument::DrawSelection(const RENDER_INFO& ri)
+void CA2FormDocument::DrawSelection(const RENDER_INFO& ri, CFormItemWeakList& selection)
 {
-	CFormItem* pItem = m_pRoot;
+	if (selection.IsEmpty())
+		return;
+	auto pItem = selection.GetHead();
 	bool bNotFirst = false;
 	CRect xr(pItem->GetPosition());
 	ri.pDC->LPtoDP(xr);
@@ -318,4 +338,9 @@ void CA2FormDocument::OnUpdateEditUndo(CCmdUI* pCmdUI)
 void CA2FormDocument::OnUpdateEditRedo(CCmdUI* pCmdUI)
 {
 	pCmdUI->Enable(m_undo.CanRedo());
+}
+
+void CA2FormDocument::OnUpdateFileSave(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(IsModified());
 }

@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180709-7243
+// 20181031-7339
 // controllers/base.js
 
 (function () {
@@ -16,6 +16,7 @@
 	const locale = window.$$locale;
 	const mask = require('std:mask');
 	const modelInfo = require('std:modelInfo');
+	const platform = require('std:platform');
 
 	const store = component('std:store');
 	const documentTitle = component("std:doctitle");
@@ -56,7 +57,8 @@
 				__init__: true,
 				__baseUrl__: '',
 				__baseQuery__: {},
-				__requestsCount__: 0
+				__requestsCount__: 0,
+				__lockQuery__: true
 			};
 		},
 
@@ -72,6 +74,9 @@
 			},
 			$query() {
 				return this.$data._query_;
+			},
+			$jsonQuery() {
+				return utils.toJson(this.$data.Query);
 			},
 			$isDirty() {
 				return this.$data.$dirty;
@@ -89,12 +94,19 @@
 				return this.$isDirty && !this.$isLoading;
 			}
 		},
+		watch: {
+			$jsonQuery(newData, oldData) {
+				//console.warn(newData);
+				this.$nextTick(() => this.$reload());
+			}
+		},
 		methods: {
 			$marker() {
 				return true;
 			},
 			$exec(cmd, arg, confirm, opts) {
 				if (this.$isReadOnly(opts)) return;
+				if (this.$isLoading) return;
 				const root = this.$data;
 				root._exec_(cmd, arg, confirm, opts);
 				return;
@@ -120,6 +132,7 @@
 			},
 
 			$execSelected(cmd, arg, confirm) {
+				if (this.$isLoading) return;
 				let root = this.$data;
 				if (!utils.isArray(arg)) {
 					console.error('Invalid argument for $execSelected');
@@ -131,6 +144,7 @@
 					this.$confirm(confirm).then(() => root._exec_(cmd, arg.$selected));
 			},
 			$canExecute(cmd, arg, opts) {
+				if (this.$isLoading) return false;
 				if (this.$isReadOnly(opts))
 					return false;
 				let root = this.$data;
@@ -207,7 +221,7 @@
 			},
 
 
-			$invoke(cmd, data, base) {
+			$invoke(cmd, data, base, opts) {
 				let self = this;
 				let root = window.$$rootUrl;
 				let url = root + '/_data/invoke';
@@ -217,13 +231,18 @@
 				return new Promise(function (resolve, reject) {
 					var jsonData = utils.toJson({ cmd: cmd, baseUrl: baseUrl, data: data });
 					dataservice.post(url, jsonData).then(function (data) {
-						if (utils.isObject(data)) {
+						if (utils.isObject(data))
 							resolve(data);
-						} else {
+						else if (utils.isString(data))
+							resolve(data);
+						else
 							throw new Error('Invalid response type for $invoke');
-						}
 					}).catch(function (msg) {
-						self.$alertUi(msg);
+						if (opts && opts.catchError) {
+							reject(msg);
+						} else {
+							self.$alertUi(msg);
+						}
 					});
 				});
 			},
@@ -253,7 +272,6 @@
 
 			$reload(args) {
 				//console.dir('$reload was called for' + this.$baseUrl);
-				//debugger;
 				let self = this;
 				if (utils.isArray(args) && args.$isLazy()) {
 					// reload lazy
@@ -307,8 +325,8 @@
 			},
 
 			$remove(item, confirm) {
-				if (this.$data.$readOnly)
-					return;
+				if (this.$data.$readOnly) return;
+				if (this.$isLoading) return;
 				if (!confirm)
 					item.$remove();
 				else
@@ -335,7 +353,8 @@
 			$href(url, data) {
 				return urltools.createUrlForNavigate(url, data);
 			},
-			$navigate(url, data, newWindow, update) {
+			$navigate(url, data, newWindow, update, opts) {
+				if (this.$isReadOnly(opts)) return;
 				let urlToNavigate = urltools.createUrlForNavigate(url, data);
 				if (newWindow === true) {
 					let nwin = window.open(urlToNavigate, "_blank");
@@ -354,15 +373,60 @@
 					this.$store.commit('navigate', { url: url });
 			},
 
+			$navigateExternal(url, newWindow) {
+				if (newWindow === true) {
+					let nwin = window.open(url, "_blank");
+				}
+				else
+					window.location.assign(url);
+			},
+
 			$download(url) {
 				const root = window.$$rootUrl;
 				url = urltools.combine('/file', url.replace('.', '-'));
 				window.location = root + url;
 			},
 
+			$attachment(url, arg, opts) {
+				const root = window.$$rootUrl;
+				let cmd = opts && opts.export ? 'export' : 'show';
+				let id = arg;
+				if (arg && utils.isObject(arg))
+					id = utils.getStringId(arg);
+				let attUrl = urltools.combine(root, 'attachment', cmd, id);
+				let qry = { base: url};
+				attUrl = attUrl + urltools.makeQueryString(qry);
+				if (opts && opts.newWindow)
+					window.open(attUrl, '_blank');
+				else
+					window.location.assign(attUrl);
+			},
+
+			$eusign(baseurl, arg) {
+				// id => attachment id
+				// open dialog with eu-sign frame
+				function rawDialog(url) {
+					return new Promise(function (resolve, reject) {
+						const dlgData = {
+							promise: null, data: arg, query: { base: baseurl }, raw: true
+						};
+						eventBus.$emit('modal', url, dlgData);
+						dlgData.promise.then(function (result) {
+							cb(result);
+							resolve(result);
+						});
+					});
+				}
+				const root = window.$$rootUrl;
+				rawDialog('/eusign/index').then(function (resolve, reject) {
+					alert('promise resolved');
+				});
+			},
+
 			$dbRemove(elem, confirm) {
 				if (!elem)
 					return;
+				if (this.$isLoading) return;
 				let id = elem.$id;
 				let lazy = elem.$parent.$isLazy ? elem.$parent.$isLazy() : false;
 				let root = window.$$rootUrl;
@@ -398,10 +462,20 @@
 			},
 
 			$dbRemoveSelected(arr, confirm) {
+				if (this.$isLoading) return;
 				let sel = arr.$selected;
 				if (!sel)
 					return;
 				this.$dbRemove(sel, confirm);
+			},
+
+			$openSelectedFrame(url, arr) {
+				url = url || '';
+				let sel = arr.$selected;
+				if (!sel)
+					return;
+				let urlToNavigate = urltools.createUrlForNavigate(url, sel.$id);
+				eventBus.$emit('openframe', urlToNavigate);
 			},
 
 			$openSelected(url, arr, newwin, update) {
@@ -431,14 +505,23 @@
 				return arr && arr.$checked && arr.$checked.length;
 			},
 
+			$sanitize(text) {
+				return utils.text.sanitize(text);
+			},
+
 			$confirm(prms) {
 				if (utils.isString(prms))
 					prms = { message: prms };
-				prms.style = 'confirm';
+				prms.style = prms.style || 'confirm';
 				prms.message = prms.message || prms.msg; // message or msg
 				let dlgData = { promise: null, data: prms };
 				eventBus.$emit('confirm', dlgData);
 				return dlgData.promise;
+			},
+
+			$msg(msg, title, style) {
+				let prms = { message: msg, title: title || locale.$Message, style: style || 'info' };
+				return this.$confirm(prms);
 			},
 
 			$alert(msg, title, list) {
@@ -464,8 +547,10 @@
 					alert(msg);
 			},
 
-			$toast(toast) {
+			$toast(toast, style) {
 				if (!toast) return;
+				if (utils.isString(toast))
+					toast = { text: toast, style: style || 'success' };
 				eventBus.$emit('toast', toast);
 			},
 
@@ -523,7 +608,13 @@
 							return __runDialog(url, arg.$selected, query, (result) => { arg.$selected.$merge(result); });
 						case 'edit':
 							if (argIsNotAnObject()) return;
-							return __runDialog(url, arg, query, (result) => { arg.$merge(result); });
+							return __runDialog(url, arg, query, (result) => {
+								if (arg.$merge)
+									arg.$merge(result);
+								if (opts && opts.reloadAfter) {
+									that.$reload();
+								}
+							});
 						case 'copy':
 							if (argIsNotAnObject()) return;
 							let arr = arg.$parent;
@@ -547,6 +638,7 @@
 			},
 
 			$export() {
+				if (this.$isLoading) return;
 				const self = this;
 				const root = window.$$rootUrl;
 				let url = self.$baseUrl;
@@ -556,13 +648,18 @@
 
 			$report(rep, arg, opts) {
 				if (this.$isReadOnly(opts)) return;
-			
-				let cmd = opts && opts.export ? 'export' : 'show';
+				if (this.$isLoading) return;
+
+				let cmd = 'show';
+				if (opts && opts.export)
+					cmd = 'export';
+				else if (opts && opts.attach)
+					cmd = 'attach';
 
 				const doReport = () => {
 					let id = arg;
 					if (arg && utils.isObject(arg))
-						id = arg.$id;
+						id = utils.getStringId(arg);
 					const root = window.$$rootUrl;
 					let url = `${root}/report/${cmd}/${id}`;
 					let reportUrl = this.$indirectUrl || this.$baseUrl;
@@ -570,9 +667,10 @@
 					let qry = { base: baseUrl, rep: rep };
 					url = url + urltools.makeQueryString(qry);
 					// open in new window
-					if (opts && opts.export) {
+					if (opts && opts.export)
 						window.location = url;
-					}
+					else if (opts && opts.attach)
+						return; // просто ничего не делаем
 					else
 						window.open(url, '_blank');
 				};
@@ -699,6 +797,12 @@
 				return value;
 			},
 
+			$getNegativeRedClass(value) {
+				if (utils.isNumber(value))
+					return value < 0 ? 'negative-red' : '';
+				return '';
+			},
+
 			$expand(elem, propName) {
 				let arr = elem[propName];
 				if (arr.$loaded)
@@ -729,13 +833,14 @@
 					selfMi = elem[propName].$ModelInfo,
 					parentMi = elem.$parent.$ModelInfo;
 
-				// HACK. inherit filter from parent
+				// HACK. inherit filter from parent modelInfo
 				/*
+				?????
 				if (parentMi && parentMi.Filter) {
-					if (!selfMi)
-						selfMi = parentMi;
+					if (selfMi)
+						modelInfo.mergeFilter(selfMi.Filter, parentMi.Filter);
 					else
-						selfMi.Filter = parentMi.Filter;
+						selfMi = parentMi;
 				}
 				*/
 
@@ -761,6 +866,7 @@
 							if (rcName in data) {
 								arr.$RowCount = data[rcName];
 							}
+							modelInfo.reconcile(data.$ModelInfo[propName]);
 							arr._root_._setModelInfo_(arr, data);
 						}
 						resolve(arr);
@@ -775,6 +881,8 @@
 				const root = this.$data;
 				return root._delegate_(name);
 			},
+
+			$defer: platform.defer,
 
 			__beginRequest() {
 				this.$data.__requestsCount__ += 1;
@@ -812,9 +920,38 @@
 				let caller = null;
 				if (this.$caller)
 					caller = this.$caller.$data;
+				this.__createController__();
 				root._modelLoad_(caller);
-				root._seal_(root);
-			}, 
+			},
+			__createController__() {
+				let ctrl = {
+					$save: this.$save,
+					$invoke: this.$invoke,
+					$close: this.$close,
+					$modalClose: this.$modalClose,
+					$msg: this.$msg,
+					$alert: this.$alert,
+					$showDialog: this.$showDialog,
+					$asyncValid: this.$asyncValid,
+					$toast: this.$toast,
+					$requery: this.$requery,
+					$reload: this.$reload,
+					$notifyOwner: this.$notifyOwner,
+					$defer: platform.defer
+				};
+				Object.defineProperty(ctrl, "$isDirty", {
+					enumerable: true,
+					configurable: true, /* needed */
+					get: () => this.$isDirty
+				});
+				Object.defineProperty(ctrl, "$isPristine", {
+					enumerable: true,
+					configurable: true, /* needed */
+					get: () => this.$isPristine
+				});
+				Object.seal(ctrl);
+				return ctrl;
+			},
 			__notified(token) {
 				if (!token) return;
 				if (this.__currentToken__ !== token.token) return;

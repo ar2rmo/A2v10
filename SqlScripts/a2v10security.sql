@@ -2,8 +2,8 @@
 ------------------------------------------------
 Copyright © 2008-2018 Alex Kukhtin
 
-Last updated : 03 jun 2018
-module version : 7059
+Last updated : 11 nov 2018
+module version : 7319
 */
 
 ------------------------------------------------
@@ -22,9 +22,9 @@ go
 ------------------------------------------------
 set nocount on;
 if not exists(select * from a2sys.Versions where Module = N'std:security')
-	insert into a2sys.Versions (Module, [Version]) values (N'std:security', 7059);
+	insert into a2sys.Versions (Module, [Version]) values (N'std:security', 7319);
 else
-	update a2sys.Versions set [Version] = 7059 where Module = N'std:security';
+	update a2sys.Versions set [Version] = 7319 where Module = N'std:security';
 go
 ------------------------------------------------
 if not exists(select * from INFORMATION_SCHEMA.SCHEMATA where SCHEMA_NAME=N'a2security')
@@ -49,7 +49,10 @@ begin
 		[Source] nvarchar(255) null,
 		[TransactionCount] bigint not null constraint DF_Tenants_TransactionCount default(0),
 		LastTransactionDate datetime null,
-		DateCreated datetime not null constraint DF_Tenants_DateCreated default(getdate())
+		DateCreated datetime not null constraint DF_Tenants_DateCreated default(getdate()),
+		TrialPeriodExpired datetime null,
+		DataSize float null,
+		[State] nvarchar(128) null
 	);
 end
 go
@@ -60,10 +63,24 @@ begin
 end
 go
 ------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Tenants' and COLUMN_NAME=N'TrialPeriodExpired')
+begin
+	alter table a2security.Tenants add TrialPeriodExpired datetime null;
+end
+go
+------------------------------------------------
 if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Tenants' and COLUMN_NAME=N'LastTransactionDate')
 begin
 	alter table a2security.Tenants add [LastTransactionDate] datetime null;
 end
+go
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Tenants' and COLUMN_NAME=N'DataSize')
+	alter table a2security.Tenants add DataSize float null;
+go
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Tenants' and COLUMN_NAME=N'State')
+	alter table a2security.Tenants add [State] nvarchar(128) null;
 go
 ------------------------------------------------
 if not exists(select * from INFORMATION_SCHEMA.SEQUENCES where SEQUENCE_SCHEMA=N'a2security' and SEQUENCE_NAME=N'SQ_Users')
@@ -92,9 +109,25 @@ begin
 		AccessFailedCount int not null constraint DF_Users_AccessFailedCount default(0),
 		[Locale] nvarchar(32) not null constraint DF_Users_Locale default('uk_UA'),
 		PersonName nvarchar(255) null,
-		LastLoginDate datetime null,
+		LastLoginDate datetime null, /*UTC*/
 		LastLoginHost nvarchar(255) null,
-		Memo nvarchar(255) null
+		Memo nvarchar(255) null,
+		ChangePasswordEnabled	bit	not null constraint DF_Users_ChangePasswordEnabled default(1),
+		RegisterHost nvarchar(255) null,
+		[Guid] uniqueidentifier null,
+	);
+end
+go
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.TABLES where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'UserLogins')
+begin
+	create table a2security.UserLogins
+	(
+		[User] bigint not null 
+			constraint FK_UserLogins_User_Users foreign key references a2security.Users(Id),
+		[LoginProvider] nvarchar(255) not null,
+		[ProviderKey] nvarchar(max) not null,
+		constraint PK_UserLogins primary key([User], LoginProvider)
 	);
 end
 go
@@ -105,10 +138,28 @@ begin
 end
 go
 ------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Users' and COLUMN_NAME=N'ChangePasswordEnabled')
+begin
+	alter table a2security.Users add ChangePasswordEnabled bit not null constraint DF_Users_ChangePasswordEnabled default(1) with values;
+end
+go
+------------------------------------------------
 if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Users' and COLUMN_NAME=N'LastLoginDate')
 begin
 	alter table a2security.Users add LastLoginDate datetime null;
 	alter table a2security.Users add LastLoginHost nvarchar(255) null;
+end
+go
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Users' and COLUMN_NAME=N'RegisterHost')
+begin
+	alter table a2security.Users add RegisterHost nvarchar(255) null;
+end
+go
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Users' and COLUMN_NAME=N'Guid')
+begin
+	alter table a2security.Users add [Guid] uniqueidentifier null
 end
 go
 ------------------------------------------------
@@ -241,7 +292,16 @@ begin
 	);
 end
 go
-
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.TABLES where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'LogCodes')
+begin
+	create table a2security.[LogCodes]
+	(
+		Code int not null constraint PK_LogCodes primary key,
+		[Name] nvarchar(32) not null
+	);
+end
+go
 ------------------------------------------------
 if not exists(select * from INFORMATION_SCHEMA.TABLES where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Log')
 begin
@@ -250,11 +310,27 @@ begin
 		Id	bigint not null identity(100, 1) constraint PK_Log primary key,
 		UserId bigint not null
 			constraint FK_Log_UserId_Users foreign key references a2security.Users(Id),
+		Code int not null
+			constraint FK_Log_Code_Codes foreign key references a2security.LogCodes(Code),
 		EventTime	datetime not null
-			constraint DF_Log_EventTime default(getdate()),
+			constraint DF_Log_UtcEventTime default(getutcdate()),
 		Severity nchar(1) not null,
-		[Message] nvarchar(max) null,
+		[Message] nvarchar(max) sparse null
 	);
+end
+go
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2security' and TABLE_NAME=N'Log' and COLUMN_NAME=N'Code')
+begin
+	alter table a2security.[Log] add Code int not null
+		constraint FK_Log_Code_Codes foreign key references a2security.LogCodes(Code);
+end
+go
+------------------------------------------------
+if exists(select * from sys.default_constraints where name=N'DF_Log_EventTime' and parent_object_id = object_id(N'a2security.Log'))
+begin
+	alter table a2security.[Log] drop constraint DF_Log_EventTime;
+	alter table a2security.[Log] add constraint DF_Log_UtcEventTime default(getutcdate()) for EventTime with values;
 end
 go
 ------------------------------------------------
@@ -269,6 +345,7 @@ as
 	select Id, UserName, PasswordHash, SecurityStamp, Email, PhoneNumber,
 		LockoutEnabled, AccessFailedCount, LockoutEndDateUtc, TwoFactorEnabled, [Locale],
 		PersonName, Memo, Void, LastLoginDate, LastLoginHost, Tenant, EmailConfirmed,
+		PhoneNumberConfirmed, RegisterHost, ChangePasswordEnabled,
 		IsAdmin = cast(case when ug.GroupId = 77 /*predefined*/ then 1 else 0 end as bit)
 	from a2security.Users u
 		left join a2security.UserGroups ug on u.Id = ug.UserId and ug.GroupId=77
@@ -317,6 +394,57 @@ begin
 end
 go
 ------------------------------------------------
+if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2security' and ROUTINE_NAME=N'FindUserByPhoneNumber')
+	drop procedure a2security.FindUserByPhoneNumber
+go
+------------------------------------------------
+create procedure a2security.FindUserByPhoneNumber
+@PhoneNumber nvarchar(255)
+as
+begin
+	set nocount on;
+	select * from a2security.ViewUsers with(nolock)
+	where PhoneNumber=@PhoneNumber;
+end
+go
+------------------------------------------------
+if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2security' and ROUTINE_NAME=N'FindUserByLogin')
+	drop procedure a2security.FindUserByLogin
+go
+------------------------------------------------
+create procedure a2security.[FindUserByLogin]
+@LoginProvider nvarchar(255),
+@ProviderKey nvarchar(max)
+as
+begin
+	set nocount on;
+	declare @UserId bigint;
+	select @UserId = [User] from a2security.UserLogins where LoginProvider = @LoginProvider and ProviderKey = @ProviderKey;
+	select * from a2security.ViewUsers with(nolock)
+	where Id=@UserId;
+end
+go
+------------------------------------------------
+if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2security' and ROUTINE_NAME=N'AddUserLogin')
+	drop procedure a2security.[AddUserLogin]
+go
+------------------------------------------------
+create procedure a2security.AddUserLogin
+@UserId bigint,
+@LoginProvider nvarchar(255),
+@ProviderKey nvarchar(max)
+as
+begin
+	set nocount on;
+	set transaction isolation level read uncommitted;
+	if not exists(select * from a2security.UserLogins where [User]=@UserId and LoginProvider=@LoginProvider)
+	begin
+		insert into a2security.UserLogins([User], [LoginProvider], [ProviderKey]) 
+			values (@UserId, @LoginProvider, @ProviderKey);
+	end
+end
+go
+------------------------------------------------
 if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2security' and ROUTINE_NAME=N'UpdateUserPassword')
 	drop procedure a2security.UpdateUserPassword
 go
@@ -331,7 +459,7 @@ begin
 	set transaction isolation level read committed;
 	set xact_abort on;
 	update a2security.ViewUsers set PasswordHash = @PasswordHash, SecurityStamp = @SecurityStamp where Id=@Id;
-	--TODO: log
+	exec a2security.[WriteLog] @Id, N'I', 15; /*PasswordUpdated*/
 end
 go
 ------------------------------------------------
@@ -351,7 +479,9 @@ begin
 	update a2security.ViewUsers set 
 		AccessFailedCount = @AccessFailedCount, LockoutEndDateUtc = @LockoutEndDateUtc
 	where Id=@Id;
-	--TODO: log
+	declare @msg nvarchar(255);
+	set @msg = N'AccessFailedCount: ' + cast(@AccessFailedCount as nvarchar(255));
+	exec a2security.[WriteLog] @Id, N'E', 18, /*AccessFailedCount*/ @msg;
 end
 go
 ------------------------------------------------
@@ -369,7 +499,7 @@ begin
 	set transaction isolation level read committed;
 	set xact_abort on;
 	update a2security.ViewUsers set LastLoginDate = @LastLoginDate, LastLoginHost = @LastLoginHost where Id=@Id;
-	--TODO: log
+	exec a2security.[WriteLog] @Id, N'I', 1; /*Login*/
 end
 go
 ------------------------------------------------
@@ -384,8 +514,37 @@ begin
 	set nocount on;
 	set transaction isolation level read committed;
 	set xact_abort on;
+
 	update a2security.ViewUsers set EmailConfirmed = 1 where Id=@Id;
-	--TODO: log
+
+	declare @msg nvarchar(255);
+	select @msg = N'Email: ' + Email from a2security.ViewUsers where Id=@Id;
+	exec a2security.[WriteLog] @Id, N'I', 26, /*EmailConfirmed*/ @msg;
+end
+go
+
+------------------------------------------------
+if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2security' and ROUTINE_NAME=N'ConfirmPhoneNumber')
+	drop procedure a2security.ConfirmPhoneNumber
+go
+------------------------------------------------
+create procedure a2security.ConfirmPhoneNumber
+@Id bigint,
+@PhoneNumber nvarchar(255),
+@PhoneNumberConfirmed bit,
+@SecurityStamp nvarchar(max)
+as
+begin
+	set nocount on;
+	set transaction isolation level read committed;
+	set xact_abort on;
+	update a2security.ViewUsers set PhoneNumber = @PhoneNumber,
+		PhoneNumberConfirmed = @PhoneNumberConfirmed, SecurityStamp=@SecurityStamp
+	where Id=@Id;
+
+	declare @msg nvarchar(255);
+	set @msg = N'PhoneNumber: ' + @PhoneNumber;
+	exec a2security.[WriteLog] @Id, N'I', 27, /*PhoneNumberConfirmed*/ @msg;
 end
 go
 
@@ -399,7 +558,7 @@ create procedure a2security.GetUserGroups
 as
 begin
 	set nocount on;
-	select g.Id, g.[Name]
+	select g.Id, g.[Name], g.[Key]
 	from a2security.UserGroups ug
 		inner join a2security.Groups g on ug.GroupId = g.Id
 	where ug.UserId = @UserId and g.Void=0;
@@ -444,6 +603,7 @@ create procedure a2security.CreateUser
 @PhoneNumber nvarchar(255) = null,
 @Tenant int = null,
 @PersonName nvarchar(255) = null,
+@RegisterHost nvarchar(255) = null,
 @RetId bigint output
 as
 begin
@@ -467,23 +627,34 @@ begin
 
 		select top(1) @tenantId = id from @tenants;
 
-		insert into a2security.ViewUsers(UserName, PasswordHash, SecurityStamp, Email, PhoneNumber, Tenant, PersonName)
+		insert into a2security.ViewUsers(UserName, PasswordHash, SecurityStamp, Email, PhoneNumber, Tenant, PersonName, RegisterHost)
 			output inserted.Id into @users(id)
-			values (@UserName, @PasswordHash, @SecurityStamp, @Email, @PhoneNumber, @tenantId, @PersonName);			
+			values (@UserName, @PasswordHash, @SecurityStamp, @Email, @PhoneNumber, @tenantId, @PersonName, @RegisterHost);			
 		select top(1) @userId = id from @users;
 
 		update a2security.Tenants set [Admin]=@userId where Id=@tenantId;
 
 		insert into a2security.UserGroups(UserId, GroupId) values (@userId, 1 /*all users*/);
+
+		if exists(select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA = N'a2security' and ROUTINE_NAME=N'OnCreateNewUser')
+		begin
+			declare @sql nvarchar(255);
+			declare @prms nvarchar(255);
+			set @sql = N'a2security.OnCreateNewUser @TenantId, @UserId';
+			set @prms = N'@TenantId int, @UserId bigint';
+
+			exec sp_executesql @sql, @prms, @tenantId, @userId;
+		end
+
 		commit tran;
 	end
 	else
 	begin
 		begin tran;
 
-		insert into a2security.ViewUsers(UserName, PasswordHash, SecurityStamp, Email, PhoneNumber, PersonName)
+		insert into a2security.ViewUsers(UserName, PasswordHash, SecurityStamp, Email, PhoneNumber, PersonName, RegisterHost)
 			output inserted.Id into @users(id)
-			values (@UserName, @PasswordHash, @SecurityStamp, @Email, @PhoneNumber, @PersonName);
+			values (@UserName, @PasswordHash, @SecurityStamp, @Email, @PhoneNumber, @PersonName, @RegisterHost);
 		select top(1) @userId = id from @users;
 
 		insert into a2security.UserGroups(UserId, GroupId) values (@userId, 1 /*all users*/);
@@ -492,7 +663,10 @@ begin
 	end
 	exec a2security.[Permission.UpdateUserInfo];
 	set @RetId = @userId;
-	--TODO: log
+
+	declare @msg nvarchar(255);
+	set @msg = N'User: ' + @UserName;
+	exec a2security.[WriteLog] @RetId, N'I', 2, /*UserCreated*/ @msg;
 end
 go
 ------------------------------------------------
@@ -508,6 +682,10 @@ begin
 	set nocount on;
 	set transaction isolation level read uncommitted;
 
+	if 1 <> (select ChangePasswordEnabled from a2security.Users where Id=@UserId)
+	begin
+		raiserror (N'UI:@[ChangePasswordDisabled]', 16, -1) with nowait;
+	end
 	select [User!TUser!Object] = null, [Id!!Id] = Id, [Name!!Name] = UserName, 
 		[OldPassword] = cast(null as nvarchar(255)),
 		[NewPassword] = cast(null as nvarchar(255)),
@@ -516,17 +694,58 @@ begin
 end
 go
 ------------------------------------------------
-create or alter procedure [a2security].[WriteLog]
+if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2security' and ROUTINE_NAME=N'WriteLog')
+	drop procedure a2security.[WriteLog]
+go
+------------------------------------------------
+create procedure [a2security].[WriteLog]
 	@UserId bigint = null,
-	@Severity int,
-	@Message nvarchar(max)
+	@SeverityChar nchar(1),
+	@Code int = null,
+	@Message nvarchar(max) = null
 as
 begin
 	set nocount on;
 	set transaction isolation level read committed;
 	set xact_abort on;
-	insert into a2security.[Log] (UserId, Severity, [Message]) 
-		values (isnull(@UserId, 0 /*system user*/), char(@Severity), @Message);
+	insert into a2security.[Log] (UserId, Severity, [Code] , [Message]) 
+		values (isnull(@UserId, 0 /*system user*/), @SeverityChar, @Code, @Message);
+end
+go
+------------------------------------------------
+if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2security' and ROUTINE_NAME=N'UserStateInfo.Load')
+	drop procedure a2security.[UserStateInfo.Load]
+go
+------------------------------------------------
+create procedure a2security.[UserStateInfo.Load]
+@TenantId int = null,
+@UserId bigint
+as
+begin
+	select [UserState!TUserState!Object] = null;
+end
+go
+------------------------------------------------
+begin
+	set nocount on;
+	declare @codes table (Code int, [Name] nvarchar(32))
+
+	insert into @codes(Code, [Name])
+	values
+		(1,  N'Login'		        ), 
+		(2,  N'UserCreated'		    ), 
+		(15, N'PasswordUpdated'     ), 
+		(18, N'AccessFailedCount'   ), 
+		(26, N'EmailConfirmed'      ), 
+		(27, N'PhoneNumberConfirmed');
+
+	merge into a2security.[LogCodes] t
+	using @codes s on s.Code = t.Code
+	when matched then update set
+		[Name]=s.[Name]
+	when not matched by target then insert 
+		(Code, [Name]) values (s.Code, s.[Name])
+	when not matched by source then delete;
 end
 go
 ------------------------------------------------
@@ -536,9 +755,9 @@ begin
 	if not exists(select * from a2security.Users where Id = 0)
 		insert into a2security.Users (Id, UserName, SecurityStamp) values (0, N'System', N'System');
 	if not exists(select * from a2security.Groups where Id = 1)
-		insert into a2security.Groups(Id, [Key], [Name]) values (1, N'Users', N'Все пользователи');
+		insert into a2security.Groups(Id, [Key], [Name]) values (1, N'Users', N'@[AllUsers]');
 	if not exists(select * from a2security.Groups where Id = 77)
-		insert into a2security.Groups(Id, [Key], [Name]) values (77, N'Admins', N'Администраторы');
+		insert into a2security.Groups(Id, [Key], [Name]) values (77, N'Admins', N'@[AdminUsers]');
 end
 go
 ------------------------------------------------

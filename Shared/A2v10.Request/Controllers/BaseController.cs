@@ -14,6 +14,7 @@ using System.Net;
 using A2v10.Data.Interfaces;
 using System.Threading;
 using System.Web;
+using A2v10.Request.Properties;
 
 namespace A2v10.Request
 {
@@ -26,8 +27,15 @@ namespace A2v10.Request
 		protected readonly ILocalizer _localizer;
 		protected readonly IDataScripter _scripter;
 		protected readonly IMessageService _messageService;
+		protected readonly IUserStateManager _userStateManager;
 
-		const String NO_VIEW = "\b_NO_VIEW_\b";
+		public class DataModelAndView
+		{
+			public IDataModel Model;
+			public RequestView RequestView;
+		}
+
+		public const String NO_VIEW = "\b_NO_VIEW_\b";
 
 		public BaseController()
 		{
@@ -40,6 +48,7 @@ namespace A2v10.Request
 			_localizer = locator.GetService<ILocalizer>();
 			_scripter = locator.GetService<IDataScripter>();
 			_messageService = locator.GetServiceOrNull<IMessageService>();
+			_userStateManager = locator.GetServiceOrNull<IUserStateManager>();
 		}
 
 		public Boolean IsDebugConfiguration => _host.IsDebugConfiguration;
@@ -153,8 +162,12 @@ namespace A2v10.Request
 			return rw;
 		}
 
-		protected async Task Render(RequestView rw, TextWriter writer, ExpandoObject loadPrms)
+		internal async Task<DataModelAndView> GetDataModelForView(RequestView rw, ExpandoObject loadPrms)
 		{
+			var dmv = new DataModelAndView()
+			{
+				RequestView = rw
+			};
 			String loadProc = rw.LoadProcedure;
 			IDataModel model = null;
 			if (rw.parameters != null && loadPrms == null)
@@ -179,9 +192,43 @@ namespace A2v10.Request
 					}
 				}
 				model = await _dbContext.LoadModelAsync(rw.CurrentSource, loadProc, prms2);
+				if (!String.IsNullOrEmpty(rw.Id) && !rw.copy)
+				{
+					var me = model.MainElement;
+					if (me.Metadata != null)
+					{
+						var modelId = me.Id ?? String.Empty;
+						if (rw.Id != modelId.ToString())
+							throw new RequestModelException($"Element not found. Id={rw.Id}");
+					}
+				}
 			}
 			if (rw.indirect)
 				rw = await LoadIndirect(rw, model, loadPrms);
+			if (model?.Root != null)
+			{
+				// side effect!
+				rw.view = model.Root.Resolve(rw.view);
+				rw.template = model.Root.Resolve(rw.template);
+			}
+
+			if (_userStateManager != null && model != null)
+			{
+				Int64 userId = loadPrms.Get<Int64>("UserId");
+				if (_userStateManager.IsReadOnly(userId))
+					model.SetReadOnly();
+			}
+			dmv.Model = model;
+			dmv.RequestView = rw;
+			return dmv;
+		}
+
+		protected internal async Task Render(RequestView rwArg, TextWriter writer, ExpandoObject loadPrms, Boolean secondPhase = false)
+		{
+			var dmAndView = await GetDataModelForView(rwArg, loadPrms);
+
+			IDataModel model = dmAndView.Model;
+			var rw = dmAndView.RequestView;
 
 			String rootId = "el" + Guid.NewGuid().ToString();
 			String modelScript = null;
@@ -189,7 +236,7 @@ namespace A2v10.Request
 			String viewName = rw.GetView();
 			if (viewName == NO_VIEW)
 			{
-				modelScript = await WriteModelScriptModel(rw, model, rootId);
+				modelScript = await GetModelScriptModel(rw, model, rootId);
 				writer.Write(modelScript);
 				return;
 			}
@@ -202,7 +249,8 @@ namespace A2v10.Request
 			// try xaml
 			String fileName = rw.GetView() + ".xaml";
 			String filePath = _host.MakeFullPath(Admin, rw.Path, fileName);
-			bool bRendered = false;
+			String basePath = rw.ParentModel.BasePath;
+			Boolean bRendered = false;
 			if (System.IO.File.Exists(filePath))
 			{
 				// render XAML
@@ -215,10 +263,13 @@ namespace A2v10.Request
 							RootId = rootId,
 							FileName = filePath,
 							FileTitle = fileName,
+							Path = basePath,
 							Writer = strWriter,
 							DataModel = model,
 							Localizer = _localizer,
-							CurrentLocale = null
+							CurrentLocale = null,
+							IsDebugConfiguration = _host.IsDebugConfiguration,
+							SecondPhase = secondPhase
 						};
 						_renderer.Render(ri);
 						// write markup
@@ -254,7 +305,7 @@ namespace A2v10.Request
 		}
 
 
-		async Task<String> WriteModelScriptModel(RequestView rw, IDataModel model, String rootId)
+		internal async Task<String> GetModelScriptModel(RequestView rw, IDataModel model, String rootId)
 		{
 			StringBuilder output = new StringBuilder();
 			String dataModelText = "null";
@@ -302,19 +353,19 @@ window.$currentModule = function() {
 		async Task<String> WriteModelScript(RequestView rw, IDataModel model, String rootId)
 		{
 			StringBuilder output = new StringBuilder();
-			String dataModelText = "null";
+			String dataModelText = "{}";
 			String templateText = "{}";
 			StringBuilder sbRequired = new StringBuilder();
+			// write model script
+			String fileTemplateText = null;
+			if (rw.template != null)
+			{
+				fileTemplateText = await _host.ReadTextFile(Admin, rw.Path, rw.template + ".js");
+				AddRequiredModules(sbRequired, fileTemplateText);
+				templateText = CreateTemplateForWrite(_localizer.Localize(null, fileTemplateText));
+			}
 			if (model != null)
 			{
-				// write model script
-				String fileTemplateText = null;
-				if (rw.template != null)
-				{
-					fileTemplateText = await _host.ReadTextFile(Admin, rw.Path, rw.template + ".js");
-					AddRequiredModules(sbRequired, fileTemplateText);
-					templateText = CreateTemplateForWrite(_localizer.Localize(null, fileTemplateText));
-				}
 				dataModelText = JsonConvert.SerializeObject(model.Root, StandardSerializerSettings);
 			}
 
@@ -352,7 +403,8 @@ const vm = new DataModelController({
 });
 
 	vm.$data._host_ = {
-		$viewModel: vm
+		$viewModel: vm,
+		$ctrl: vm.__createController__(vm)
 	};
 
 	vm.__doInit__();
@@ -360,19 +412,16 @@ const vm = new DataModelController({
 })();
 </script>
 ";
-			// TODO: may be data model from XAML ????
-			const String emptyModel = "function modelData() {return null;}";
-
 			var header = new StringBuilder(scriptHeader);
 			header.Replace("$(RootId)", rootId);
 			header.Replace("$(DataModelText)", dataModelText);
 			header.Replace("$(TemplateText)", _localizer.Localize(null, templateText));
 			header.Replace("$(RequiredModules)", sbRequired != null ? sbRequired.ToString() : String.Empty);
 			output.Append(header);
-			if (model != null)
-				output.Append(model.CreateScript(_scripter));
+			if (model == null || model.IsEmpty)
+				output.Append(_scripter.CreateEmptyStript());
 			else
-				output.Append(emptyModel);
+				output.Append(model.CreateScript(_scripter));
 			var footer = new StringBuilder(scriptFooter);
 			footer.Replace("$(RootId)", rootId);
 			footer.Replace("$(IsDialog)", rw.IsDialog.ToString().ToLowerInvariant());
@@ -425,7 +474,7 @@ const vm = new DataModelController({
 				return;
 			if (_modulesWritten == null)
 				_modulesWritten = new HashSet<String>();
-			int iIndex = 0;
+			Int32 iIndex = 0;
 			while (true)
 			{
 				String moduleName = FindModuleNameFromString(clientScript, ref iIndex);
@@ -437,6 +486,8 @@ const vm = new DataModelController({
 					continue;
 				if (moduleName.ToLowerInvariant().StartsWith("std:"))
 					continue;
+				if (moduleName.ToLowerInvariant().StartsWith("app:"))
+					continue;
 				if (_modulesWritten.Contains(moduleName))
 					continue;
 				var fileName = moduleName.AddExtension("js");
@@ -445,7 +496,7 @@ const vm = new DataModelController({
 					throw new FileNotFoundException(filePath);
 				String moduleText = File.ReadAllText(filePath);
 				sb.AppendLine(tmlHeader.Replace("$(Module)", moduleName))
-					.AppendLine(_localizer.Localize(null, moduleText))
+					.AppendLine(_localizer.Localize(null, moduleText, replaceNewLine:false))
 					.AppendLine(tmlFooter)
 					.AppendLine();
 				_modulesWritten.Add(moduleName);
@@ -453,16 +504,16 @@ const vm = new DataModelController({
 			}
 		}
 
-		public static String FindModuleNameFromString(String text, ref int pos)
+		public static String FindModuleNameFromString(String text, ref Int32 pos)
 		{
 			String funcName = "require";
-			int rPos = text.IndexOf(funcName, pos);
+			Int32 rPos = text.IndexOf(funcName, pos);
 			if (rPos == -1)
 				return null; // не продолжаем, ничего не нашли
 			pos = rPos + funcName.Length;
 			// проверим, что мы не в комментарии
-			int oc = text.LastIndexOf("/*", rPos);
-			int cc = text.LastIndexOf("*/", rPos);
+			Int32 oc = text.LastIndexOf("/*", rPos);
+			Int32 cc = text.LastIndexOf("*/", rPos);
 			if (oc != -1)
 			{
 				// есть открывающий комментарий
@@ -475,7 +526,7 @@ const vm = new DataModelController({
 					return String.Empty; // закрывающий левее открывающего, мы внутри
 				}
 			}
-			int startLine = text.LastIndexOfAny(new Char[] { '\r', '\n' }, rPos);
+			Int32 startLine = text.LastIndexOfAny(new Char[] { '\r', '\n' }, rPos);
 			oc = text.LastIndexOf("//", rPos);
 			if ((oc != 1) && (oc > startLine))
 				return String.Empty; // есть однострочный и он после начала строки
@@ -587,6 +638,16 @@ const vm = new DataModelController({
 				return;
 			String subject = "Feedback from service";
 			_messageService.Send(to, subject, body);
+		}
+
+		void RenderErrorDialog(TextWriter writer, String message)
+		{
+			var errorHtml = new StringBuilder(_localizer.Localize(null, Resources.errorDialog));
+			var pageGuid = $"el{Guid.NewGuid()}"; // starts with letter!
+			errorHtml.Replace("$(PageGuid)", pageGuid);
+			errorHtml.Replace("$(ErrorMessage)", message);
+			writer.Write(errorHtml.ToString());
+
 		}
 	}
 }

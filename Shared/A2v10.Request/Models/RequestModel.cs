@@ -11,6 +11,8 @@ using Newtonsoft.Json;
 using A2v10.Infrastructure;
 using System.IO;
 using System.Text;
+using A2v10.Data.Interfaces;
+using A2v10.Interop;
 
 namespace A2v10.Request
 {
@@ -31,9 +33,11 @@ namespace A2v10.Request
 		Command,
 		Data,
 		Image,
+		Attachment,
 		Upload,
 		Report,
-		Export
+		Export,
+		Api
 	}
 
 	public enum RequestDataAction
@@ -63,6 +67,7 @@ namespace A2v10.Request
 		public Boolean index;
 		public Boolean copy;
 		public String template;
+		public String script;
 		public ExpandoObject parameters;
 
 		[JsonIgnore]
@@ -238,7 +243,7 @@ namespace A2v10.Request
 			return $"~/{Path}/{GetView()}{extension}";
 		}
 
-		public IModelHandler GetHookHandler(IApplicationHost host)
+		public IModelHandler GetHookHandler()
 		{
 			if (String.IsNullOrEmpty(hook))
 				return null;
@@ -251,13 +256,17 @@ namespace A2v10.Request
 			}
 			String assemblyName = match.Groups[2].Value;
 			String typeName = match.Groups[1].Value;
+
 			var modelHandler = System.Activator.CreateInstance(assemblyName: assemblyName, typeName: typeName,
 				ignoreCase: false, bindingAttr: 0,
-				binder: null, args: new Object[] { host },
+				binder: null, 
+				args: null,
 				culture: null,
 				activationAttributes: null).Unwrap();
 			if (!(modelHandler is IModelHandler))
 				throw new RequestModelException($"{typeName} must implement interface IModelHandler");
+
+			ClrInvoker.CallInject(modelHandler);
 			return modelHandler as IModelHandler;
 		}
 	}
@@ -284,6 +293,17 @@ namespace A2v10.Request
 	public class RequestDialog : RequestView
 	{
 		public override Boolean IsDialog { get { return true; } }
+		[JsonProperty("twoPhase")]
+		public Boolean TwoPhase { get; set; }
+
+		public void CheckPhase(Boolean phase2)
+		{
+			if (!TwoPhase) return;
+			if (phase2) return;
+			// no model, no template for the first phase
+			model = String.Empty;
+			template = null;
+		}
 	}
 
 	public class RequestPopup : RequestView
@@ -295,6 +315,9 @@ namespace A2v10.Request
 		none,
 		sql,
 		clr,
+		script,
+		xml,
+		file,
 		startProcess,
 		resumeProcess
 	}
@@ -306,9 +329,30 @@ namespace A2v10.Request
 		public String procedure;
 		public String file;
 		public String clrType;
+		public Boolean async;
+		public String wrapper;
+
+		public IList<String> xmlSchemas;
+		public Boolean validate;
+
+		// for api
+		public String allowOrigin;
+		public String allowAddress;
 
 		[JsonIgnore]
 		public String CommandProcedure => $"[{CurrentSchema}].[{procedure}]";
+
+		[JsonIgnore]
+		public String XmlProcedure
+		{
+			get
+			{
+				var cm = CurrentModel;
+				if (String.IsNullOrEmpty(cm))
+					return null;
+				return $"[{CurrentSchema}].[{cm}.Report]";
+			}
+		}
 
 		[JsonIgnore]
 		public String ActionBase
@@ -323,7 +367,8 @@ namespace A2v10.Request
 	public enum RequestReportType
 	{
 		stimulsoft,
-		xml
+		xml,
+		json
 	}
 
 	public class RequestReport : RequestBase
@@ -360,13 +405,15 @@ namespace A2v10.Request
 	public enum RequestUploadParseType
 	{
 		none,
-		excel
+		excel,
 	}
 
 
 	public class RequestUpload : RequestBase
 	{
 		public RequestUploadParseType parse;
+		public String clrType;
+		public Boolean async;
 	}
 
 	public class RequestImage : RequestBase
@@ -389,6 +436,9 @@ namespace A2v10.Request
 		internal String _modelPath;
 		[JsonIgnore]
 		internal String _id;
+
+		[JsonIgnore]
+		internal Boolean Phase2;
 
 		public String model; // data model
 		public String schema; // schema for data model
@@ -413,7 +463,12 @@ namespace A2v10.Request
 
 		[JsonIgnore]
 		public String ModelAction => _action;
+		[JsonIgnore]
+		public String ModelCommand => _command;
+		[JsonIgnore]
+		public String ModelDialog => _dialog;
 
+		[JsonIgnore]
 		public RequestDataAction DataAction
 		{
 			get
@@ -427,6 +482,7 @@ namespace A2v10.Request
 			}
 		}
 
+		[JsonIgnore]
 		public String BaseUrl
 		{
 			get
@@ -441,6 +497,22 @@ namespace A2v10.Request
 						throw new RequestModelException($"Invalid RequestKind '{_kind}' for indirect query");
 				}
 				return $"/{kind}/{_modelPath}/{_action}/{_id}";
+			}
+		}
+
+		[JsonIgnore]
+		public String BasePath
+		{
+			get
+			{
+				switch (_kind)
+				{
+					case RequestUrlKind.Page:
+						return $"{_modelPath}/{_action}/{_id}";
+					case RequestUrlKind.Dialog:
+						return $"{_modelPath}/{_dialog}/{_id}";
+				}
+				return null;
 			}
 		}
 
@@ -467,7 +539,10 @@ namespace A2v10.Request
 				if (String.IsNullOrEmpty(_dialog))
 					throw new RequestModelException($"Invalid empty dialog in url for {_modelPath}");
 				if (Dialogs.TryGetValue(_dialog, out RequestDialog da))
+				{
+					da.CheckPhase(Phase2);
 					return da;
+				}
 				throw new RequestModelException($"Dialog '{_dialog}' not found in model {_modelPath}");
 			}
 		}
@@ -486,7 +561,13 @@ namespace A2v10.Request
 			}
 		}
 
-		public RequestCommand CurrentCommand => throw new NotImplementedException();
+		public RequestCommand CurrentCommand
+		{
+			get
+			{
+				return GetCommand(_command);
+			}
+		}
 
 		public RequestView GetCurrentAction()
 		{
@@ -523,7 +604,10 @@ namespace A2v10.Request
 		public RequestCommand GetCommand(String command)
 		{
 			if (Commands.TryGetValue(command, out RequestCommand cmd))
+			{
+				cmd.command = command;
 				return cmd;
+			}
 			throw new RequestModelException($"Command '{command}' not found in model.json");
 		}
 
@@ -547,6 +631,7 @@ namespace A2v10.Request
 			// {pathInfo}/dialog/id - DIALOG
 			// {pathInfo}/command/id - COMMAND
 			// {pathInfo}/image/id - IMAGE
+			// {pathInfo}/action/ - api
 
 			var mi = new RequestModelInfo();
 			String[] urlParts = normalizedUrl.Split('/');
@@ -578,6 +663,9 @@ namespace A2v10.Request
 				case RequestUrlKind.Image:
 					mi.action = action;
 					break;
+				case RequestUrlKind.Attachment:
+					mi.action = action;
+					break;
 				case RequestUrlKind.Upload:
 					mi.upload = action;
 					break;
@@ -586,6 +674,9 @@ namespace A2v10.Request
 					break;
 				case RequestUrlKind.Export:
 					mi.action = action;
+					break;
+				case RequestUrlKind.Api:
+					mi.command = action;
 					break;
 				default:
 					throw new RequestModelException($"Invalid action kind ({kind})");
@@ -649,7 +740,16 @@ namespace A2v10.Request
 			rm._upload = mi.upload;
 			rm._data = mi.data;
 			rm._modelPath = pathForLoad;
+			rm._kind = kind;
 			rm._id = ((mi.id == "0") || (mi.id == "new")) ? null : mi.id;
+			return rm;
+		}
+
+		public static async Task<RequestModel> CreateFromApiUrl(IApplicationHost host, String apiUrl)
+		{
+			apiUrl = apiUrl.ToLowerInvariant();
+			var rm = await CreateFromUrl(host, false, RequestUrlKind.Api, apiUrl + "/0" /*id*/);
+			rm._kind = RequestUrlKind.Api;
 			return rm;
 		}
 
@@ -676,6 +776,11 @@ namespace A2v10.Request
 			{
 				kind = RequestUrlKind.Image;
 				baseUrl = baseUrl.Substring(8);
+			}
+			else if (baseUrl.StartsWith("/_attachment"))
+			{
+				kind = RequestUrlKind.Attachment;
+				baseUrl = baseUrl.Substring(13);
 			}
 			else if (baseUrl.StartsWith("/_upload"))
 			{

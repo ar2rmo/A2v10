@@ -40,7 +40,7 @@
 	let currentToken = 1603;
 
 	function nextToken() {
-		return '' + (currentToken++);
+		return '' + currentToken++;
 	}
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
@@ -95,7 +95,7 @@
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180619-7227
+// 20181104-7343
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -139,6 +139,7 @@ app.modules['std:utils'] = function () {
 		toNumber: toNumber,
 		parse: parse,
 		getStringId: getStringId,
+		isEqual: isEqual,
 		date: {
 			today: dateToday,
 			zero: dateZero,
@@ -153,11 +154,17 @@ app.modules['std:utils'] = function () {
 			compare: dateCompare,
 			endOfMonth: endOfMonth,
 			minDate: dateCreate(1901, 1, 1),
-			maxDate: dateCreate(2999, 12, 31)
+			maxDate: dateCreate(2999, 12, 31),
+			fromDays: fromDays
 		},
 		text: {
 			contains: textContains,
-			containsText: textContainsText
+			containsText: textContainsText,
+			sanitize
+		},
+		func: {
+			curry,
+			debounce
 		},
 		debounce: debounce
 	};
@@ -172,7 +179,7 @@ app.modules['std:utils'] = function () {
 	function isObjectExact(value) { return isObject(value) && !Array.isArray(value); }
 
 	function isPrimitiveCtor(ctor) {
-		return ctor === String || ctor === Number || ctor === Boolean || ctor === Date;
+		return ctor === String || ctor === Number || ctor === Boolean || ctor === Date || ctor === File || ctor === Object;
 	}
 
 	function isDateCtor(ctor) {
@@ -181,6 +188,13 @@ app.modules['std:utils'] = function () {
 
 	function isEmptyObject(obj) {
 		return !obj || Object.keys(obj).length === 0 && obj.constructor === Object;
+	}
+
+	function isEqual(o1, o2) {
+		if (o1 === o2) return true;
+		if (isDate(o1) && isDate(o2))
+			return o1.getTime() === o2.getTime();
+		return false;
 	}
 
 	function notBlank(val) {
@@ -345,8 +359,15 @@ app.modules['std:utils'] = function () {
 			return '0';
 		if (isNumber(obj))
 			return obj;
-		else if (isObjectExact(obj))
-			return obj.$id || 0;
+		else if (isObjectExact(obj)) {
+			if ('$id' in obj)
+				return obj.$id || 0;
+			else if ("Id" in obj)
+				return obj.Id || 0;
+			else {
+				console.error('Id or @id not found in object');
+			}
+		}
 		return '0';
 	}
 
@@ -358,6 +379,7 @@ app.modules['std:utils'] = function () {
 
 	function dateToday() {
 		let td = new Date();
+		td.setHours(0, 0, 0, 0);
 		td.setHours(0, -td.getTimezoneOffset(), 0, 0);
 		return td;
 	}
@@ -370,13 +392,17 @@ app.modules['std:utils'] = function () {
 
 	function dateTryParse(str) {
 		if (!str) return dateZero();
+		if (isDate(str)) return str;
 		let dt;
 		if (str.length === 8) {
 			dt = new Date(+str.substring(0, 4), +str.substring(4, 6) - 1, +str.substring(6, 8), 0, 0, 0, 0);
+		} else if (str.startsWith('\"\\/\"')) {
+			dt = new Date(str.substring(4, str.length - 4));
 		} else {
 			dt = new Date(str);
 		}
 		if (!isNaN(dt.getTime())) {
+			dt.setHours(0, 0, 0, 0);
 			dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
 			return dt;
 		}
@@ -413,7 +439,9 @@ app.modules['std:utils'] = function () {
 	}
 
 	function endOfMonth(dt) {
-		return new Date(dt.getFullYear(), dt.getMonth() + 1, 0);
+		var dte = new Date(dt.getFullYear(), dt.getMonth() + 1, 0, 0, 0, 0);
+		dte.setHours(0, -dte.getTimezoneOffset(), 0, 0);
+		return dte;
 	}
 
 	function dateCreate(year, month, day) {
@@ -423,10 +451,10 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateDiff(unit, d1, d2) {
+		if (d1.getTime() > d2.getTime())
+			[d1, d2] = [d2, d1];
 		switch (unit) {
 			case "month":
-				if (d1.getTime() > d2.getTime())
-					[d1, d2] = [d2, d1];
 				let delta = 0;
 				if (d2.getDate() < d1.getDate())
 					delta = -1;
@@ -445,8 +473,21 @@ app.modules['std:utils'] = function () {
 				}
 				month += d2.getMonth() - d1.getMonth();
 				return month + delta;
+			case "day":
+				let du = 1000 * 60 * 60 * 24;
+				return Math.floor((d2 - d1) / du);
+			case "year":
+			case 'year':
+				var dd = new Date(d1.getFullYear(), d2.getMonth(), d2.getDate(), d2.getHours(), d2.getMinutes(), d2.getSeconds(), d2.getMilliseconds());
+				return d2.getFullYear() - d1.getFullYear() + (dd < d1 ? (d2 > d1 ? -1 : 0) : (d2 < d1 ? 1 : 0));
 		}
 		throw new Error('Invalid unit value for utils.date.diff');
+	}
+
+	function fromDays(days) {
+		let dt = new Date(1900, 0, days, 0, 0, 0, 0);
+		dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
+		return dt;
 	}
 
 	function dateAdd(dt, nm, unit) {
@@ -465,6 +506,7 @@ app.modules['std:utils'] = function () {
 				if (day > ldm)
 					day = ldm;
 				var dtx = new Date(dt.getFullYear(), newMonth, day);
+				dtx.setHours(0, -dtx.getTimezoneOffset(), 0, 0);
 				return dtx;
 			case 'day':
 				du = 1000 * 60 * 60 * 24;
@@ -491,6 +533,11 @@ app.modules['std:utils'] = function () {
 		return t1 - t2;
 	}
 
+	function sanitize(text) {
+		let t = '' + text || '';
+		return t.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+			.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+	}
 
 	function textContains(text, probe) {
 		if (!probe)
@@ -529,8 +576,12 @@ app.modules['std:utils'] = function () {
 		};
 	}
 
+	function curry(fn, ...args) {
+		return (..._arg) => {
+			return fn(...args, ..._arg);
+		};
+	}
 };
-
 
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
@@ -582,9 +633,9 @@ app.modules['std:url'] = function () {
 	}
 
 	function toUrl(obj) {
-		if (!utils.isDefined(obj)) return '';
+		if (!utils.isDefined(obj) || obj === null) return '';
 		if (utils.isDate(obj)) {
-			return utils.format(obj, "DateUrl");
+			return utils.format(obj, "DateUrl");		
 		} else if (period.isPeriod(obj)) {
 			return obj.format('DateUrl');
 		} else if (utils.isObjectExact(obj)) {
@@ -737,7 +788,7 @@ app.modules['std:url'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180508-7179
+// 20181024-7328
 // services/period.js
 
 app.modules['std:period'] = function () {
@@ -783,12 +834,11 @@ app.modules['std:period'] = function () {
 		}
 		this.normalize();
 		return this;
-	}
+	};
 
 	TPeriod.prototype.equal = function (p) {
-		return this.From.getTime() === p.From.getTime() &&
-			this.To.getTime() === p.To.getTime();
-	}
+		return date.equal(this.From, p.From) && date.equal(this.To, p.To);
+	};
 
 	TPeriod.prototype.fromUrl = function (v) {
 		if (utils.isObject(v) && 'From' in v) {
@@ -805,15 +855,15 @@ app.modules['std:period'] = function () {
 		}
 		let df = px[0];
 		let dt = px.length > 1 ? px[1] : px[0];
-		this.From = date.tryParse(df)
+		this.From = date.tryParse(df);
 		this.To = date.tryParse(dt);
 		return this;
-	}
+	};
 
 	TPeriod.prototype.isAllData = function () {
 		return this.From.getTime() === date.minDate.getTime() &&
 			this.To.getTime() === date.maxDate.getTime();
-	}
+	};
 
 	TPeriod.prototype.format = function (dataType) {
 		//console.warn(`${this.From.getTime()}-${date.minDate.getTime()} : ${this.To.getTime()}-${date.maxDate.getTime()}`);
@@ -826,26 +876,46 @@ app.modules['std:period'] = function () {
 		if (dataType === "DateUrl")
 			return utils.format(from, dataType) + '-' + utils.format(to, dataType);
 		return utils.format(from, dataType) + ' - ' + (utils.format(to, dataType) || '???');
-	}
+	};
+
+	TPeriod.prototype.text = function (showCustom) {
+		//console.warn(`${this.From.getTime()}-${date.minDate.getTime()} : ${this.To.getTime()}-${date.maxDate.getTime()}`);
+		if (this.isAllData())
+			return locale.$AllPeriodData;
+		// $PrevMonth, key: 'prevMonth
+		let menu = predefined(false);
+		for (let mi of menu) {
+			//console.dir(mi);
+			let np = createPeriod(mi.key);
+			if (this.equal(np)) {
+				return mi.name;
+			}
+		}
+		if (showCustom)
+			return 'Довільно';
+		let from = this.From;
+		let to = this.To;
+		return utils.format(from, 'Date') + ' - ' + (utils.format(to, 'Date') || '???');
+	};
 
 	TPeriod.prototype.in = function (dt) {
 		let t = dt.getTime();
 		let zd = utils.date.zero().getTime();
 		if (this.From.getTime() === zd || this.To.getTime() === zd) return;
 		return t >= this.From.getTime() && t <= this.To.getTime();
-	}
+	};
 
 	TPeriod.prototype.normalize = function () {
 		if (this.From.getTime() > this.To.getTime())
 			[this.From, this.To] = [this.To, this.From];
 		return this;
-	}
+	};
 
 	TPeriod.prototype.set = function (from, to) {
 		this.From = from;
 		this.To = to;
 		return this.normalize();
-	}
+	};
 
 
 	function isPeriod(value) { return value instanceof TPeriod; }
@@ -855,7 +925,8 @@ app.modules['std:period'] = function () {
 		constructor: TPeriod,
 		zero: zeroPeriod,
 		all: allDataPeriod,
-		create: createPeriod 
+		create: createPeriod,
+		predefined: predefined
 	};
 
 	function zeroPeriod() {
@@ -864,6 +935,27 @@ app.modules['std:period'] = function () {
 
 	function allDataPeriod() {
 		return createPeriod('allData');
+	}
+
+	function predefined (showAll) {
+		let menu = [
+			{ name: locale.$Today, key: 'today' },
+			{ name: locale.$Yesterday, key: 'yesterday' },
+			{ name: locale.$Last7Days, key: 'last7' },
+			{ name: locale.$Last30Days, key: 'last30' },
+			//{ name: locale.$MonthToDate, key: 'startMonth' },
+			{ name: locale.$CurrMonth, key: 'currMonth' },
+			{ name: locale.$PrevMonth, key: 'prevMonth' },
+			//{ name: locale.$QuartToDate, key: 'startQuart' },
+			{ name: locale.$CurrQuart, key: 'currQuart' },
+			{ name: locale.$PrevQuart, key: 'prevQuart' },
+			//{ name: locale.$YearToDate, key: 'startYear' }
+			{name: locale.$CurrYear, key: 'currYear'}
+		];
+		if (showAll) {
+			menu.push({ name: locale.$AllPeriodData, key: 'allData' });
+		}
+		return menu;
 	}
 
 	function createPeriod(key, from, to) {
@@ -892,16 +984,33 @@ app.modules['std:period'] = function () {
 				p.set(d1, today);
 				break;
 			case 'prevMonth': {
-				let d1 = date.create(today.getFullYear(), today.getMonth(), 1);
-				let d2 = date.create(today.getFullYear(), today.getMonth() + 1, 1);
-				p.set(d1, date.add(d2, -1, 'day'));
-			}
+					let d1 = date.create(today.getFullYear(), today.getMonth(), 1);
+					let d2 = date.create(today.getFullYear(), today.getMonth() + 1, 1);
+					p.set(d1, date.add(d2, -1, 'day'));
+				}
+				break;
+			case 'currMonth': {
+					let d1 = date.create(today.getFullYear(), today.getMonth() + 1, 1);
+					let d2 = date.create(today.getFullYear(), today.getMonth() + 2, 1);
+					p.set(d1, date.add(d2, -1, 'day'));
+				}
 				break;
 			case 'startQuart': {
 				let q = Math.floor(today.getMonth() / 3);
 				let m = q * 3;
 				let d1 = date.create(today.getFullYear(), m + 1, 1);
 				p.set(d1, today);
+			}
+				break;
+			case 'currQuart': {
+				let year = today.getFullYear();
+				let q = Math.floor(today.getMonth() / 3);
+				let m1 = q * 3;
+				let m2 = (q + 1) * 3;
+				let d1 = date.create(year, m1 + 1, 1);
+				let d2 = date.add(date.create(year, m2 + 1, 1), -1, 'day');
+				//console.dir(d1 + ':' + d2);
+				p.set(d1, d2);
 			}
 				break;
 			case 'prevQuart': {
@@ -922,6 +1031,12 @@ app.modules['std:period'] = function () {
 				let dy1 = date.create(today.getFullYear(), 1, 1);
 				p.set(dy1, today);
 				break;
+			case 'currYear': {
+					let dy1 = date.create(today.getFullYear(), 1, 1);
+					let dy2 = date.create(today.getFullYear(), 12, 31);
+					p.set(dy1, dy2);
+				}
+				break;
 			case 'allData':
 				// full period
 				p.set(date.minDate, date.maxDate);
@@ -939,18 +1054,19 @@ app.modules['std:period'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180511-7186*/
+// 20181019-7323
 /* services/modelinfo.js */
 
 app.modules['std:modelInfo'] = function () {
 
 	return {
 		copyfromQuery: copyFromQuery,
-		get: getPagerInfo
+		get: getPagerInfo,
+		reconcile: reconcile
 	};
 
 	function copyFromQuery(mi, q) {
-		let psq = { PageSize: q.pageSize, Offset: q.offset, SortDir: q.dir, SortOrder: q.order };
+		let psq = { PageSize: q.pageSize, Offset: q.offset, SortDir: q.dir, SortOrder: q.order, GroupBy: q.group };
 		for (let p in psq) {
 			mi[p] = psq[p];
 		}
@@ -963,14 +1079,26 @@ app.modules['std:modelInfo'] = function () {
 
 	function getPagerInfo(mi) {
 		if (!mi) return undefined;
-		let x = { pageSize: mi.PageSize, offset: mi.Offset, dir: mi.SortDir, order: mi.SortOrder };
-		if (mi.Filter)
+		let x = { pageSize: mi.PageSize, offset: mi.Offset, dir: mi.SortDir, order: mi.SortOrder, group: mi.GroupBy };
+		if (mi.Filter) {
 			for (let p in mi.Filter) {
-				let fVal = mi.Filter[p];
-				if (!fVal) continue; // empty value, skip it
-				x[p] = fVal;
+				x[p] = mi.Filter[p];
 			}
+		}
 		return x;
+	}
+
+	function reconcile(mi) {
+		if (!mi) return;
+		if (!mi.Filter) return;
+		for (let p in mi.Filter) {
+			let fv = mi.Filter[p];
+			if (typeof fv === 'string' && fv.startsWith('\"\\/\"')) {
+				let dx = new Date(fv.substring(4, fv.length - 4));
+				mi.Filter[p] = dx;
+				//console.dir(mi.Filter[p]);
+			}
+		}
 	}
 };
 
@@ -1002,7 +1130,7 @@ app.modules['std:modelInfo'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180701-7237
+// 20180903-7300
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1016,7 +1144,8 @@ app.modules['std:http'] = function () {
 		get: get,
 		post: post,
 		load: load,
-		upload: upload
+		upload: upload,
+		localpost
 	};
 
 	function doRequest(method, url, data, raw) {
@@ -1030,14 +1159,17 @@ app.modules['std:http'] = function () {
 						resolve(xhr.response);
 						return;
 					}
-					let ct = xhr.getResponseHeader('content-type');
+					let ct = xhr.getResponseHeader('content-type') || '';
 					let xhrResult = xhr.responseText;
-					if (ct.indexOf('application/json') !== -1)
-						xhrResult = JSON.parse(xhr.responseText);
+					if (ct && ct.indexOf('application/json') !== -1)
+						xhrResult = xhr.responseText ? JSON.parse(xhr.responseText) : '';
 					resolve(xhrResult);
 				}
 				else if (xhr.status === 255) {
-					reject(xhr.responseText || xhr.statusText);
+					if (raw)
+						reject(xhr.statusText); // response is blob!
+					else
+						reject(xhr.responseText || xhr.statusText);
 				}
 				else
 					reject(xhr.statusText);
@@ -1056,8 +1188,8 @@ app.modules['std:http'] = function () {
 		});
 	}
 
-	function get(url) {
-		return doRequest('GET', url);
+	function get(url, raw) {
+		return doRequest('GET', url, null, raw);
 	}
 
 	function post(url, data, raw) {
@@ -1070,7 +1202,7 @@ app.modules['std:http'] = function () {
 			xhr.onload = function (response) {
 				eventBus.$emit('endRequest', url);
 				if (xhr.status === 200) {
-					let xhrResult = JSON.parse(xhr.responseText);
+					let xhrResult = xhr.responseText ? JSON.parse(xhr.responseText) : '';
 					resolve(xhrResult);
 				} else if (xhr.status === 255) {
 					reject(xhr.responseText || xhr.statusText);
@@ -1091,7 +1223,7 @@ app.modules['std:http'] = function () {
 		let fc = selector ? selector.firstElementChild : null;
 		if (fc && fc.__vue__) {
 			fc.__vue__.$destroy();
-		};
+		}
 		return new Promise(function (resolve, reject) {
 			doRequest('GET', url)
 				.then(function (html) {
@@ -1126,6 +1258,37 @@ app.modules['std:http'] = function () {
 					alert(error);
 					resolve(false);
 				});
+		});
+	}
+
+	function localpost(command, data) {
+		return new Promise(function (resolve, reject) {
+			let xhr = new XMLHttpRequest();
+
+			xhr.onload = function (response) {
+				if (xhr.status === 200) {
+					let ct = xhr.getResponseHeader('content-type');
+					let xhrResult = xhr.responseText;
+					if (ct.indexOf('application/json') !== -1)
+						xhrResult = JSON.parse(xhr.responseText);
+					resolve(xhrResult);
+				}
+				else if (xhr.status === 255) {
+					reject(xhr.responseText || xhr.statusText);
+				}
+				else {
+					reject(xhr.statusText);
+				}
+			};
+			xhr.onerror = function (response) {
+				reject(response);
+			};
+			let url = "http://127.0.0.1:64031/" + command;
+			xhr.open("POST", url, true);
+			xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+			xhr.setRequestHeader('Accept', 'text/plain');
+			xhr.setRequestHeader('Content-Type', 'text/plain');
+			xhr.send(data);
 		});
 	}
 };
@@ -1378,16 +1541,473 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180630-7236
+// 20180813-7271
+// components/collectionview.js
+
+/*
+TODO:
+11. GroupBy
+*/
+
+(function () {
+
+
+	const log = require('std:log');
+	const utils = require('std:utils');
+	const period = require('std:period');
+
+	const DEFAULT_PAGE_SIZE = 20;
+
+	function getModelInfoProp(src, propName) {
+		if (!src) return undefined;
+		let mi = src.$ModelInfo;
+		if (!mi) return undefined;
+		return mi[propName];
+	}
+
+	function setModelInfoProp(src, propName, value) {
+		if (!src) return;
+		let mi = src.$ModelInfo;
+		if (!mi) return;
+		mi[propName] = value;
+	}
+
+	function makeNewQueryFunc(that) {
+		let nq = { dir: that.dir, order: that.order, offset: that.offset };
+		for (let x in that.filter) {
+			let fVal = that.filter[x];
+			if (period.isPeriod(fVal)) {
+				nq[x] = fVal.format('DateUrl');
+			}
+			else if (utils.isDate(fVal)) {
+				nq[x] = utils.format(fVal, 'DateUrl');
+			}
+			else if (utils.isObjectExact(fVal)) {
+				if (!('Id' in fVal)) {
+					console.error('The object in the Filter does not have Id property');
+				}
+				nq[x] = fVal.Id ? fVal.Id : undefined;
+			}
+			else if (fVal) {
+				nq[x] = fVal;
+			}
+			else {
+				nq[x] = undefined;
+			}
+		}
+		return nq;
+	}
+
+	function modelInfoToFilter(q, filter) {
+		if (!q) return;
+		for (let x in filter) {
+			if (x in q) {
+				let iv = filter[x];
+				if (period.isPeriod(iv)) {
+					filter[x] = iv.fromUrl(q[x]);
+				}
+				else if (utils.isDate(iv)) {
+					filter[x] = utils.date.tryParse(q[x]);
+				}
+				else if (utils.isObjectExact(iv)) 
+					iv.Id = q[x];
+				else {
+					filter[x] = q[x];
+				}
+			}
+		}
+	}
+
+	// client collection
+
+	Vue.component('collection-view', {
+		template: `
+<div>
+	<slot :ItemsSource="pagedSource" :Pager="thisPager" :Filter="filter">
+	</slot>
+</div>
+`,
+		props: {
+			ItemsSource: Array,
+			initialPageSize: Number,
+			initialFilter: Object,
+			initialSort: Object,
+			runAt: String,
+			filterDelegate: Function
+		},
+		data() {
+			let lq = Object.assign({}, {
+				offset: 0,
+				dir: 'asc',
+				order: ''
+			}, this.initialFilter);
+
+			return {
+				filter: this.initialFilter,
+				filteredCount: 0,
+				localQuery: lq
+			};
+		},
+		computed: {
+			pageSize() {
+				if (this.initialPageSize > 0)
+					return this.initialPageSize;
+				return -1; // invisible pager
+			},
+			dir() {
+				return this.localQuery.dir;
+			},
+			offset() {
+				return this.localQuery.offset;
+			},
+			order() {
+				return this.localQuery.order;
+			},
+			pagedSource() {
+				let s = performance.now();
+				let arr = [].concat(this.ItemsSource);
+
+				if (this.filterDelegate) {
+					arr = arr.filter((item) => this.filterDelegate(item, this.filter));
+				}
+				// sort
+				if (this.order && this.dir) {
+					let p = this.order;
+					let d = this.dir === 'asc';
+					arr.sort((a, b) => {
+						if (a[p] === b[p])
+							return 0;
+						else if (a[p] < b[p])
+							return d ? -1 : 1;
+						return d ? 1 : -1;
+					});
+				}
+				// HACK!
+				this.filteredCount = arr.length;
+				// pager
+				if (this.pageSize > 0)
+					arr = arr.slice(this.offset, this.offset + this.pageSize);
+				arr.$origin = this.ItemsSource;
+				if (arr.indexOf(arr.$origin.$selected) === -1) {
+					// not found in target array
+					arr.$origin.$clearSelected();
+				}
+				log.time('get paged source:', s);
+				return arr;
+			},
+			sourceCount() {
+				return this.ItemsSource.length;
+			},
+			thisPager() {
+				return this;
+			},
+			pages() {
+				let cnt = this.filteredCount;
+				return Math.ceil(cnt / this.pageSize);
+			}
+		},
+		methods: {
+			$setOffset(offset) {
+				this.localQuery.offset = offset;
+			},
+			sortDir(order) {
+				return order === this.order ? this.dir : undefined;
+			},
+			doSort(order) {
+				let nq = this.makeNewQuery();
+				if (nq.order === order)
+					nq.dir = nq.dir === 'asc' ? 'desc' : 'asc';
+				else {
+					nq.order = order;
+					nq.dir = 'asc';
+				}
+				if (!nq.order)
+					nq.dir = null;
+				// local
+				this.localQuery.dir = nq.dir;
+				this.localQuery.order = nq.order;
+			},
+			makeNewQuery() {
+				return makeNewQueryFunc(this);
+			},
+			copyQueryToLocal(q) {
+				for (let x in q) {
+					let fVal = q[x];
+					if (x === 'offset')
+						this.localQuery[x] = q[x];
+					else
+						this.localQuery[x] = fVal ? fVal : undefined;
+				}
+			}
+		},
+		created() {
+			if (this.initialSort) {
+				this.localQuery.order = this.initialSort.order;
+				this.localQuery.dir = this.initialSort.dir;
+			}
+			this.$on('sort', this.doSort);
+		}
+	});
+
+
+	// server collection view
+	Vue.component('collection-view-server', {
+		template: `
+<div>
+	<slot :ItemsSource="ItemsSource" :Pager="thisPager" :Filter="filter">
+	</slot>
+</div>
+`,
+		props: {
+			ItemsSource: Array,
+			initialFilter: Object
+		},
+
+		data() {
+			return {
+				filter: this.initialFilter,
+				lockChange: true
+			};
+		},
+
+		watch: {
+			jsonFilter: {
+				handler(newData, oldData) {
+					this.filterChanged();
+				}
+			}
+		},
+
+		computed: {
+			jsonFilter() {
+				return utils.toJson(this.filter);
+			},
+			thisPager() {
+				return this;
+			},
+			pageSize() {
+				return getModelInfoProp(this.ItemsSource, 'PageSize');
+			},
+			dir() {
+				return  getModelInfoProp(this.ItemsSource, 'SortDir');
+			},
+			order() {
+				return getModelInfoProp(this.ItemsSource, 'SortOrder');
+			},
+			offset() {
+				return getModelInfoProp(this.ItemsSource, 'Offset');
+			},
+			pages() {
+				cnt = this.sourceCount;
+				return Math.ceil(cnt / this.pageSize);
+			},
+			sourceCount() {
+				if (!this.ItemsSource) return 0;
+				return this.ItemsSource.$RowCount || 0;
+			}
+		},
+		methods: {
+			$setOffset(offset) {
+				if (this.offset === offset)
+					return;
+				setModelInfoProp(this.ItemsSource, 'Offset', offset);
+				this.reload();
+			},
+			sortDir(order) {
+				return order === this.order ? this.dir : undefined;
+			},
+			doSort(order) {
+				if (order === this.order) {
+					let dir = this.dir === 'asc' ? 'desc' : 'asc';
+					setModelInfoProp(this.ItemsSource, 'SortDir', dir);
+				} else {
+					setModelInfoProp(this.ItemsSource, 'SortOrder', order);
+					setModelInfoProp(this.ItemsSource, 'SortDir', 'asc');
+				}
+				this.reload();
+			},
+			filterChanged() {
+				if (this.lockChange) return;
+				let mi = this.ItemsSource.$ModelInfo;
+				if (!mi) {
+					mi = { Filter: this.filter };
+					this.ItemsSource.$ModelInfo = mi;
+				}
+				else {
+					this.ItemsSource.$ModelInfo.Filter = this.filter;
+				}
+				if ('Offset' in mi)
+					setModelInfoProp(this.ItemsSource, 'Offset', 0);
+				this.reload();
+			},
+			reload() {
+				this.$root.$emit('cwChange', this.ItemsSource);
+			},
+			updateFilter() {
+				let mi = this.ItemsSource.$ModelInfo;
+				if (!mi) return;
+				let fi = mi.Filter;
+				if (!fi) return;
+				this.lockChange = true;
+				for (var prop in this.filter) {
+					if (prop in fi)
+						this.filter[prop] = fi[prop];
+				}
+				this.$nextTick(() => {
+					this.lockChange = false;
+				});
+			}
+		},
+		created() {
+			// get filter values from modelInfo
+			let mi = this.ItemsSource ? this.ItemsSource.$ModelInfo : null;
+			if (mi) {
+				modelInfoToFilter(mi.Filter, this.filter);
+			}
+			this.$nextTick(() => {
+				this.lockChange = false;
+			});
+			// from datagrid, etc
+			this.$on('sort', this.doSort);
+		},
+		updated() {
+			this.updateFilter();
+		}
+	});
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20180426-7166
+/*statdalony/pager.js*/
+
+Vue.component('a2-pager', {
+	props: {
+		source: Object,
+		noElements: String,
+		elements: String
+	},
+	computed: {
+		pages() {
+			return Math.ceil(this.count / this.source.pageSize);
+		},
+		currentPage() {
+			return Math.ceil(this.offset / this.source.pageSize) + 1;
+		},
+		title() {
+			let lastNo = Math.min(this.count, this.offset + this.source.pageSize);
+			if (!this.count)
+				return this.noElements;
+			return `${this.elements}: <b>${this.offset + 1}</b>-<b>${lastNo}</b> з <b>${this.count}</b>`;
+		},
+		offset() {
+			return +this.source.offset;
+		},
+		count() {
+			return +this.source.sourceCount;
+		}
+	},
+	methods: {
+		setOffset(offset) {
+			offset = +offset;
+			if (this.offset === offset)
+				return;
+			this.source.$setOffset(offset);
+		},
+		isActive(page) {
+			return page === this.currentPage;
+		},
+		click(arg, $ev) {
+			$ev.preventDefault();
+			switch (arg) {
+				case 'prev':
+					if (this.offset === 0) return;
+					this.setOffset(this.offset - this.source.pageSize);
+					break;
+				case 'next':
+					if (this.currentPage >= this.pages) return;
+					this.setOffset(this.offset + this.source.pageSize);
+					break;
+			}
+		},
+		goto(page, $ev) {
+			$ev.preventDefault();
+			let offset = (page - 1) * this.source.pageSize;
+			this.setOffset(offset);
+		}
+	},
+	render(h, ctx) {
+		if (this.source.pageSize === -1) return; // invisible
+		let contProps = {
+			class: 'pagination pagination-sm'
+		};
+		let children = [];
+		const dotsClass = { 'class': 'pagination-dots' };
+		const renderBtn = (page) => {
+			return h('li', { class: { active: this.isActive(page) }},
+				[h('a', {
+					domProps: { innerText: page },
+					on: { click: ($ev) => this.goto(page, $ev) },
+					attrs: { href:"#" }
+				})]
+			);
+		};
+		// prev
+		children.push(h('li', { class: { disabled: this.offset === 0 } },
+			[h('a', {
+				on: { click: ($ev) => this.click('prev', $ev) },
+				attrs: { 'aria-label': 'Previous', href: '#' },
+				domProps: { innerHTML: '&laquo;' }
+			})]
+		));
+		// first
+		if (this.pages > 0)
+			children.push(renderBtn(1));
+		if (this.pages > 1)
+			children.push(renderBtn(2));
+		// middle
+		let ms = Math.max(this.currentPage - 2, 3);
+		let me = Math.min(ms + 5, this.pages - 1);
+		if (me - ms < 5)
+			ms = Math.max(me - 5, 3);
+		if (ms > 3)
+			children.push(h('li', dotsClass, [h('span', null, '...')]));
+		for (let mi = ms; mi < me; ++mi) {
+			children.push(renderBtn(mi));
+		}
+		if (me < this.pages - 1)
+			children.push(h('li', dotsClass, [h('span', null, '...')]));
+		// last
+		if (this.pages > 3)
+			children.push(renderBtn(this.pages - 1));
+		if (this.pages > 2)
+			children.push(renderBtn(this.pages));
+		// next
+		children.push(h('li', {
+			class: { disabled: this.currentPage >= this.pages }
+		}, [h('a', {
+			on: { click: ($ev) => this.click('next', $ev) },
+			attrs: { 'aria-label': 'Previous', href: '#' },
+			domProps: { innerHTML: '&raquo;' }
+		})]
+		));
+
+		/*
+		children.push(h('span', { class: 'a2-pager-divider' }));
+		children.push(h('span', { class: 'a2-pager-title', domProps: { innerHTML: this.title } }));
+		*/
+		return h('ul', contProps, children);
+	}
+});
+
+
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20181112-7355
 // services/datamodel.js
 
 (function () {
 
 	"use strict";
-
-    /* TODO:
-    1. changing event
-    */
 
 	const META = '_meta_';
 	const PARENT = '_parent_';
@@ -1444,7 +2064,13 @@ app.modules['std:validators'] = function () {
 		return val;
 	}
 
+	function propFromPath(path) {
+		let propIx = path.lastIndexOf('.');
+		return path.substring(propIx + 1);
+	}
+
 	function defSource(trg, source, prop, parent) {
+
 		let propCtor = trg._meta_.props[prop];
 		if (propCtor.type) propCtor = propCtor.type;
 		let pathdot = trg._path_ ? trg._path_ + '.' : '';
@@ -1471,6 +2097,10 @@ app.modules['std:validators'] = function () {
 				let srcval = source[prop] || null;
 				shadow[prop] = srcval ? new Date(srcval) : utils.date.zero();
 				break;
+			case File:
+			case Object:
+				shadow[prop] = null;
+				break;
 			case TMarker: // marker for dynamic property
 				let mp = trg._meta_.markerProps[prop];
 				shadow[prop] = mp;
@@ -1491,13 +2121,16 @@ app.modules['std:validators'] = function () {
 			set(val) {
 				let eventWasFired = false;
 				let skipDirty = prop.startsWith('$$');
-				//TODO: emit and handle changing event
 				let ctor = this._meta_.props[prop];
 				if (ctor.type) ctor = ctor.type;
 				val = ensureType(ctor, val);
 				if (val === this._src_[prop])
 					return;
 				let oldVal = this._src_[prop];
+				let changingEvent = (this._path_ || 'Root') + '.' + prop + '.changing';
+				let ret = this._root_.$emit(changingEvent, this, val, oldVal, prop);
+				if (ret === false)
+					return;
 				if (this._src_[prop] && this._src_[prop].$set) {
 					// object
 					this._src_[prop].$set(val);
@@ -1509,10 +2142,8 @@ app.modules['std:validators'] = function () {
 					this._root_.$setDirty(true, this._path_);
 				if (this._lockEvents_) return; // events locked
 				if (eventWasFired) return; // was fired
-				if (!this._path_)
-					return;
-				let eventName = this._path_ + '.' + prop + '.change';
-				this._root_.$emit(eventName, this, val, oldVal);
+				let eventName = (this._path_ || 'Root') + '.' + prop + '.change';
+				this._root_.$emit(eventName, this, val, oldVal, prop);
 			}
 		});
 	}
@@ -1525,6 +2156,7 @@ app.modules['std:validators'] = function () {
 		const props = templ._props_;
 		if (!props) return;
 		let objname = ctor.name;
+
 		if (objname in props) {
 			for (let p in props[objname]) {
 				let propInfo = props[objname][p];
@@ -1621,8 +2253,15 @@ app.modules['std:validators'] = function () {
 				if (x[0] === '$' || x[0] === '_')
 					continue;
 				let sx = this[x];
-				if (utils.isObject(sx) && '$valid' in sx) {
-					let sx = this[x];
+				if (utils.isArray(sx)) {
+					for (let i = 0; i < sx.length; i++) {
+						let ax = sx[i];
+						if (utils.isObject(ax) && '$valid' in ax) {
+							if (!ax.$valid)
+								return false;
+						}
+					}
+				} else if (utils.isObject(sx) && '$valid' in sx) {
 					if (!sx.$valid)
 						return false;
 				}
@@ -1675,12 +2314,15 @@ app.modules['std:validators'] = function () {
 				__initialized__ = true;
 			};
 			elem._fireLoad_ = () => {
-				elem.$emit('Model.load', elem, _lastCaller);
-				elem._root_.$setDirty(false);
+				platform.defer(() => {
+					elem.$emit('Model.load', elem, _lastCaller);
+					elem._root_.$setDirty(false);
+				});
 			};
 			defHiddenGet(elem, '$readOnly', isReadOnly);
+			defHiddenGet(elem, '$stateReadOnly', isStateReadOnly);
 			defHiddenGet(elem, '$isCopy', isModelIsCopy);
-			elem._seal_ = seal;
+			elem._seal_ = seal
 		}
 		if (startTime) {
 			log.time('create root time:', startTime, false);
@@ -1726,8 +2368,19 @@ app.modules['std:validators'] = function () {
 	function isReadOnly() {
 		if ('__modelInfo' in this) {
 			let mi = this.__modelInfo;
-			if (utils.isDefined(mi.ReadOnly))
-				return mi.ReadOnly;
+			if (utils.isDefined(mi.ReadOnly) && mi.ReadOnly)
+				return true;
+			if (utils.isDefined(mi.StateReadOnly) && mi.StateReadOnly)
+				return true;
+		}
+		return false;
+	}
+
+	function isStateReadOnly() {
+		if ('__modelInfo' in this) {
+			let mi = this.__modelInfo;
+			if (utils.isDefined(mi.StateReadOnly) && mi.StateReadOnly)
+				return true;
 		}
 		return false;
 	}
@@ -1846,8 +2499,7 @@ app.modules['std:validators'] = function () {
 		arr.$isLazy = function () {
 			const meta = this.$parent._meta_;
 			if (!meta.$lazy) return false;
-			let propIx = this._path_.lastIndexOf('.');
-			let prop = this._path_.substring(propIx + 1);
+			let prop = propFromPath(this._path_);
 			return meta.$lazy.indexOf(prop) !== -1;
 		};
 
@@ -1858,18 +2510,25 @@ app.modules['std:validators'] = function () {
 
 		arr.$loadLazy = function () {
 			return new Promise((resolve, reject) => {
-				if (this.$loaded) { resolve(self); return; }
+				if (this.$loaded) { resolve(this); return; }
 				if (!this.$parent) { resolve(this); return; }
 				const meta = this.$parent._meta_;
 				if (!meta.$lazy) { resolve(this); return; }
-				let propIx = this._path_.lastIndexOf('.');
-				let prop = this._path_.substring(propIx + 1);
+				let prop = propFromPath(this._path_);
 				if (!meta.$lazy.indexOf(prop) === -1) { resolve(this); return; }
 				this.$vm.$loadLazy(this.$parent, prop).then(() => resolve(this));
 			});
 		};
 
 		arr.$append = function (src) {
+			return this.$insert(src, 'end');
+		};
+
+		arr.$prepend = function (src) {
+			return this.$insert(src, 'start');
+		};
+
+		arr.$insert = function (src, to) {
 			const that = this;
 
 			function append(src, select) {
@@ -1879,8 +2538,19 @@ app.modules['std:validators'] = function () {
 				let er = that._root_.$emit(addingEvent, that/*array*/, newElem/*elem*/);
 				if (er === false)
 					return; // disabled
-				let len = that.push(newElem);
-				let ne = that[len - 1]; // maybe newly created reactive element
+				let len = that.length;
+				let ne = null;
+				switch (to) {
+					case 'end':
+						len = that.push(newElem);
+						ne = that[len - 1]; // maybe newly created reactive element
+						break;
+					case 'start':
+						that.unshift(newElem);
+						ne = that[0];
+						len = 1; 
+						break;
+				}
 				if ('$RowCount' in that) that.$RowCount += 1;
 				let eventName = that._path_ + '[].add';
 				that._root_.$setDirty(true);
@@ -1892,7 +2562,8 @@ app.modules['std:validators'] = function () {
 				// set RowNumber
 				if ('$rowNo' in newElem._meta_) {
 					let rowNoProp = newElem._meta_.$rowNo;
-					newElem[rowNoProp] = len; // 1-based
+					for (let i = 0; i < that.length; i++)
+						that[i][rowNoProp] = i + 1; // 1-based
 				}
 				return ne;
 			}
@@ -1945,15 +2616,15 @@ app.modules['std:validators'] = function () {
 			if (!this.length) return;
 			if (index >= this.length)
 				index -= 1;
-			if (this.length > index) {
-				this[index].$select();
-			}
 			// renumber rows
 			if ('$rowNo' in item._meta_) {
 				let rowNoProp = item._meta_.$rowNo;
 				for (let i = 0; i < this.length; i++) {
 					this[i][rowNoProp] = i + 1; // 1-based
 				}
+			}
+			if (this.length > index) {
+				this[index].$select();
 			}
 		};
 
@@ -1989,9 +2660,15 @@ app.modules['std:validators'] = function () {
 			return null;
 		});
 
+		defHiddenGet(obj, "$ctrl", function () {
+			if (this._root_ && this._root_._host_)
+				return this._root_._host_.$ctrl;
+			return null;
+		});
+
 		obj.$isValid = function (props) {
 			return true;
-		}
+		};
 	}
 
 	function defineObject(obj, meta, arrayItem) {
@@ -2094,7 +2771,7 @@ app.modules['std:validators'] = function () {
 			// fire event
 			log.info('handle: ' + event);
 			let func = events[event];
-			let rv = func.call(undefined, ...arr);
+			let rv = func.call(this, ...arr);
 			if (rv === false)
 				log.info(event + ' returns false');
 			return rv;
@@ -2122,6 +2799,10 @@ app.modules['std:validators'] = function () {
 
 		const optsCheckValid = opts && opts.validRequired === true;
 		const optsCheckRO = opts && opts.checkReadOnly === true;
+		const optsCheckArg = opts && opts.checkArgument === true;
+
+		if (optsCheckArg && !arg)
+			return false;
 
 		if (cmdf.checkReadOnly === true || optsCheckRO) {
 			if (this.$root.$readOnly)
@@ -2312,7 +2993,10 @@ app.modules['std:validators'] = function () {
 	function forceValidateAll() {
 		let me = this;
 		me._needValidate_ = true;
-		return me._validateAll_(true);
+		var retArr = me._validateAll_(false);
+		me._validateAll_(true); // and validate async again
+		return retArr;
+
 	}
 
 	function validateAll(force) {
@@ -2345,12 +3029,15 @@ app.modules['std:validators'] = function () {
 			return;
 		if (path && path.toLowerCase().startsWith('query'))
 			return;
+		if (isNoDirty(this.$root))
+			return;
 		// TODO: template.options.skipDirty
 		this.$dirty = val;
 	}
 
 	function empty() {
 		this.$set({});
+		return this;
 	}
 
 	function setElement(src) {
@@ -2369,12 +3056,17 @@ app.modules['std:validators'] = function () {
 	}
 
 	function isSkipMerge(root, prop) {
-		if (prop.startsWith('$$')) return true; // special properties
 		let t = root.$template;
 		let opts = t && t.options;
 		let bo = opts && opts.bindOnce;
 		if (!bo) return false;
 		return bo.indexOf(prop) !== -1;
+	}
+
+	function isNoDirty(root) {
+		let t = root.$template;
+		let opts = t && t.options;
+		return opts && opts.noDirty;
 	}
 
 	function merge(src, afterSave) {
@@ -2385,11 +3077,14 @@ app.modules['std:validators'] = function () {
 			this._root_._enableValidate_ = false;
 			this._lockEvents_ += 1;
 			for (var prop in this._meta_.props) {
+				if (prop.startsWith('$$')) continue; // always skip
 				if (afterSave && isSkipMerge(this._root_, prop)) continue;
 				let ctor = this._meta_.props[prop];
 				if (ctor.type) ctor = ctor.type;
 				let trg = this[prop];
 				if (Array.isArray(trg)) {
+					if (trg.$loaded)
+						trg.$loaded = false; // may be lazy
 					trg.$copy(src[prop]);
 					// copy rowCount
 					if ('$RowCount' in trg) {
@@ -2423,12 +3118,11 @@ app.modules['std:validators'] = function () {
 		let newId = this.$id__;
 		let fireChange = false;
 		if (utils.isDefined(newId) && utils.isDefined(oldId))
-			fireChange =  newId !== oldId; // check id, no fire event
+			fireChange = newId !== oldId; // check id, no fire event
 		if (fireChange) {
-			//console.warn(`fire change. old:${oldId}, new:${newId}`);
-			// emit .change event for all object
+			// emit .change event for entire object
 			let eventName = this._path_ + '.change';
-			this._root_.$emit(eventName, this.$parent, this);
+			this._root_.$emit(eventName, this.$parent, this, this, propFromPath(this._path_));
 		}
 	}
 
@@ -2491,6 +3185,8 @@ app.modules['std:validators'] = function () {
 		enumData: enumData
 	};
 })();
+
+
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
 // 20180319-7135
@@ -2519,8 +3215,490 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180709-7243
-// controllers/standalone.js
+// 20180426-7167
+/*components/include.js*/
+
+(function () {
+
+	const http = require('std:http');
+	const urlTools = require('std:url');
+
+	function _destroyElement(el) {
+		let fc = el.firstElementChild;
+		if (!fc) return;
+		let vue = fc.__vue__;
+		// Maybe collectionView created the wrapper!
+		if (vue && !vue.$marker)
+			vue = vue.$parent;
+		if (vue && vue.$marker()) {
+			vue.$destroy();
+		}
+	}
+
+	Vue.component('include', {
+		template: '<div :class="implClass"></div>',
+		props: {
+			src: String,
+			cssClass: String,
+			needReload: Boolean
+		},
+		data() {
+			return {
+				loading: true,
+				currentUrl: '',
+				_needReload: true
+			};
+		},
+		methods: {
+			loaded(ok) {
+				this.loading = false;
+			},
+			requery() {
+				if (this.currentUrl) {
+					// Do not set loading. Avoid blinking
+					this.__destroy();
+					http.load(this.currentUrl, this.$el).then(this.loaded);
+				}
+			},
+			__destroy() {
+				//console.warn('include has been destroyed');
+				_destroyElement(this.$el);
+			}
+		},
+		computed: {
+			implClass() {
+				return `include ${this.cssClass || ''} ${this.loading ? 'loading' : ''}`;
+			}
+		},
+		mounted() {
+			//console.warn('include has been mounted');
+			if (this.src) {
+				this.currentUrl = this.src;
+				http.load(this.src, this.$el).then(this.loaded);
+			}
+		},
+		destroyed() {
+			this.__destroy(); // and for dialogs too
+		},
+		watch: {
+			src: function (newUrl, oldUrl) {
+				if (newUrl.split('?')[0] === oldUrl.split('?')[0]) {
+					// Only the search has changed. No need to reload.
+					this.currentUrl = newUrl;
+				}
+				else if (urlTools.idChangedOnly(newUrl, oldUrl)) {
+					// Id has changed after save. No need to reload.
+					this.currentUrl = newUrl;
+				} else if (urlTools.idOrCopyChanged(newUrl, oldUrl)) {
+					// Id has changed after save. No need to reload.
+					this.currentUrl = newUrl;
+				}
+				else {
+					this.loading = true; // hides the current view
+					this.currentUrl = newUrl;
+					this.__destroy();
+					http.load(newUrl, this.$el).then(this.loaded);
+				}
+			},
+			needReload(val) {
+				// works like a trigger
+				if (val) this.requery();
+			}
+		}
+	});
+
+
+	Vue.component('a2-include', {
+		template: '<div class="a2-include"></div>',
+		props: {
+			source: String,
+			arg: undefined
+		},
+		data() {
+			return {
+				needLoad: 0
+			};
+		},
+		methods: {
+			__destroy() {
+				//console.warn('include has been destroyed');
+				_destroyElement(this.$el);
+			},
+			loaded() {
+
+			},
+			makeUrl() {
+				let arg = this.arg || '0';
+				return urlTools.combine('_page', this.source, arg);
+			},
+			load() {
+				let url = this.makeUrl();
+				this.__destroy();
+				http.load(url, this.$el).then(this.loaded);
+			}
+		},
+		watch: {
+			source(newVal, oldVal) {
+				//console.warn(`source changed ${newVal}, ${oldVal}`);
+				this.needLoad += 1;
+			},
+			arg(newVal, oldVal) {
+				//console.warn(`arg changed ${newVal}, ${oldVal}`);
+				this.needLoad += 1;
+			},
+			needLoad() {
+				//console.warn(`load iteration: ${this.needLoad}`);
+				this.load();
+			}
+		},
+		mounted() {
+			if (this.source) {
+				this.currentUrl = this.makeUrl(this.source);
+				http.load(this.currentUrl, this.$el).then(this.loaded);
+			}
+		},
+		destroyed() {
+			this.__destroy(); // and for dialogs too
+		}
+	});
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20181103-7342
+// components/modal.js
+
+
+/*
+			<ul v-if="hasList">
+				<li v-for="(li, lx) in dialog.list" :key="lx", v-text="li" />
+			</ul>
+ */
+
+(function () {
+
+	const eventBus = require('std:eventBus');
+	const locale = window.$$locale;
+	const utils = require('std:utils');
+
+	const modalTemplate = `
+<div class="modal-window" @keydown.tab="tabPress">
+	<include v-if="isInclude" class="modal-body" :src="dialog.url"></include>
+	<div v-else class="modal-body">
+		<div class="modal-header" v-drag-window><span v-text="title"></span><button ref='btnclose' class="btnclose" @click.prevent="modalClose(false)">&#x2715;</button></div>
+		<div :class="bodyClass">
+			<i v-if="hasIcon" :class="iconClass" />
+			<div class="modal-body-content">
+				<div v-html="messageText()" />
+				<ul v-if="hasList" class="modal-error-list">
+					<li v-for="(itm, ix) in dialog.list" :key="ix" v-text="itm"/>
+				</ul>
+			</div>
+		</div>
+		<div class="modal-footer">
+			<button class="btn btn-default" v-for="(btn, index) in buttons"  :key="index" @click.prevent="modalClose(btn.result)" v-text="btn.text"/>
+		</div>
+	</div>
+</div>
+`;
+
+	const setWidthComponent = {
+		inserted(el, binding) {
+			// TODO: width or cssClass???
+			//alert('set width-created:' + binding.value);
+			// alert(binding.value.cssClass);
+			let mw = el.closest('.modal-window');
+			if (mw) {
+				if (binding.value.width)
+					mw.style.width = binding.value.width;
+				if (binding.value.cssClass)
+					mw.classList.add(binding.value.cssClass);
+			}
+			//alert(el.closest('.modal-window'));
+		}
+	};
+
+	const dragDialogDirective = {
+		inserted(el, binding) {
+
+			const mw = el.closest('.modal-window');
+			if (!mw)
+				return;
+			const opts = {
+				down: false,
+				init: { x: 0, y: 0, cx: 0, cy: 0 },
+				offset: { x: 0, y: 0 }
+			};
+
+			function onMouseDown(event) {
+				opts.down = true;
+				opts.offset.x = event.pageX;
+				opts.offset.y = event.pageY;
+				const cs = window.getComputedStyle(mw);
+				opts.init.x = Number.parseFloat(cs.marginLeft);
+				opts.init.y = Number.parseFloat(cs.marginTop);
+				opts.init.cx = Number.parseFloat(cs.width);
+				opts.init.cy = Number.parseFloat(cs.height);
+				document.addEventListener('mouseup', onRelease, false);
+				document.addEventListener('mousemove', onMouseMove, false);
+			}
+
+			function onRelease(event) {
+				opts.down = false;
+				document.removeEventListener('mouseup', onRelease);
+				document.removeEventListener('mousemove', onMouseMove);
+			}
+
+			function onMouseMove(event) {
+				if (!opts.down)
+					return;
+				let dx = event.pageX - opts.offset.x;
+				let dy = event.pageY - opts.offset.y;
+				let mx = opts.init.x + dx;
+				let my = opts.init.y + dy;
+				// fit
+				let maxX = window.innerWidth - opts.init.cx;
+				let maxY = window.innerHeight - opts.init.cy;
+				if (my < 0) my = 0;
+				if (mx < 0) mx = 0;
+				if (mx > maxX) mx = maxX;
+				//if (my > maxY) my = maxY; // any value available
+				//console.warn(`dx:${dx}, dy:${dy}, mx:${mx}, my:${my}, cx:${opts.init.cx}`);
+				mw.style.marginLeft = mx + 'px';
+				mw.style.marginTop = my + 'px';
+			}
+
+			el.addEventListener('mousedown', onMouseDown, false);
+		}
+	};
+
+	Vue.directive('drag-window', dragDialogDirective);
+
+	Vue.directive('modal-width', setWidthComponent);
+
+	const modalComponent = {
+		template: modalTemplate,
+		props: {
+			dialog: Object
+		},
+		data() {
+			// always need a new instance of function (modal stack)
+			return {
+				keyUpHandler: function () {
+					// escape
+					if (event.which === 27) {
+						eventBus.$emit('modalClose', false);
+						event.stopPropagation();
+						event.preventDefault();
+					}
+				}
+			};
+		},
+		methods: {
+			modalClose(result) {
+				eventBus.$emit('modalClose', result);
+			},
+			messageText() {
+				return utils.text.sanitize(this.dialog.message);
+			},
+			tabPress(event) {
+				function createThisElems() {
+					let qs = document.querySelectorAll('.modal-body [tabindex]');
+					let ea = [];
+					for (let i = 0; i < qs.length; i++) {
+						//TODO: check visibilty!
+						ea.push({ el: qs[i], ti: +qs[i].getAttribute('tabindex') });
+					}
+					ea = ea.sort((a, b) => a.ti > b.ti);
+					//console.dir(ea);
+					return ea;
+				}
+
+
+				if (this._tabElems === undefined) {
+					this._tabElems = createThisElems();
+				}
+				if (!this._tabElems || !this._tabElems.length)
+					return;
+				let back = event.shiftKey;
+				let lastItm = this._tabElems.length - 1;
+				let maxIndex = this._tabElems[lastItm].ti;
+				let aElem = document.activeElement;
+				let ti = +aElem.getAttribute("tabindex");
+				//console.warn(`ti: ${ti}, maxIndex: ${maxIndex}, back: ${back}`);
+				if (ti === 0) {
+					event.preventDefault();
+					return;
+				}
+				if (back) {
+					if (ti === 1) {
+						event.preventDefault();
+						this._tabElems[lastItm].el.focus();
+					}
+				} else {
+					if (ti === maxIndex) {
+						event.preventDefault();
+						this._tabElems[0].el.focus();
+					}
+				}
+			}
+		},
+		computed: {
+			isInclude: function () {
+				return !!this.dialog.url;
+			},
+			hasIcon() {
+				return !!this.dialog.style;
+			},
+			title: function () {
+				// todo localization
+				if (this.dialog.title)
+					return this.dialog.title;
+				return this.dialog.style === 'confirm' ? locale.$Confirm :
+					this.dialog.style === 'info' ? locale.$Message : locale.$Error;
+			},
+			bodyClass() {
+				return 'modal-body ' + (this.dialog.style || '');
+			},
+			iconClass() {
+				let ico = this.dialog.style;
+				if (ico === 'info')
+					ico = 'info-blue';
+				return "ico ico-" + ico;
+			},
+			hasList() {
+				return this.dialog.list && this.dialog.list.length;
+			},
+			buttons: function () {
+				//console.warn(this.dialog.style);
+				let okText = this.dialog.okText || locale.$Ok;
+				let cancelText = this.dialog.cancelText || locale.$Cancel;
+				if (this.dialog.buttons)
+					return this.dialog.buttons;
+				else if (this.dialog.style === 'alert')
+					return [{ text: okText, result: false, tabindex:1 }];
+				else if (this.dialog.style === 'info')
+					return [{ text: okText, result: false, tabindex:1 }];
+				return [
+					{ text: okText, result: true, tabindex:2 },
+					{ text: cancelText, result: false, tabindex:1 }
+				];
+			}
+		},
+		created() {
+			document.addEventListener('keyup', this.keyUpHandler);
+			if (document.activeElement)
+				document.activeElement.blur();
+		},
+		mounted() {
+		},
+		destroyed() {
+			document.removeEventListener('keyup', this.keyUpHandler);
+		}
+	};
+
+	app.components['std:modal'] = modalComponent;
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20180416-7158
+// components/toastr.js
+
+
+(function () {
+
+	const locale = window.$$locale;
+	const eventBus = require('std:eventBus');
+
+	const toastTemplate = `
+<li class="toast" :class="toast.style">
+	<i class="ico" :class="icoCssClass"></i>
+	<span v-text="toast.text" />
+</li>
+`;
+
+	const toastrTemplate = `
+<div class="toastr-stack" >
+	<transition-group name="list" tag="ul">
+		<a2-toast v-for="(t,k) in items" :key="k" :toast="t"></a2-toast>
+	</transition-group>
+</div>
+`;
+
+	/*
+	{{toast}}
+		<li class="toast success">
+			<i class="ico ico-check"></i><span>i am the toast 1 (11)</span>
+		</li>
+		<li class="toast warning">
+			<i class="ico ico-warning-outline"></i><span>i am the toast warning (test for bundle)</span>
+		</li>
+		<li class="toast info">
+			<i class="ico ico-info-outline"></i><span>Документ сохранен успешно и записан в базу данных!</span>
+		</li>
+		<li class="toast danger">
+			<i class="ico ico-error-outline-nocolor"></i><span>Документ сохранен c ошибкой. Проверьте все, что можно</span>
+		</li>
+	 */
+
+	const toastComponent = {
+		template: toastTemplate,
+		props: {
+			toast: Object
+		},
+		computed: {
+			icoCssClass() {
+				switch (this.toast.style) {
+					case 'success' : return 'ico-check';
+					case 'danger':
+					case 'error':
+						return 'ico-error-outline-nocolor';
+					case 'warning': return 'ico-warning-outline';
+					case 'info': return 'ico-info-outline';
+				}
+				return 'ico-dot';
+			}
+		}
+	};
+
+	const toastrComponent = {
+		template: toastrTemplate,
+		components: {
+			'a2-toast': toastComponent
+		},
+		props: {
+		},
+		data() {
+			return {
+				items: [],
+				currentIndex: 0
+			};
+		},
+		methods: {
+			showToast(toast) {
+				toast.$index = ++this.currentIndex;
+				this.items.unshift(toast);
+
+				setTimeout(() => {
+					this.removeToast(toast.$index);
+				}, 2000);
+			},
+			removeToast(tstIndex) {
+				let ix = this.items.findIndex(x => x.$index === tstIndex);
+				if (ix === -1) return;
+				this.items.splice(ix, 1);
+			}
+		},
+		created() {
+			eventBus.$on('toast', this.showToast);
+		}
+	};
+
+	app.components['std:toastr'] = toastrComponent;
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20181108-7350
+// standalone/controller.js
 
 (function () {
 
@@ -2545,6 +3723,18 @@ app.modules['std:validators'] = function () {
 		return ra.length ? ra : null;
 	}
 
+	function __runDialog(url, arg, query, cb) {
+		return new Promise(function (resolve, reject) {
+			const dlgData = { promise: null, data: arg, query: query };
+			eventBus.$emit('modal', url, dlgData);
+			dlgData.promise.then(function (result) {
+				if (cb)
+					cb(result);
+				resolve(result);
+			});
+		});
+	}
+
 	const standalone = Vue.extend({
 		// inDialog: Boolean (in derived class)
 		// pageTitle: String (in derived class)
@@ -2553,7 +3743,8 @@ app.modules['std:validators'] = function () {
 				__init__: true,
 				__baseUrl__: '',
 				__baseQuery__: {},
-				__requestsCount__: 0
+				__requestsCount__: 0,
+				$$currentTab: '' /*for bootstrap tab*/
 			};
 		},
 
@@ -2604,6 +3795,11 @@ app.modules['std:validators'] = function () {
 				return root._canExec_(cmd, arg, opts);
 			},
 
+			$format(value, dataType, hideZeros) {
+				if (!dataType) return value;
+				return utils.format(value, dataType, hideZeros);
+			},
+
 			$save(opts) {
 				if (this.$data.$readOnly)
 					return;
@@ -2646,7 +3842,7 @@ app.modules['std:validators'] = function () {
 			$invoke(cmd, data, base) {
 				let self = this;
 				let root = window.$$rootUrl;
-				let url = root + '/_data/invoke';
+				let url = root + '/data/invoke';
 				let baseUrl = self.$indirectUrl || self.$baseUrl;
 				if (base)
 					baseUrl = urltools.combine('_page', base, 'index', 0);
@@ -2722,7 +3918,7 @@ app.modules['std:validators'] = function () {
 					return self.$loadLazy(args.$parent, prop);
 				}
 				let root = window.$$rootUrl;
-				let url = root + '/_data/reload';
+				let url = root + '/data/reload';
 				let dat = self.$data;
 
 				let mi = args ? modelInfo.get(args.$ModelInfo) : null;
@@ -2784,7 +3980,7 @@ app.modules['std:validators'] = function () {
 				}
 
 				function dbRemove() {
-					let postUrl = root + '/_data/dbRemove';
+					let postUrl = root + '/data/dbRemove';
 					let jsonObj = { baseUrl: self.$baseUrl, id: id };
 					if (lazy) {
 						jsonObj.prop = lastProperty(elem.$parent._path_);
@@ -2809,7 +4005,7 @@ app.modules['std:validators'] = function () {
 			$loadLazy(elem, propName) {
 				let self = this,
 					root = window.$$rootUrl,
-					url = root + '/_data/loadlazy',
+					url = root + '/data/loadlazy',
 					selfMi = elem[propName].$ModelInfo,
 					parentMi = elem.$parent.$ModelInfo;
 
@@ -2860,6 +4056,45 @@ app.modules['std:validators'] = function () {
 				return root._delegate_(name);
 			},
 
+			$attachment(url, arg, opts) {
+				const root = window.$$rootUrl;
+				let cmd = opts && opts.export ? 'export' : 'show';
+				let id = arg;
+				if (arg && utils.isObject(arg))
+					id = utils.getStringId(arg);
+				let attUrl = urltools.combine(root, 'attachment', cmd, id);
+				let qry = { base: url };
+				attUrl = attUrl + urltools.makeQueryString(qry);
+				if (opts && opts.newWindow)
+					window.open(attUrl, '_blank');
+				else
+					window.location.assign(attUrl);
+			},
+
+			$showDialog(url, arg, query) {
+				return __runDialog(url, arg, query);
+			},
+
+			$modalClose(result) {
+				eventBus.$emit('modalClose', result);
+			},
+
+			$modalSaveAndClose(result, opts) {
+				if (this.$isDirty) {
+					const root = this.$data;
+					if (opts && opts.validRequired && root.$invalid) {
+						let errs = makeErrors(root.$forceValidate());
+						//console.dir(errs);
+						alert(locale.$MakeValidFirst, undefined, errs);
+						return;
+					}
+					this.$save().then((result) => eventBus.$emit('modalClose', result));
+				}
+				else
+					eventBus.$emit('modalClose', result);
+			},
+
+
 			__beginRequest() {
 				this.$data.__requestsCount__ += 1;
 			},
@@ -2871,6 +4106,9 @@ app.modules['std:validators'] = function () {
 				if (!root._modelLoad_) return;
 				root._modelLoad_();
 				root._seal_(root);
+			},
+			_cwChange(args) {
+				this.$reload(args);
 			}
 		},
 		created() {
@@ -2883,6 +4121,8 @@ app.modules['std:validators'] = function () {
 			this.__asyncCache__ = {};
 			this.__currentToken__ = window.app.nextToken();
 			log.time('create time:', __createStartTime, false);
+
+			this.$on('cwChange', this._cwChange);
 		},
 		beforeDestroy() {
 		},
@@ -2914,7 +4154,115 @@ app.modules['std:validators'] = function () {
 
 		if (callback)
 			callback.call(vm);
-	}
+	};
 
 	app.components['standaloneController'] = standalone;
+})();
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+// 20181108-7350
+// standalone/shell.js
+
+(function () {
+
+	const eventBus = require('std:eventBus');
+	const modal = component('std:modal');
+	const toastr = component('std:toastr');
+	const urlTools = require('std:url');
+	const utils = require('std:utils');
+	const locale = window.$$locale;
+
+
+	const a2MainView = {
+		template: `
+<div class="main-view">
+	<div class="modal-wrapper" v-for="dlg in modals">
+		<a2-modal :dialog="dlg"></a2-modal>
+	</div>
+	<div class="fade" :class="{show: hasModals, 'modal-backdrop': hasModals}"/>
+	<a2-toastr></a2-toastr>
+</div>`,
+		components: {
+			'a2-modal': modal,
+			'a2-toastr': toastr
+		},
+		props: {
+		},
+		data() {
+			return {
+				requestsCount: 0,
+				modals: []
+			};
+		},
+		computed: {
+			hasModals() { return this.modals.length > 0; }
+		},
+		created() {
+
+			let me = this;
+			eventBus.$on('beginRequest', function () {
+				if (me.hasModals)
+					return;
+				me.requestsCount += 1;
+			});
+			eventBus.$on('endRequest', function () {
+				if (me.hasModals)
+					return;
+				me.requestsCount -= 1;
+			});
+
+			eventBus.$on('modal', function (modal, prms) {
+				let id = utils.getStringId(prms ? prms.data : null);
+				let raw = prms && prms.raw;
+				let root = window.$$rootUrl;
+				let url = urlTools.combine(root, '/model/dialog', modal, id);
+				if (raw)
+					url = urlTools.combine(root, modal, id);
+				//url = store.replaceUrlQuery(url, prms.query);  // TODO: убрать store????
+				let dlg = { title: "dialog", url: url, prms: prms.data };
+				dlg.promise = new Promise(function (resolve, reject) {
+					dlg.resolve = resolve;
+				});
+				prms.promise = dlg.promise;
+				me.modals.push(dlg);
+			});
+
+
+			eventBus.$on('modalClose', function (result) {
+				let dlg = me.modals.pop();
+				if (result)
+					dlg.resolve(result);
+			});
+
+			eventBus.$on('modalCloseAll', function () {
+				while (me.modals.length) {
+					let dlg = me.modals.pop();
+					dlg.resolve(false);
+				}
+			});
+
+			eventBus.$on('confirm', function (prms) {
+				let dlg = prms.data;
+				dlg.promise = new Promise(function (resolve) {
+					dlg.resolve = resolve;
+				});
+				prms.promise = dlg.promise;
+				me.modals.push(dlg);
+			});
+
+		}
+	};
+
+	new Vue({
+		el: "#shell",
+		components: {
+			'a2-main-view': a2MainView
+		},
+		data() {
+			return {
+			};
+		},
+		created() {
+		}
+	});
 })();

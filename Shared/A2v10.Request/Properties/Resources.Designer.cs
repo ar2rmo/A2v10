@@ -69,9 +69,8 @@ namespace A2v10.Request.Properties {
         ///		&lt;button class=&quot;btn btn-tb&quot; @click.prevent=&quot;$close&quot;&gt;&lt;i class=&quot;ico ico-close&quot;&gt;&lt;/i&gt; @[Close]&lt;/button&gt;
         ///	&lt;/div&gt;
         ///	&lt;div class=&quot;page-content&quot;&gt;
-        ///		&lt;div class=&quot;grid&quot;&gt;
-        ///			&lt;h3 class=&quot;a2-header&quot;&gt;A2:Web version 10&lt;/h3&gt;
-        ///		&lt;/di [rest of string was truncated]&quot;;.
+        ///		&lt;div class=&quot;grid app-page&quot;&gt;
+        ///			&lt;h3 class=&quot;a2-header&quot; v-text=&quot;appData.title [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string about {
             get {
@@ -102,12 +101,13 @@ namespace A2v10.Request.Properties {
         ///			&apos;a2-document-title&apos;: documentTitle
         ///		},
         ///		computed: {
+        ///			locale() {
+        ///				return window.$$locale;
+        ///			}
         ///		},
         ///		methods: {
         ///			$close() {
-        ///				this.$store.commit(&quot;close&quot;);
-        ///			},
-        ///			$requery() { [rest of string was truncated]&quot;;.
+        ///				th [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string aboutScript {
             get {
@@ -116,19 +116,58 @@ namespace A2v10.Request.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+        ///
+        ///(function () {
+        ///
+        ///	$(Locale)
+        ///
+        ///	const vm = new Vue({
+        ///		el: &quot;#app&quot;,
+        ///		components: {
+        ///			&quot;a2-document-title&quot;: {
+        ///				props: {
+        ///					pageTitle: String
+        ///				},
+        ///				created() {
+        ///					if (this.pageTitle)
+        ///						document.title = this.pageTitle;
+        ///				}
+        ///			}
+        ///		},
+        ///		data: {
+        ///			info: $(PageData),
+        ///			processing: false,
+        ///			appLinks: $(AppLinks)
+        ///		},
+        ///		computed: {
+        ///			locale() {
+        ///				return window.$$locale;
+        ///			}
+        ///		}
+        ///	});
+        ///})();.
+        /// </summary>
+        internal static string appLinkScript {
+            get {
+                return ResourceManager.GetString("appLinkScript", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to &lt;div class=&quot;page absolute page-grid&quot; id=&quot;$(PageGuid)&quot;&gt;
-        ///	&lt;a2-document-title page-title=&quot;@[About]&quot;&gt;&lt;/a2-document-title&gt;
         ///	&lt;div class=&quot;toolbar page-toolbar&quot;&gt;
         ///		&lt;button class=&quot;btn btn-tb&quot; @click.prevent=&quot;$requery&quot;&gt;&lt;i class=&quot;ico ico-reload&quot;&gt;&lt;/i&gt; @[Refresh]&lt;/button&gt;
         ///		&lt;div class=&quot;aligner&quot;&gt;&lt;/div&gt;
         ///		&lt;button class=&quot;btn btn-tb&quot; @click.prevent=&quot;$close&quot;&gt;&lt;i class=&quot;ico ico-close&quot;&gt;&lt;/i&gt; @[Close]&lt;/button&gt;
         ///	&lt;/div&gt;
-        ///	&lt;div class=&quot;page-content&quot;&gt;
+        ///	&lt;div class=&quot;page-content app-page&quot;&gt;
         ///		$(AppPageContent)
         ///	&lt;/div&gt;
         ///&lt;/div&gt;
         ///&lt;script type=&quot;text/javascript&quot;&gt;
-        ///	$(App [rest of string was truncated]&quot;;.
+        ///	$(AppPageScript)
+        ///&lt;/script&gt;.
         /// </summary>
         internal static string appPage {
             get {
@@ -214,6 +253,7 @@ namespace A2v10.Request.Properties {
         ///	&lt;hr style=&quot;margin-top:1rem&quot; /&gt;
         ///	&lt;div&gt;
         ///		&lt;p v-text=&quot;locale.$ErrorText&quot; style=&quot;margin-bottom:30px&quot;&gt;&lt;/p&gt;
+        ///		&lt;p style=&quot;margin-bottom:30px&quot;&gt;$(ErrorMessage)&lt;/p&gt;
         ///		&lt;a tabindex=&quot;3&quot; href=&quot;/account/login&quot; class=&quot;a2-hyperlink&quot; v-text=&quot;locale.$LoginLink&quot;&gt;&lt;/a&gt;
         ///	&lt;/div&gt;
         ///&lt;/div&gt;
@@ -222,6 +262,100 @@ namespace A2v10.Request.Properties {
         internal static string error {
             get {
                 return ResourceManager.GetString("error", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &lt;div class=&quot;modal&quot; id=&quot;$(PageGuid)&quot;&gt;
+        ///	&lt;div class=&quot;modal-header&quot; v-drag-window&gt;
+        ///		&lt;span&gt;@[Error]&lt;/span&gt;
+        ///		&lt;button class=&quot;btnclose&quot; @click.prevent=&quot;$modalClose(false)&quot;&gt;&amp;#x2715;&lt;/button&gt;
+        ///	&lt;/div&gt;
+        ///	&lt;div class=&quot;modal-body confirm&quot;&gt;
+        ///		&lt;i class=&quot;ico ico-confirm&quot;&gt;&lt;/i&gt; 
+        ///		&lt;div class=&quot;modal-body-content&quot;&gt;
+        ///			&lt;div&gt;$(ErrorMessage)&lt;/div&gt;
+        ///		&lt;/div&gt;
+        ///	&lt;/div&gt;	
+        ///	&lt;div class=&quot;modal-footer&quot;&gt;
+        ///		&lt;button class=&quot;btn a2-inline&quot; @click.prevent=&quot;$modalClose()&quot; v-settabindex&gt;@[Close]&lt;/button&gt;
+        ///	&lt;/div&gt;
+        ///&lt;/div&gt;
+        ///
+        ///
+        ///&lt;script typ [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string errorDialog {
+            get {
+                return ResourceManager.GetString("errorDialog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &lt;div class=&quot;modal&quot; id=&quot;$(PageGuid)&quot; v-modal-width=&quot;{width:&apos;900px&apos;}&quot;&gt;
+        ///	&lt;div class=&quot;modal-header&quot; v-drag-window&gt;
+        ///		&lt;span&gt;Електронний підпис&lt;/span&gt;
+        ///		&lt;button class=&quot;btnclose&quot; @click.prevent=&quot;$modalClose(false)&quot;&gt;&amp;#x2715;&lt;/button&gt;
+        ///	&lt;/div&gt;
+        ///	&lt;div class=&quot;modal-body&quot;&gt;
+        ///		&lt;iframe style=&quot;width:100%;height:700px;border:none&quot; frameborder=&quot;0&quot; :src=&quot;frameUrl&quot;&gt;&lt;/iframe&gt;
+        ///	&lt;/div&gt;
+        ///	&lt;div class=&quot;modal-footer&quot;&gt;
+        ///		&lt;button class=&quot;btn a2-inline&quot; @click.prevent=&quot;$modalClose()&quot; v-settabindex&gt;@[Close]&lt;/button&gt;
+        ///	&lt;/div&gt;
+        ///&lt;/div&gt; [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string euSignDialog {
+            get {
+                return ResourceManager.GetString("euSignDialog", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &lt;!DOCTYPE html&gt;
+        ///&lt;html lang=&quot;$(Locale)&quot; style=&quot;height:100%&quot;&gt;
+        ///&lt;head&gt;
+        ///	&lt;meta charset=&quot;utf-8&quot; /&gt;
+        ///	&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+        ///	&lt;meta name=&quot;description&quot; content=&quot;$(Description)&quot; /&gt;
+        ///	&lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=edge&quot; /&gt;
+        ///	&lt;meta name=&quot;format-detection&quot; content=&quot;telephone=no&quot; /&gt;
+        ///	&lt;link href=&quot;/css/$(Theme).min.css?v=$(Build)&quot; rel=&quot;stylesheet&quot; /&gt;
+        ///&lt;/head&gt;
+        ///&lt;body&gt;
+        ///	&lt;script type=&quot;text/javascript&quot; src=&quot;/scripts/vue.js?v=2.5.13&quot;&gt;&lt;/script&gt;
+        ///	&lt;script typ [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string euSignFrame {
+            get {
+                return ResourceManager.GetString("euSignFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+        ///
+        ///&quot;use strict&quot;;
+        ///
+        ///// global scope!
+        ///
+        ///const eventBus = require(&apos;std:eventBus&apos;);
+        ///
+        ///function EUSignCPModuleInitialized(isInitialized) {
+        ///	console.info(&apos;EUSign library initialized&apos;);
+        ///	var URL_XML_HTTP_PROXY_SERVICE = &quot;/Handlers/ProxyHandler.ashx&quot;;
+        ///
+        ///	if (isInitialized) {
+        ///		euSign.Initialize();
+        ///		euSign.SetJavaStringCompliant(true);
+        ///		euSign.SetCharset(&quot;UTF-16LE&quot;);
+        ///		euSign.SetXMLHTTPProxyService(URL_XML_HTTP_PROXY_SERVICE);
+        ///
+        ///		var settings = euSig [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string euSignFrameScript {
+            get {
+                return ResourceManager.GetString("euSignFrameScript", resourceCulture);
             }
         }
         
@@ -264,6 +398,7 @@ namespace A2v10.Request.Properties {
         ///			email: &apos;&apos;,
         ///			processing: false,
         ///			info: $(PageData),
+        ///			appLinks: $(AppLinks),
         ///			submitted: false,
         ///			serverError: &apos;&apos;,
         ///			emailError: &apos;&apos;,
@@ -275,8 +410,7 @@ namespace A2v10.Request.Properties {
         ///				if (!this.submitted) return true;
         ///				return this.validEmail;
         ///			},
-        ///			validEmail() {
-        ///				if (!this.submitted) r [rest of string was truncated]&quot;;.
+        ///			validEmail() {        /// [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string forgotPasswordScript {
             get {
@@ -288,15 +422,16 @@ namespace A2v10.Request.Properties {
         ///   Looks up a localized string similar to &lt;!DOCTYPE html&gt;
         ///&lt;html lang=&quot;$(Lang)&quot;&gt;
         ///&lt;head&gt;
+        ///	@(SiteMeta)
         ///	&lt;meta charset=&quot;utf-8&quot; /&gt;
         ///	&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+        ///	&lt;meta name=&quot;description&quot; content=&quot;$(Description)&quot; /&gt;
         ///	&lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=edge&quot; /&gt;
+        ///	&lt;meta name=&quot;format-detection&quot; content=&quot;telephone=no&quot; /&gt;
         ///	&lt;meta name=&quot;google&quot; content=&quot;notranslate&quot; /&gt;
         ///	&lt;meta name=&quot;helpUrl&quot; content=&quot;$(HelpUrl)&quot; /&gt;
-        ///	&lt;title&gt;A2:Web&lt;/title&gt;
-        ///	&lt;link href=&quot;/css/site.min.css?v=$(Build)&quot; rel=&quot;stylesheet&quot; /&gt;
-        ///	&lt;link rel=&quot;shortcut icon&quot; href=&quot;/favicon.ico&quot; type=&quot;image/x-icon&quot; /&gt;
-        ///	&lt;link rel=&quot;icon&quot; href=&quot;/favicon.ico&quot; type=&quot;image/x-i [rest of string was truncated]&quot;;.
+        ///	&lt;title&gt;$(Title)&lt;/title&gt;
+        ///	&lt;link href=&quot;/css/site.min.css?v=$(Build)&quot; rel=&quot;stylesheet&quot; [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string initLayout {
             get {
@@ -310,14 +445,14 @@ namespace A2v10.Request.Properties {
         ///&lt;head&gt;
         ///	&lt;meta charset=&quot;utf-8&quot; /&gt;
         ///	&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
-        ///	&lt;meta name=&quot;description&quot; content=&quot;A2:Web&quot; /&gt;
+        ///	&lt;meta name=&quot;description&quot; content=&quot;$(Description)&quot; /&gt;
         ///	&lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=edge&quot; /&gt;
         ///	&lt;meta name=&quot;format-detection&quot; content=&quot;telephone=no&quot; /&gt;
+        ///	&lt;meta name=&quot;google&quot; content=&quot;notranslate&quot; /&gt;
         ///	&lt;meta name=&quot;rootUrl&quot; content=&quot;$(RootUrl)&quot; /&gt;
         ///	&lt;meta name=&quot;helpUrl&quot; content=&quot;$(HelpUrl)&quot; /&gt;
-        ///	&lt;meta name=&quot;google&quot; content=&quot;notranslate&quot; /&gt;
         ///	&lt;title&gt;&lt;/title&gt;
-        ///	&lt;link href=&quot;/css/$(Theme).min.css?v=$(B [rest of string was truncated]&quot;;.
+        ///	&lt;link href=&quot;/css/$(Theme).min.c [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string layout {
             get {
@@ -466,7 +601,6 @@ namespace A2v10.Request.Properties {
         ///
         ///	const token = &apos;$(Token)&apos;;
         ///
-        ///
         ///	$(Utils)
         ///	$(Locale)
         ///
@@ -478,6 +612,7 @@ namespace A2v10.Request.Properties {
         ///			rememberMe: false,
         ///			processing: false,
         ///			info: $(PageData),
+        ///			appLinks: $(AppLinks),
         ///			submitted: false,
         ///			serverError: &apos;&apos;,
         ///			emailError: &apos;&apos;
@@ -487,8 +622,7 @@ namespace A2v10.Request.Properties {
         ///				if (!this.submitted) return true;
         ///				return this.validEmail &amp;&amp; this.validPassword;
         ///			},
-        ///			validEmail() {
-        ///				if ( [rest of string was truncated]&quot;;.
+        ///		 [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string loginScript {
             get {
@@ -499,7 +633,7 @@ namespace A2v10.Request.Properties {
         /// <summary>
         ///   Looks up a localized string similar to // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
         ///
-        ////*20180424-7163*/
+        ////*20180821-7279*/
         ////* services/mask.js */
         ///
         ///function maskTool() {
@@ -511,7 +645,8 @@ namespace A2v10.Request.Properties {
         ///		getMasked,
         ///		getUnmasked,
         ///		mountElement,
-        ///		unmountElement
+        ///		unmountElement,
+        ///		setMask
         ///	};
         ///
         ///	function isMaskChar(ch) {
@@ -524,8 +659,7 @@ namespace A2v10.Request.Properties {
         ///
         ///	function isValidChar(mask, char) {
         ///		if (mask === &apos;#&apos;) {
-        ///			return char &gt;= &apos;0&apos; &amp;&amp; char &lt;= &apos;9&apos; || char === PLACE_CHAR;
-        ///		 [rest of string was truncated]&quot;;.
+        ///			return char &gt;= &apos;0&apos; &amp;&amp; char &lt;= &apos;9&apos; || char === PLA [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string mask {
             get {
@@ -567,10 +701,10 @@ namespace A2v10.Request.Properties {
         ///		&lt;span class=&quot;error&quot; v-text=&quot;serverError&quot;&gt;&lt;/span&gt;
         ///	&lt;/div&gt;
         ///	&lt;form&gt;
-        ///		&lt;div v-if=&quot;showConfirm&quot;&gt;
+        ///		&lt;div v-if=&quot;showConfirm&quot; class=&quot;user-select&quot;&gt;
         ///			&lt;p v-text=&quot;confirmRegisterText&quot;&gt;&lt;/p&gt;
         ///			&lt;p v-text=&quot;locale.$CheckEMail&quot;&gt;&lt;/p&gt;
-        ///			&lt;a tabindex=&quot;3&quot; href=&quot;/&quot; class=&quot;a2-hyperlink&quot; v-text=&quot;locale.$LoginLink&quot;&gt;&lt; [rest of string was truncated]&quot;;.
+        ///			&lt;a tabindex=&quot;3&quot; href=&quot;/&quot; class=&quot;a2-hyperlink&quot; v-text=&quot; [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string registerTenant {
             get {
@@ -605,10 +739,10 @@ namespace A2v10.Request.Properties {
         ///			confirm: &apos;&apos;,
         ///			processing: false,
         ///			info: $(PageData),
+        ///			appLinks: $(AppLinks),
         ///			submitted: false,
         ///			serverError: &apos;&apos;,
-        ///			emailError: &apos;&apos;,
-        ///			showCo [rest of string was truncated]&quot;;.
+        ///		 [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string registerTenantScript {
             get {
@@ -656,6 +790,7 @@ namespace A2v10.Request.Properties {
         ///			confirm: &apos;&apos;,
         ///			processing: false,
         ///			info: $(PageData),
+        ///			appLinks: $(AppLinks),
         ///			serverInfo: $(ServerInfo),
         ///			submitted: false,
         ///			serverError: &apos;&apos;,
@@ -665,10 +800,7 @@ namespace A2v10.Request.Properties {
         ///		},
         ///		computed: {
         ///			locale() {
-        ///				return window.$$locale;
-        ///			},
-        ///			valid() {
-        ///			 [rest of string was truncated]&quot;;.
+        ///				return window.$$locale [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string resetPasswordScript {
             get {
@@ -678,7 +810,7 @@ namespace A2v10.Request.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to 
-        ////*20180408-7152*/
+        ////*20181005-7312*/
         ///
         ///(function () {
         ///
@@ -692,16 +824,11 @@ namespace A2v10.Request.Properties {
         ///			version: &apos;$(AppVersion)&apos;,
         ///			menu: menu.Menu ? menu.Menu[0].Menu : null,
         ///			newMenu: menu.NewMenu,
-        ///			title: menu.SysParams.AppTitle,
-        ///			subtitle: menu.SysParams.AppSubTitle,
-        ///			sideBarMode: menu.SysParams.SideBarMode,
-        ///			userIsAdmin: $(Admin),
-        ///			isDebug: $(Debug),
-        ///			appData: $(AppData)
-        ///		}
-        ///	});
-        ///
-        ///	window.$$rootUrl = &apos;&apos; [rest of string was truncated]&quot;;.
+        ///			settingsMenu: menu.SettingsMenu,
+        ///			title: menu.SysParams ? menu.SysParams.AppTitle : &apos;&apos;,
+        ///			subtitle: menu.SysParams ? menu.SysParams.AppSubTitle : &apos;&apos;,
+        ///			sideBarMode: menu.SysParams ? menu.SysParams.SideBarMode : &apos;&apos;,
+        ///			use [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string shell {
             get {
@@ -710,23 +837,25 @@ namespace A2v10.Request.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to /*20171010-7043*/
+        ///   Looks up a localized string similar to // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+        ///
+        ////*20181005-7312*/
         ///
         ///(function () {
         ///
-        ///    const Shell = component(&apos;std:shellController&apos;);
+        ///	const Shell = component(&apos;std:shellController&apos;);
         ///
         ///	const menu = $(Menu);
         ///
-        ///    const shell = new Shell({
-        ///        el: &apos;#shell&apos;,
-        ///        data: {
-        ///			title: menu.SysParams.AppTitle,
+        ///	const shell = new Shell({
+        ///		el: &apos;#shell&apos;,
+        ///		data: {
+        ///			title: menu.SysParams ? menu.SysParams.AppTitle : &apos;&apos;,
         ///			subtitle: &apos;администратор&apos;,
-        ///            version: &apos;$(AppVersion)&apos;,
+        ///			version: &apos;$(AppVersion)&apos;,
         ///			menu: menu.Menu[0].Menu
-        ///        }
-        ///    });
+        ///		}
+        ///	});
         ///
         ///	window.$$rootUrl = &apos;/admin&apos;;
         ///	window.$$debug = $(Debug);
@@ -750,12 +879,15 @@ namespace A2v10.Request.Properties {
         ///		el: &quot;#app&quot;,
         ///		data: {
         ///			info: $(PageData),
+        ///			appLinks: $(AppLinks),
         ///			processing: false
         ///		},
         ///		computed: {
         ///			locale() {
         ///				return window.$$locale;
         ///			}
+        ///		},
+        ///		methods: {
         ///		}
         ///	});
         ///})();.
@@ -763,6 +895,28 @@ namespace A2v10.Request.Properties {
         internal static string simpleScript {
             get {
                 return ResourceManager.GetString("simpleScript", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+        ///
+        ///(function () {
+        ///
+        ///
+        ///	let cm = window.$currentModule();
+        ///
+        ///	const DialogController = component(&apos;standaloneController&apos;);
+        ///
+        ///	const vm = new DialogController({
+        ///		el: &quot;$(PageGuid)&quot;,
+        ///		data: cm.dataModel
+        ///	});
+        ///})();.
+        /// </summary>
+        internal static string standaloneDialogScript {
+            get {
+                return ResourceManager.GetString("standaloneDialogScript", resourceCulture);
             }
         }
         

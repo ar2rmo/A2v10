@@ -28,6 +28,15 @@
     <Filter Include="Header Files\FormDesigner">
       <UniqueIdentifier>{cd902839-f6f4-479d-aa73-58de9bc7c2ec}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\FormDesigner\Controls">
+      <UniqueIdentifier>{2a11d594-a8ef-43b3-94e1-f63f8152e0cf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\FormDesigner\Controls">
+      <UniqueIdentifier>{4699c157-75fb-4357-8124-7da4aa524d3f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\FormDesigner\Layouts">
+      <UniqueIdentifier>{b5fb1e06-8edb-41d5-87af-544efe7b6359}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="A2v10.Designer.h">
@@ -120,8 +129,17 @@
     <ClInclude Include="formundo.h">
       <Filter>Header Files\FormDesigner</Filter>
     </ClInclude>
+    <ClInclude Include="button.h">
+      <Filter>Header Files\FormDesigner\Controls</Filter>
+    </ClInclude>
     <ClInclude Include="textbox.h">
-      <Filter>Header Files\FormDesigner</Filter>
+      <Filter>Header Files\FormDesigner\Controls</Filter>
+    </ClInclude>
+    <ClInclude Include="checkbox.h">
+      <Filter>Header Files\FormDesigner\Controls</Filter>
+    </ClInclude>
+    <ClInclude Include="solutioncreatedlg.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -191,14 +209,23 @@
     <ClCompile Include="xamlview.cpp">
       <Filter>Source Files\FormDesigner</Filter>
     </ClCompile>
-    <ClCompile Include="grid.cpp">
-      <Filter>Source Files\FormDesigner</Filter>
-    </ClCompile>
     <ClCompile Include="formundo.cpp">
       <Filter>Source Files\FormDesigner</Filter>
     </ClCompile>
+    <ClCompile Include="button.cpp">
+      <Filter>Source Files\FormDesigner\Controls</Filter>
+    </ClCompile>
     <ClCompile Include="textbox.cpp">
-      <Filter>Source Files\FormDesigner</Filter>
+      <Filter>Source Files\FormDesigner\Controls</Filter>
+    </ClCompile>
+    <ClCompile Include="checkbox.cpp">
+      <Filter>Source Files\FormDesigner\Controls</Filter>
+    </ClCompile>
+    <ClCompile Include="grid.cpp">
+      <Filter>Source Files\FormDesigner\Layouts</Filter>
+    </ClCompile>
+    <ClCompile Include="solutioncreatedlg.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -268,6 +295,9 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="res\debugtoolbar.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\consoletoolbar.bmp">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

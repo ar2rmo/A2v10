@@ -22,15 +22,16 @@ namespace A2v10.Xaml
 		public String Placeholder { get; set; }
 
 		public Size ListSize { get; set; }
-		public UIElement NewPane { get; set; }
+		public UIElementBase NewPane { get; set; }
 		public Command CreateNewCommand { get; set; }
 
-		public UIElement ItemsPanel { get; set; }
+		public UIElementBase ItemsPanel { get; set; }
 		public SelectorPanelPlacement PanelPlacement { get; set; }
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
-			CheckDisabledModel(context);
+			if (CheckDisabledModel(context))
+				return;
 			var input = new TagBuilder("a2-selector", null, IsInGrid);
 			onRender?.Invoke(input);
 			if (!String.IsNullOrEmpty(Delegate))

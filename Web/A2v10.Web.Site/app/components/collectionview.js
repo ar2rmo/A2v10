@@ -1,11 +1,11 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180511-7186
+// 20181024-7328
 // components/collectionview.js
 
 /*
 TODO:
-11. GroupBy
+11. GroupBy for server, client (url is done)
 */
 
 (function () {
@@ -32,7 +32,7 @@ TODO:
 	}
 
 	function makeNewQueryFunc(that) {
-		let nq = { dir: that.dir, order: that.order, offset: that.offset };
+		let nq = { dir: that.dir, order: that.order, offset: that.offset, group: that.GroupBy };
 		for (let x in that.filter) {
 			let fVal = that.filter[x];
 			if (period.isPeriod(fVal)) {
@@ -45,7 +45,7 @@ TODO:
 				if (!('Id' in fVal)) {
 					console.error('The object in the Filter does not have Id property');
 				}
-				nq[x] = fVal.Id;
+				nq[x] = fVal.Id ? fVal.Id : undefined;
 			}
 			else if (fVal) {
 				nq[x] = fVal;
@@ -68,6 +68,8 @@ TODO:
 				else if (utils.isDate(iv)) {
 					filter[x] = utils.date.tryParse(q[x]);
 				}
+				else if (utils.isObjectExact(iv)) 
+					iv.Id = q[x];
 				else {
 					filter[x] = q[x];
 				}
@@ -213,13 +215,14 @@ TODO:
 		//store: component('std:store'),
 		template: `
 <div>
-	<slot :ItemsSource="ItemsSource" :Pager="thisPager" :Filter="filter">
+	<slot :ItemsSource="ItemsSource" :Pager="thisPager" :Filter="filter" :ParentCollectionView="parentCw">
 	</slot>
 </div>
 `,
 		props: {
 			ItemsSource: Array,
-			initialFilter: Object
+			initialFilter: Object,
+			persistentFilter: Array
 		},
 
 		data() {
@@ -263,6 +266,13 @@ TODO:
 			sourceCount() {
 				if (!this.ItemsSource) return 0;
 				return this.ItemsSource.$RowCount || 0;
+			},
+			parentCw() {
+				// find parent collection view;
+				let p = this.$parent;
+				while (p && p.$options && p.$options._componentTag && !p.$options._componentTag.startsWith('collection-view-server'))
+					p = p.$parent;
+				return p;
 			}
 		},
 		methods: {
@@ -295,12 +305,44 @@ TODO:
 				else {
 					this.ItemsSource.$ModelInfo.Filter = this.filter;
 				}
+				if (this.persistentFilter && this.persistentFilter.length) {
+					let parentProp = this.ItemsSource._path_;
+					let propIx = parentProp.lastIndexOf('.');
+					parentProp = parentProp.substring(propIx + 1);
+					for (let topElem of this.ItemsSource.$parent.$parent) {
+						if (!topElem[parentProp].$ModelInfo)
+							topElem[parentProp].$ModelInfo = mi;
+						else {
+							for (let pp of this.persistentFilter) {
+								if (!utils.isEqual(topElem[parentProp].$ModelInfo.Filter[pp], this.filter[pp])) {
+									topElem[parentProp].$ModelInfo.Filter[pp] = this.filter[pp];
+									topElem[parentProp].$loaded = false;
+								}
+							}
+						}
+					}
+				}
 				if ('Offset' in mi)
 					setModelInfoProp(this.ItemsSource, 'Offset', 0);
 				this.reload();
 			},
 			reload() {
 				this.$root.$emit('cwChange', this.ItemsSource);
+			},
+			updateFilter() {
+				// modelInfo to filter
+				let mi = this.ItemsSource ? this.ItemsSource.$ModelInfo : null;
+				if (!mi) return;
+				let fi = mi.Filter;
+				if (!fi) return;
+				this.lockChange = true;
+				for (var prop in this.filter) {
+					if (prop in fi)
+						this.filter[prop] = fi[prop];
+				}
+				this.$nextTick(() => {
+					this.lockChange = false;
+				});
 			}
 		},
 		created() {
@@ -314,6 +356,9 @@ TODO:
 			});
 			// from datagrid, etc
 			this.$on('sort', this.doSort);
+		},
+		updated() {
+			this.updateFilter();
 		}
 	});
 
@@ -322,23 +367,29 @@ TODO:
 		store: component('std:store'),
 		template: `
 <div>
-	<slot :ItemsSource="ItemsSource" :Pager="thisPager" :Filter="filter" :GroupBy="groupBy">
+	<slot :ItemsSource="ItemsSource" :Pager="thisPager" :Filter="filter" :Grouping="thisGrouping">
 	</slot>
 </div>
 `,
 		props: {
 			ItemsSource: Array,
-			initialFilter: Object
+			initialFilter: Object,
+			initialGroup: Object
 		},
 		data() {
 			return {
 				filter: this.initialFilter,
-				groupBy: null,
+				GroupBy: '',
 				lockChange: true
 			};
 		},
 		watch: {
 			jsonFilter: {
+				handler(newData, oldData) {
+					this.filterChanged();
+				}
+			},
+			GroupBy: {
 				handler(newData, oldData) {
 					this.filterChanged();
 				}
@@ -373,9 +424,15 @@ TODO:
 			thisPager() {
 				return this;
 			},
+			thisGrouping() {
+				return this;
+			},
 			pages() {
 				cnt = this.sourceCount;
 				return Math.ceil(cnt / this.pageSize);
+			},
+			Filter() {
+				return this.filter;
 			}
 		},
 		methods: {
@@ -422,10 +479,13 @@ TODO:
 			let mi = this.ItemsSource.$ModelInfo;
 			if (mi) {
 				modelInfoToFilter(mi.Filter, this.filter);
+				if (mi.GroupBy) {
+					this.GroupBy = mi.GroupBy;
+				}
 			}
 			// then query from url
 			let q = this.$store.getters.query;
-			modelInfoToFilter(q, this.filter)
+			modelInfoToFilter(q, this.filter);
 
 			this.$nextTick(() => {
 				this.lockChange = false;

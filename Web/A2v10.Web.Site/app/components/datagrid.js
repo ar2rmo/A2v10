@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180701-7237
+// 20181019-7323
 // components/datagrid.js*/
 
 (function () {
@@ -23,6 +23,7 @@
 
 	const utils = require('std:utils');
 	const log = require('std:log');
+	const locale = window.$$locale;
 
 	/* group marker
 				<th v-if="isGrouping" class="group-cell" style="display:none">
@@ -36,7 +37,11 @@
 
 	const dataGridTemplate = `
 <div v-lazy="itemsSource" :class="{'data-grid-container':true, 'fixed-header': fixedHeader, 'bordered': border}">
+	<div class="data-grid-header-border" v-if="fixedHeader" />
 	<div :class="{'data-grid-body': true, 'fixed-header': fixedHeader}">
+	<div class="data-grid-empty" v-if="$isEmpty">
+		<slot name="empty" />
+	</div>
 	<table :class="cssClass">
 		<colgroup>
 			<col v-if="isMarkCell" class="fit"/>
@@ -57,7 +62,7 @@
 						<td @click.prevent='toggleGroup(g)' :colspan="groupColumns">
 						<span :class="{expmark: true, expanded: g.expanded}" />
 						<span class="grtitle" v-text="groupTitle(g)" />
-						<span v-if="g.source.count" class="grcount" v-text="g.count" /></td>
+						<span v-if="isGroupCountVisible(g)" class="grcount" v-text="g.count" /></td>
 					</tr>
 					<template v-for="(row, rowIndex) in g.items">
 						<data-grid-row v-show="isGroupBodyVisible(g)" :group="true" :level="g.level" :cols="columns" :row="row" :key="gIndex + ':' + rowIndex" :index="rowIndex" :mark="mark" ref="row" />
@@ -86,9 +91,11 @@
 
 	/* @click.prevent disables checkboxes & other controls in cells 
 	<td class="group-marker" v-if="group"></td>
+
+	@mousedown.prevent???? зачем то было???
 	 */
 	const dataGridRowTemplate = `
-<tr @click="rowSelect(row)" :class="rowClass()" v-on:dblclick.prevent="doDblClick" ref="tr" @mousedown.prevent="mouseDown(row)">
+<tr @click="rowSelect(row)" :class="rowClass()" v-on:dblclick.prevent="doDblClick" ref="tr" @mousedown="mouseDown(row)">
 	<td v-if="isMarkCell" class="marker">
 		<div :class="markClass"></div>
 	</td>
@@ -139,7 +146,7 @@
 			sort: { type: Boolean, default: undefined },
 			sortProp: String,
 			small: { type: Boolean, default: undefined },
-			bold: { type: Boolean, default: undefined },
+			bold: String, //{ type: Boolean, default: undefined },
 			mark: String,
 			controlType: String,
 			width: String,
@@ -198,6 +205,7 @@
 			},
 			cellCssClass(row, editable) {
 				let cssClass = this.classAlign;
+
 				if (this.mark) {
 					let mark = row[this.mark];
 					if (mark)
@@ -205,12 +213,23 @@
 				}
 				if (editable && this.controlType !== 'checkbox')
 					cssClass += ' cell-editable';
+
+				function addClassBool(bind, cls) {
+					if (!bind) return;
+					if (bind === 'true')
+						cssClass += cls;
+					else if (bind.startsWith('{')) {
+						var prop = bind.substring(1, bind.length - 1);
+						if (utils.simpleEval(row, prop))
+							cssClass += cls;
+					}
+				}
+
 				if (this.wrap)
 					cssClass += ' ' + this.wrap;
 				if (this.small)
-					cssClass += ' ' + 'small';
-				if (this.bold)
-					cssClass += ' ' + 'bold';
+					cssClass += ' small';
+				addClassBool(this.bold, ' bold');
 				return cssClass.trim();
 			}
 		}
@@ -497,12 +516,13 @@
 			markStyle: String,
 			rowBold: String,
 			doubleclick: Function,
-			groupBy: [Array, Object],
+			groupBy: [Array, Object, String],
 			rowDetails: Boolean,
 			rowDetailsActivate: String,
 			rowDetailsVisible: [String /*path*/, Boolean],
 			isItemActive: Function,
-			hitItem: Function
+			hitItem: Function,
+			emptyPanelCallback: Function
 		},
 		template: dataGridTemplate,
 		components: {
@@ -559,7 +579,9 @@
 					(this.isRowDetailsCell ? 1 : 0);
 			},
 			$groupCount() {
-				if (utils.isObjectExact(this.groupBy))
+				if (utils.isString(this.groupBy))
+					return this.groupBy.split('-').length;
+				else if (utils.isObjectExact(this.groupBy))
 					return 1;
 				else
 					return this.groupBy.length;
@@ -594,14 +616,22 @@
 				let startTime = performance.now();
 				let grmap = {};
 				let grBy = this.groupBy;
-				if (utils.isObjectExact(grBy))
+				if (utils.isString(grBy)) {
+					let rarr = [];
+					for (let vs of grBy.split('-'))
+						rarr.push({ prop: vs.trim(), count: true });
+					grBy = rarr;
+				}
+				else if (utils.isObjectExact(grBy))
 					grBy = [grBy];
 				for (let itm of this.$items) {
 					let root = grmap;
 					for (let gr of grBy) {
 						let key = utils.eval(itm, gr.prop);
+						if (utils.isDate(key))
+							key = utils.format(key, "Date");
 						if (!utils.isDefined(key)) key = '';
-						if (key === '') key = "Unknown";
+						if (key === '') key = locale.$Unknown || "Unknown";
 						if (!(key in root)) root[key] = {};
 						root = root[key];
 					}
@@ -620,6 +650,17 @@
 				this.clientGroups = grArray;
 				log.time('datagrid grouping time:', startTime);
 				return this.clientGroups;
+			},
+			$isEmpty() {
+				if (!this.itemsSource) return false;
+				let mi = this.itemsSource.$ModelInfo;
+				if (!mi) return false;
+				if ('HasRows' in mi) {
+					if (this.itemsSource.length)
+						return false;
+					return mi.HasRows === false;
+				}
+				return false;
 			}
 		},
 		watch: {
@@ -631,6 +672,10 @@
 			},
 			'itemsSource.length'() {
 				this.handleSort();
+			},
+			'$isEmpty'(newval, oldval) {
+				if (this.emptyPanelCallback)
+					this.emptyPanelCallback.call(this.$root.$data, newval);
 			}
 		},
 		methods: {
@@ -651,7 +696,7 @@
 			},
 			columnClass(column) {
 				let cls = '';
-				if (column.fit || (column.controlType === 'validator'))
+				if (column.fit || column.controlType === 'validator')
 					cls += 'fit';
 				if (utils.isDefined(column.dir))
 					cls += ' sorted';
@@ -709,6 +754,11 @@
 			},
 			toggleGroup(g) {
 				g.expanded = !g.expanded;
+			},
+			isGroupCountVisible(g) {
+				if (g && g.source && utils.isDefined(g.source.count))
+					return g.source.count;
+				return true;
 			},
 			isGroupGroupVisible(g) {
 				if (!g.group)

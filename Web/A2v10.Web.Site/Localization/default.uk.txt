@@ -13,16 +13,23 @@
 @Profile=Профіль
 @ChangePassword=Змінити пароль
 @SubstUser=Змінити користувача
+@AllUsers=Всі користувачі
+@AdminUsers=Адміністратори
 @User=Користувач
 @OldPassword=Старий пароль
 @NewPassword=Новий пароль
 @SetPassword=Встановити пароль
+@Error=Помилка
+@Warning=Попередження
 ;
 @ResetPassword=Відновлення паролю
 @ResetPasswordBody=Для відновлення паролю перейдіть <a href="{0}">до посилання</a>
 @ConfirmEMail=Підтвердження е-mail
 @ConfirmEMailBody=Для підтвердження е-mail перейдіть <a href="{0}">до посилання</a>
+@EMailAlreadyConfirmed=Ваш e-mail вже підтверджено.
 @SetNewPassword=Встановлення паролю
+@InviteEMail=Ласкаво просимо!
+@ChangePasswordDisabled=Зміну пароля заборонено!
 ;
 @Home=Головна
 @Documents=Документи
@@ -76,3 +83,5 @@
 @Error.DuplicateCode=Елемент з таким кодом вже існує
 @Error.Exception=Щось пішло не так, як очікувалося :-(
 @Error.FileFormatException=Некоректний формат файлу
+@Error.DataReadOnly=База даних тільки для читання
+

@@ -1,8 +1,8 @@
-<!-- Invoice index -->
+<!-- Waybill view -->
 <Page xmlns="clr-namespace:A2v10.Xaml;assembly=A2v10.Xaml">
 	<Page.Toolbar>
 		<Toolbar>
-			<Button Icon="Save" Tip="Сохранить изменения" Command="{BindCmd Save}">Сохранить</Button>
+			<Button Icon="Save" Tip="Сохранить изменения" Command="{BindCmd Save}">Сохранить 2</Button>
 			<Button Icon="SaveClose" Tip="Сохранить изменения и закрыть документ" Command="{BindCmd SaveAndClose}">Сохранить и закрыть</Button>
 			<Button Icon="Reload" Command="{BindCmd Reload}" Tip="Обновить данные">Обновить</Button>
 			<Separator/>
@@ -21,15 +21,19 @@
                            Content="{Bind Document.ParentDoc.$Name}"
                            Command="{BindCmd Open, Url='/Sales/Invoice/Edit', Argument={Bind Document.ParentDoc}}"/>
 			</Panel>
+			<Panel If="{Bind Root.$HasInbox}" Header="Workflow" Style="Danger" Padding="10">
+				<TextBox Value="{Bind Root.$Answer}"/>
+				<Button Style="Cyan" Command="{BindCmd Execute, CommandName='resumeWorkflow'}">Продолжить</Button>
+			</Panel>
 		</Taskpad>
 	</Page.Taskpad>
 	<Alert Style="Warning" Icon="WarningOutline" If="{Bind Document.Done}">
 		Документ проведено в обліку. Редагування неможливе.
 	</Alert>
 	<Grid Columns="150, 150, 150, 1*">
-		<Header Grid.ColSpan="4" Badge="{Bind Document.Id}">Расходная накладная</Header>
-		<DatePicker Grid.Row="2" Label="Дата" Value="{Bind Document.Date}"/>
-		<TextBox Grid.Row="2" Label="Номер" Value="{Bind Document.No}" Align="Right"/>
+		<Header Grid.ColSpan="4" Badge="{Bind Document.Id}" Render="Show">Расходная накладная</Header>
+		<DatePicker Grid.Row="2" Label="Дата" Value="{Bind Document.$Date}" Render="{Bind 'Document.Id == 164 ? `Show` : `Hide`'}"/>
+		<TextBox Grid.Row="2" Label="Номер" Value="{Bind Document.No}" Align="Right" Number="True"/>
 		<Static Grid.Row="2" Grid.Col="3" Label="Код" Value="{Bind Document.Id}" Align="Right"/>
 		<TextBox Grid.Row="3" Grid.ColSpan="3"
 			Label="Покупатель" Value="{Bind Document.Agent.Name}" ValidateValue="{Bind Document.Agent}">
@@ -37,10 +41,11 @@
 				<Hyperlink Icon="Search" Tip="Выберите покупателя" Command="{BindCmd Dialog, Action=Browse, Argument={Bind Document.Agent}, Url='/Agent/BrowseCustomer'}"/>
 			</TextBox.AddOns>
 		</TextBox>
-		<ComboBox Grid.Row="4" Grid.ColSpan="3" Label="Склад" ItemsSource="{Bind Warehouses}" Value="{Bind Document.DepFrom}"/>
+		<ComboBox Grid.Row="4" Grid.ColSpan="3" Label="Склад" ItemsSource="{Bind Warehouses}" Value="{Bind Document.DepFrom}" Style="Hyperlink"/>
 		<Block Grid.Row="5" Grid.ColSpan="4">
 			<Toolbar Style="Transparent">
 				<Button Icon="Add" Content="Добавить строку" Command="{BindCmd Append, Argument={Bind Document.Rows}}"/>
+				<Button Icon="Add" Content="В начало" Command="{BindCmd Prepend, Argument={Bind Document.Rows}}"/>
 			</Toolbar>
 			<Table ItemsSource="{Bind Document.Rows}"
                     Width="100%" GridLines="Both" Border="True" Background="Paper"
@@ -73,9 +78,9 @@
 						</TextBox.AddOns>
 					</TextBox>
 					<TableCell Content="{Bind Entity.Unit.Short}" Align="Center"/>
-					<TextBox Value="{Bind Qty, DataType=Number}" Align="Right"/>
-					<TextBox Value="{Bind Price, DataType=Currency}" Align="Right"/>
-					<TextBox Value="{Bind Sum, DataType=Currency}" Align="Right"/>
+					<TextBox Value="{Bind Qty, DataType=Number, HideZeros=True}" Align="Right"/>
+					<TextBox Value="{Bind Price, DataType=Currency, HideZeros=True}" Align="Right"/>
+					<TextBox Value="{Bind Sum, DataType=Currency, HideZeros=True}" Align="Right"/>
 					<Hyperlink Size="Small" Icon="Delete" Command="{BindCmd Remove, Argument={Bind}, Confirm='Действительно удалить строку?'}"/>
 				</TableRow>
 			</Table>

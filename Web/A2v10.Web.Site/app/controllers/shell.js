@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180705-7240*/
+/*20181112-7353*/
 /* controllers/shell.js */
 
 (function () {
@@ -85,7 +85,7 @@
 		<a :href="itemHref(item)" tabindex="-1" v-text="item.Name" @click.prevent="navigate(item)"></a>
 	</li>
 	<li class="aligner"></li>
-	<li v-if="hasHelp()" :title="locale.$Help"><a :href="helpHref()" class="btn-help" @click.prevent="showHelp()"><i class="ico ico-help"></i></a></li>
+	<li v-if="hasHelp()" :title="locale.$Help"><a :href="helpHref()" class="btn-help" aria-label="Help" @click.prevent="showHelp()"><i class="ico ico-help"></i></a></li>
 </ul>
 `,
 		props: {
@@ -197,7 +197,7 @@
 	const a2SideBarCompact = {
 		template: `
 <div class='side-bar-compact' :class="cssClass">
-	<a href role="button" class="collapse-button" @click.prevent="toggle"></a>
+	<a href role="button" aria-label="Expand/Collapse Side bar" class="collapse-button" @click.prevent="toggle"></a>
 	<ul class='side-menu'>
 		<li v-for='(itm, itmIx) in sideMenu' :class="{active: isActive(itm)}" :key="itmIx">
 			<a :href="itemHref(itm)" :title="itm.Name" @click.prevent='navigate(itm)'><i :class="'ico ico-' + itm.Icon"></i> <span v-text='itm.Name'></span></a>
@@ -389,20 +389,23 @@
 			let me = this;
 
 			eventBus.$on('beginRequest', function () {
-				if (me.hasModals)
-					return;
+				//if (me.hasModals)
+					//return;
 				me.requestsCount += 1;
 			});
 			eventBus.$on('endRequest', function () {
-				if (me.hasModals)
-					return;
+				//if (me.hasModals)
+					//return;
 				me.requestsCount -= 1;
 			});
 
 			eventBus.$on('modal', function (modal, prms) {
 				let id = utils.getStringId(prms ? prms.data : null);
+				let raw = prms && prms.raw;
 				let root = window.$$rootUrl;
 				let url = urlTools.combine(root, '/_dialog', modal, id);
+				if (raw)
+					url = urlTools.combine(root, modal, id);
 				url = store.replaceUrlQuery(url, prms.query);
 				let dlg = { title: "dialog", url: url, prms: prms.data };
 				dlg.promise = new Promise(function (resolve, reject) {
@@ -480,6 +483,9 @@
 			},
 			appLink(lnk) {
 				this.$store.commit('navigate', { url: lnk.url });
+			},
+			navigate(url) {
+				this.$store.commit('navigate', { url: url });
 			},
 			root() {
 				let opts = { title: null };

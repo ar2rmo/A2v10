@@ -48,6 +48,9 @@ namespace A2v10.Xaml
 
 		public DataGridRowDetails RowDetails { get; set; }
 
+		public UIElement EmptyPanel { get; set; }
+		public String EmptyPanelDelegate { get; set; }
+
 		GroupDescriptions _groupBy;
 		public GroupDescriptions GroupBy
 		{
@@ -62,6 +65,8 @@ namespace A2v10.Xaml
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
+			if (SkipRender(context))
+				return;
 			var dataGrid = new TagBuilder("data-grid", null, IsInGrid);
 			onRender?.Invoke(dataGrid);
 			MergeBindingAttributeBool(dataGrid, context, ":compact", nameof(Compact), Compact);
@@ -90,6 +95,9 @@ namespace A2v10.Xaml
 			MergeBoolAttribute(dataGrid, context, nameof(Border), Border);
 			MergeBoolAttribute(dataGrid, context, nameof(Sort), Sort);
 			dataGrid.MergeAttribute(":route-query", "$query"); // always!
+			if (!String.IsNullOrEmpty(EmptyPanelDelegate))
+				dataGrid.MergeAttribute(":empty-panel-callback", $"$delegate('{EmptyPanelDelegate}')");
+
 
 			var dblClickBind = GetBindingCommand(nameof(DoubleClick));
 			if (dblClickBind != null)
@@ -139,6 +147,7 @@ namespace A2v10.Xaml
 				colIndex++;
 			}
 			RenderRowDetails(context);
+			RenderEmptyPanel(context);
 			dataGrid.RenderEnd(context);
 		}
 
@@ -156,6 +165,17 @@ namespace A2v10.Xaml
 			}
 			rdtag.RenderEnd(context);
 
+		}
+
+		void RenderEmptyPanel(RenderContext context)
+		{
+			if (EmptyPanel == null)
+				return;
+			var panel = new TagBuilder("template");
+			panel.MergeAttribute("slot", "empty");
+			panel.RenderStart(context);
+			EmptyPanel.RenderElement(context);
+			panel.RenderEnd(context);
 		}
 
 		protected override void OnEndInit()

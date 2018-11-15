@@ -1,0 +1,31 @@
+﻿<!DOCTYPE html>
+<html lang="$(Locale)" style="height:100%">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="$(Description)" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<meta name="format-detection" content="telephone=no" />
+	<link href="/css/$(Theme).min.css?v=$(Build)" rel="stylesheet" />
+</head>
+<body>
+	<script type="text/javascript" src="/scripts/vue.js?v=2.5.13"></script>
+	<script type="text/javascript" src="/scripts/locale-uk.min.js"></script>
+	<script type="text/javascript" src="/scripts/main.js"></script>
+	<script type="text/javascript" src="/scripts/eusign.js"></script>
+	<div id="iframe-app">
+		<a2-iframe-view></a2-iframe-view>
+	</div>
+	<form autocomplete="off" action="https://a.a.a/">
+		$(Body)
+	</form>
+	<script type="text/javascript" src="/scripts/eusign/euutils.js"></script>
+	<script type="text/javascript" src="/Scripts/eusign/euscpt.js"></script>
+	<script type="text/javascript" src="/Scripts/eusign/euscpm.js"></script>
+	<script async type="text/javascript" src="/scripts/eusign/euscp.js"></script>
+	<script type="text/javascript" src="/scripts/iframe.js"></script>
+	<script type="text/javascript">
+		$(FrameScript)
+	</script>
+</body>
+</html>

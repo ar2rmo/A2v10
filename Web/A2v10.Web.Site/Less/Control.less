@@ -41,6 +41,7 @@
 	display: block;
 	//background-color: aliceblue;
 	margin-bottom: .5rem;
+	position: relative;
 
 	label {
 		font-size: 0.95rem;
@@ -292,8 +293,7 @@
 		> a, > .dropdown > a {
 			color: @label-color;
 			padding: 0 3px;
-			display:inline-block; // fix EDGE
-
+			display: inline-block; // fix EDGE
 			&:hover {
 				text-decoration: none;
 				color: @control-focus-color;
@@ -314,6 +314,18 @@
 	&.with-width {
 		.input-group {
 			width: 100%;
+		}
+	}
+
+	&.with-popover {
+		margin-right: 20px;
+
+		> .popover-wrapper {
+			font-weight:normal;
+			font-style:normal;
+			position: absolute;
+			right: -20px;
+			top: ~"calc(50% - 9px)";
 		}
 	}
 	// TODO: HOVER???
@@ -363,6 +375,28 @@
 	}
 }
 
+.control-group.combo-hyperlink {
+	.input-group {
+		border-style: none;
+
+		.select-wrapper {
+			right: auto;
+			padding:0;
+			.select-text {
+				color: @link-color;
+				border-bottom: 2px dotted @link-color;
+			}
+
+			.caret {
+				display: none;
+			}
+		}
+	}
+
+	.input-group.focus {
+		box-shadow:none;
+	}
+}
 /* avoid validator blinking */
 .control-group.open {
 	&:hover {
@@ -446,9 +480,19 @@
 	font-size: .86rem;
 }
 
+.large {
+	font-size: 1.15rem;
+}
+
 .a2-hyperlink.small {
 	i.ico {
 		font-size: 12px;
+	}
+}
+
+.a2-hyperlink.large {
+	i.ico {
+		font-size: 15px;
 	}
 }
 

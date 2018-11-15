@@ -23,8 +23,9 @@ namespace A2v10.Web.Config
 			_profiler.Enabled = IsDebugConfiguration;
 		}
 
-		#region IConfiguration
 		public IProfiler Profiler => _profiler;
+
+		#region IDataConfiguration
 
 		public String ConnectionString(String source)
 		{
@@ -36,6 +37,7 @@ namespace A2v10.Web.Config
 				throw new ConfigurationErrorsException($"Connection string '{source}' not found");
 			return strSet.ConnectionString;
 		}
+		#endregion
 
 		public String AppPath
 		{
@@ -86,6 +88,18 @@ namespace A2v10.Web.Config
 			}
 		}
 
+		public Boolean IsRegistrationEnabled
+		{
+			get
+			{
+				var mt = ConfigurationManager.AppSettings["registration"];
+				if (String.IsNullOrEmpty(mt))
+					return true;
+				return mt.ToLowerInvariant() == "true";
+			}
+		}
+
+		public String UseClaims => ConfigurationManager.AppSettings["useClaims"];
 
 		Int32 _tenantId;
 
@@ -106,6 +120,7 @@ namespace A2v10.Web.Config
 		}
 
 		public String CatalogDataSource => IsMultiTenant ? "Catalog" : null;
+		public String TenantDataSource => null;
 
 		public async Task<String> ReadTextFile(Boolean bAdmin, String path, String fileName)
 		{
@@ -138,15 +153,16 @@ namespace A2v10.Web.Config
 			String fullPath = Path.Combine($"{AppPath}/{appKey}", path, fileName);
 			return Path.GetFullPath(fullPath);
 		}
-		#endregion
 
 		public String AppVersion => AppInfo.MainAssembly.Version;
 		public String AppBuild => AppInfo.MainAssembly.Build;
 		public String Copyright => AppInfo.MainAssembly.Copyright;
 
-		const String SET_TENANT_CMD = "[a2security].[SetTenantId]";
 
 		#region ITenantManager
+
+		const String SET_TENANT_CMD = "[a2security].[SetTenantId]";
+
 		public async Task SetTenantIdAsync(SqlConnection cnn, String source)
 		{
 			if (!IsMultiTenant)
@@ -182,6 +198,7 @@ namespace A2v10.Web.Config
 				}
 			}
 		}
+
 		#endregion
 	}
 }

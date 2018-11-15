@@ -44,15 +44,46 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.Web.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Web.Infrastructure.1.0.0.0\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Helpers, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.6\lib\net45\System.Web.Helpers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Mvc, Version=5.2.6.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.Mvc.5.2.6\lib\net45\System.Web.Mvc.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.Razor.3.2.6\lib\net45\System.Web.Razor.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.WebPages, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.6\lib\net45\System.Web.WebPages.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.WebPages.Deployment, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.6\lib\net45\System.Web.WebPages.Deployment.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.WebPages.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNet.WebPages.3.2.6\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="handlers\ProxyHandler.ashx.cs">
+      <DependentUpon>ProxyHandler.ashx</DependentUpon>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="app\app.js" />
     <Content Include="app\components\calendar.js" />
+    <Content Include="app\components\iframetarget.js" />
+    <Content Include="app\controllers\iframe.js" />
+    <Content Include="app\services\eusign.js" />
+    <Content Include="app\site\controller.js" />
+    <Content Include="app\standalone\collectionview.js" />
     <Content Include="app\components\collectionview.js" />
     <Content Include="app\components\control.js" />
     <Content Include="app\components\datepicker.js" />
@@ -85,12 +116,37 @@
     <Content Include="app\components\textbox.js" />
     <Content Include="app\components\treeview.js" />
     <Content Include="app\components\validator.js" />
-    <Content Include="app\controllers\standalone.js" />
+    <Content Include="app\standalone\controller.js" />
     <Content Include="app\directives\autosize.js" />
     <Content Include="app\directives\disable.js" />
     <Content Include="app\directives\dropdown.js" />
     <Content Include="app\directives\focus.js" />
     <Content Include="app\directives\lazy.js" />
+    <Content Include="app\standalone\shell.js" />
+    <Content Include="App_apps\VueSite\_Layout.js" />
+    <Content Include="App_apps\VueSite\Index\index.view.cshtml" />
+    <Content Include="Less\Upload.less" />
+    <Content Include="App_apps\Web.config">
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="App_apps\VueSite\_ViewStart.cshtml">
+      <Generator>RazorGenerator</Generator>
+      <LastGenOutput>_ViewStart.generated.cs</LastGenOutput>
+    </Content>
+    <Content Include="App_apps\VueSite\_Layout.cshtml">
+      <Generator>RazorGenerator</Generator>
+      <LastGenOutput>_ViewStart.generated.cs</LastGenOutput>
+    </Content>
+    <Content Include="App_apps\VueSite\Blog\index.cshtml" />
+    <Content Include="App_apps\VueSite\Index\model.json" />
+    <Content Include="App_apps\VueSite\Blog\model.json" />
+    <Content Include="App_apps\VueSite\Index\index.template.js" />
+    <None Include="Web.Debug.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Release.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
     <None Include="app\directives\mask.nojs" />
     <Content Include="app\directives\resize.js" />
     <Content Include="app\localization\locale-en.js" />
@@ -111,10 +167,11 @@
     <Content Include="app\services\url.js" />
     <Content Include="app\services\utils.js" />
     <Content Include="app\services\validators.js" />
+    <Content Include="app\standalone\pager.js" />
+    <Content Include="Content\Images\book.svg" />
+    <Content Include="css\fonts\A2v10.svg" />
     <Content Include="Content\jasmine\jasmine.css" />
     <Content Include="Content\jasmine\jasmine_favicon.png" />
-    <Content Include="css\bowtie.css" />
-    <Content Include="css\fonts\bowtie.svg" />
     <Content Include="css\site.compact.css" />
     <Content Include="css\site.compact.min.css">
       <DependentUpon>site.compact.css</DependentUpon>
@@ -127,8 +184,15 @@
     <Content Include="css\site.min.css">
       <DependentUpon>site.css</DependentUpon>
     </Content>
+    <Content Include="eusign.txt" />
     <Content Include="favicon.ico" />
     <Content Include="Global.asax" />
+    <Content Include="Less\Data_URI.css">
+      <DependentUpon>Data_URI.less</DependentUpon>
+    </Content>
+    <Content Include="Less\Data_URI.min.css">
+      <DependentUpon>Data_URI.css</DependentUpon>
+    </Content>
     <Content Include="Less\Variables.less" />
     <Content Include="Less\Site.less" />
     <Content Include="bower.json" />
@@ -146,8 +210,12 @@
     <Content Include="Localization\en.xml" />
     <Content Include="Localization\ru.xml" />
     <Content Include="Localization\uk.xml" />
+    <Content Include="scripts\a2v10-vue-site.js" />
     <Content Include="scripts\commonsite.js" />
     <Content Include="scripts\d3.min.js" />
+    <Content Include="scripts\eusign.js" />
+    <Content Include="scripts\eusignframe.js" />
+    <Content Include="scripts\iframe.js" />
     <Content Include="scripts\jasmine\boot.js" />
     <Content Include="scripts\jasmine\console.js" />
     <Content Include="scripts\jasmine\jasmine-html.js" />
@@ -208,15 +276,6 @@
     <Content Include="TestPages\datagridwithdata.html" />
     <Content Include="TestPages\datagrid.html" />
     <Content Include="TestPages\formcontrol.html" />
-    <Content Include="Web.config">
-      <SubType>Designer</SubType>
-    </Content>
-    <Content Include="Web.Debug.config">
-      <DependentUpon>Web.config</DependentUpon>
-    </Content>
-    <Content Include="Web.Release.config">
-      <DependentUpon>Web.config</DependentUpon>
-    </Content>
     <Content Include="Less\Utlis.less" />
     <Content Include="Less\DataGrid.less" />
     <Content Include="Less\Normalize.less" />
@@ -225,15 +284,11 @@
     <Content Include="Less\ToolBar.less" />
     <Content Include="Less\TreeView.less" />
     <Content Include="Less\Nav.less" />
-    <Content Include="Less\Bowtie.less" />
     <Content Include="Less\Tab.less" />
     <Content Include="Less\Grid.less" />
     <Content Include="Less\DropDown.less" />
     <Content Include="Less\Page.less" />
     <Content Include="Less\Button.less" />
-    <Content Include="css\fonts\bowtie.eot" />
-    <Content Include="css\fonts\bowtie.ttf" />
-    <Content Include="css\fonts\bowtie.woff" />
     <Content Include="Less\Table.less" />
     <Content Include="Less\CheckBox.less" />
     <Content Include="Less\Popover.less" />
@@ -246,6 +301,9 @@
     <Content Include="Less\Debug.less" />
     <Content Include="Less\List.less" />
     <Content Include="Less\Sheet.less" />
+    <Content Include="Web.config">
+      <SubType>Designer</SubType>
+    </Content>
     <Content Include="Web.config.sample" />
     <Content Include="Less\Admin.less" />
     <Content Include="Less\Selector.less" />
@@ -259,6 +317,14 @@
     <Content Include="Less\Wizard.less" />
     <Content Include="Less\AppPages.less" />
     <Content Include="Less\Feedback.less" />
+    <Content Include="Less\Card.less" />
+    <Content Include="Less\Font.less" />
+    <Content Include="css\fonts\A2v10.eot" />
+    <Content Include="css\fonts\A2v10.ttf" />
+    <Content Include="css\fonts\A2v10.woff" />
+    <Content Include="css\fonts\A2v10.woff2" />
+    <Content Include="Less\Data_URI.less" />
+    <Content Include="handlers\ProxyHandler.ashx" />
     <None Include="Less\Site.magenta.less" />
     <Content Include="Less\Variables.Magenta.less" />
     <Content Include="Less\Text.less" />
@@ -269,6 +335,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="app\server\" />
+    <Folder Include="scripts\eusign\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\A2v10.Web.Mvc\A2v10.Web.Mvc.csproj">
@@ -291,15 +358,7 @@
     <VisualStudio>
       <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
         <WebProjectProperties>
-          <UseIIS>True</UseIIS>
-          <AutoAssignPort>True</AutoAssignPort>
-          <DevelopmentServerPort>56358</DevelopmentServerPort>
-          <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>http://localhost:56358/</IISUrl>
-          <NTLMAuthentication>False</NTLMAuthentication>
-          <UseCustomServer>False</UseCustomServer>
-          <CustomServerUrl>http://localhost:81</CustomServerUrl>
-          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+          <SaveServerSettingsInUserFile>True</SaveServerSettingsInUserFile>
         </WebProjectProperties>
       </FlavorProperties>
     </VisualStudio>

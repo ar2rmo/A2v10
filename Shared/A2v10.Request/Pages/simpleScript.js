@@ -8,12 +8,15 @@
 		el: "#app",
 		data: {
 			info: $(PageData),
+			appLinks: $(AppLinks),
 			processing: false
 		},
 		computed: {
 			locale() {
 				return window.$$locale;
 			}
+		},
+		methods: {
 		}
 	});
 })();

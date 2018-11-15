@@ -137,9 +137,9 @@ table.a2-table {
 				//border-style: none;
 				//border-color:transparent;
 
-				select {
-					width:auto; // fit
-				}
+				//select {
+					//width:100%; // fit
+				//}
 			}
 		}
 
@@ -317,4 +317,26 @@ table.a2-table.bk-white-smoke {
 
 table.a2-table.bk-white {
 	background-color: white;
+}
+
+
+.app-link-table {
+	border-collapse:collapse;
+	td,th {
+		padding:4px 6px;
+		border:1px solid #ccc;
+	}
+	th {
+		font-weight:bold;
+		color:#777;
+	}
+}
+
+.child-border {
+	border-top: 1px solid @a2-table-brd-color;
+	border-bottom: 1px solid @a2-table-brd-color;
+
+	> .a2-table > thead > tr:first-child td {
+		border-top-style:none;
+	}
 }

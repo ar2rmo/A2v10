@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180507-7179
+// 20181022-7325
 // components/periodpicker.js
 
 
@@ -46,7 +46,12 @@
 `,
 		props: {
 			item: Object,
-			prop: String
+			prop: String,
+			showAll: {
+				type: Boolean,
+				default: true
+			},
+			display: String
 		},
 		data() {
 			return {
@@ -63,6 +68,10 @@
 				return window.$$locale;
 			},
 			text() {
+				if (this.display === 'name')
+					return this.period.text();
+				else if (this.display === 'namedate')
+					return `${this.period.text(true)} [${this.period.format('Date')}]`;
 				return this.period.format('Date');
 			},
 			period() {
@@ -72,7 +81,7 @@
 				return period;
 			},
 			prevModelDate() {
-				return utils.date.add(this.modelDate, -1, 'month')
+				return utils.date.add(this.modelDate, -1, 'month');
 			},
 			currentText() {
 				return this.currentPeriod.format('Date');
@@ -81,18 +90,7 @@
 				return this.selection === 'start';
 			},
 			menu() {
-				return [
-					{ name: locale.$Today, key: 'today' },
-					{ name: locale.$Yesterday, key: 'yesterday' },
-					{ name: locale.$Last7Days, key: 'last7' },
-					{ name: locale.$Last30Days, key: 'last30' },
-					{ name: locale.$MonthToDate, key: 'startMonth' },
-					{ name: locale.$PrevMonth, key: 'prevMonth' },
-					{ name: locale.$QuartToDate, key: 'startQuart' },
-					{ name: locale.$PrevQuart, key: 'prevQuart' },
-					{ name: locale.$YearToDate, key: 'startYear' },
-					{ name: locale.$AllPeriodData, key: 'allData' }
-				];
+				return uPeriod.predefined(this.showAll);
 			}
 		},
 		methods: {
@@ -134,8 +132,17 @@
 			},
 			apply() {
 				// apply period here
-				this.period.assign(this.currentPeriod);
+				if (!this.period.equal(this.currentPeriod)) {
+					this.period.assign(this.currentPeriod);
+					this.fireEvent();
+				}
 				this.isOpen = false;
+			},
+			fireEvent() {
+				let root = this.item.$root;
+				if (!root) return;
+				let eventName = this.item._path_ + '.' + this.prop + '.change';
+				root.$emit(eventName, this.item, this.period, null);
 			},
 			toggle(ev) {
 				if (!this.isOpen) {

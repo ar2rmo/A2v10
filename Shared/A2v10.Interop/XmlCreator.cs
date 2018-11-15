@@ -109,8 +109,27 @@ namespace A2v10.Interop
 		}
 
 
-		public void ProcessArray(XmlWriter writer, XmlSchemaElement elem, Object model)
+		public void ProcessArray(XmlWriter writer, XmlSchemaElement elem, Object model, Int32 level)
 		{
+			Boolean WriteArrayItem(String key, IDictionary<String, Object> dict)
+			{
+				Boolean written = false;
+				foreach (var av in dict)
+				{
+					if ((key + av.Key == elem.Name) && av.Value != null)
+					{
+						var typedVal = TypedValue(elem.SchemaTypeName.Name, av.Value, elem.IsNillable);
+						if (String.IsNullOrEmpty(typedVal) && elem.IsNillable)
+							WriteNil(writer);
+						else
+							writer.WriteString(typedVal);
+						written = true;
+						break;
+					}
+				}
+				return written;
+			}
+
 			if (model == null)
 				return;
 			var d = model as IDictionary<String, Object>;
@@ -118,37 +137,52 @@ namespace A2v10.Interop
 			{
 				if (!elem.Name.StartsWith(kp.Key))
 					continue;
-				var arr = kp.Value as IList<Object>;
-				for (var i = 0; i < arr.Count; i++)
+				Boolean fullElement = kp.Key == elem.Name;
+				switch (kp.Value)
 				{
-					writer.WriteStartElement(elem.Name);
-					writer.WriteAttributeString("ROWNUM", (i + 1).ToString());
-					Boolean writen = false;
-					foreach (var av in arr[i] as IDictionary<String, Object>)
-					{
-						if ((kp.Key + av.Key ==  elem.Name) && av.Value != null)
+					case IList<Object> arr:
+						for (var i = 0; i < arr.Count; i++)
 						{
-							var typedVal = TypedValue(elem.SchemaTypeName.Name, av.Value);
-							if (String.IsNullOrEmpty(typedVal) && elem.IsNillable)
-								WriteNil(writer);
+							if (fullElement)
+							{
+								var wrapper = new ExpandoObject();
+								wrapper.Set(elem.Name, arr[i]);
+								ProcessElement(writer, elem, level + 1, wrapper, simple: false);
+							}
 							else
-								writer.WriteString(typedVal);
-							writen = true;
-							break;
+							{
+								writer.WriteStartElement(elem.Name);
+								writer.WriteAttributeString("ROWNUM", (i + 1).ToString());
+								Boolean written = WriteArrayItem(kp.Key, arr[i] as IDictionary<String, Object>);
+								if (!written)
+									writer.WriteAttributeString("xsi", "nil", XmlSchema.InstanceNamespace, "true");
+								writer.WriteEndElement();
+							}
 						}
-					}
-					if (!writen)
-						writer.WriteAttributeString("xsi", "nil", XmlSchema.InstanceNamespace, "true");
-					writer.WriteEndElement();
+						break;
+					case IList<ExpandoObject> arrExp:
+						for (var i = 0; i < arrExp.Count; i++)
+						{
+							writer.WriteStartElement(elem.Name);
+							writer.WriteAttributeString("ROWNUM", (i + 1).ToString());
+							Boolean written = WriteArrayItem(kp.Key, arrExp[i] as IDictionary<String, Object>);
+							if (!written)
+								writer.WriteAttributeString("xsi", "nil", XmlSchema.InstanceNamespace, "true");
+							writer.WriteEndElement();
+						}
+						break;
+					case ExpandoObject eo:
+						ProcessElement(writer, elem, level + 1, eo, true);
+						break;
 				}
 			}
 		}
 
-		void ProcessElement(XmlWriter writer, XmlSchemaElement elem, Int32 level, ExpandoObject model)
+		void ProcessElement(XmlWriter writer, XmlSchemaElement elem, Int32 level, ExpandoObject model, Boolean simple = false)
 		{
-			if (elem.MaxOccurs > 1)
+			if (elem.MaxOccurs > 1 && !simple)
 			{
-				ProcessArray(writer, elem, model);
+				ProcessArray(writer, elem, model, level);
 				return;
 			}
 
@@ -163,18 +197,34 @@ namespace A2v10.Interop
 			if (level == 0 && FirstSchema != null)
 				writer.WriteAttributeString("xsi", "noNamespaceSchemaLocation", XmlSchema.InstanceNamespace, FirstSchema);
 
+
 			switch (elem.ElementSchemaType)
 			{
 				case XmlSchemaComplexType complexType:
 					var pi = complexType.Particle as XmlSchemaSequence;
 					if (pi != null)
 					{
+						if (complexType.AttributeUses != null)
+						{
+							foreach (var an in complexType.AttributeUses.Names)
+							{
+								var attr = complexType.AttributeUses[an as XmlQualifiedName] as XmlSchemaAttribute;
+								WriteAttribute(writer, attr, model);
+							}
+						}
 						foreach (var p in pi?.Items)
 						{
 							switch (p)
 							{
 								case XmlSchemaElement schemaElem:
-									ProcessElement(writer, schemaElem, level + 1, innerModel as ExpandoObject);
+									if (simple)
+									{
+										writer.WriteStartElement(schemaElem.Name);
+										WriteSimpleElement(writer, schemaElem, model);
+										writer.WriteEndElement();
+									}
+									else
+										ProcessElement(writer, schemaElem, level + 1, innerModel as ExpandoObject);
 									break;
 								case XmlSchemaChoice schemaChoice:
 									WriteElementChoice(writer, schemaChoice, innerModel as ExpandoObject);
@@ -194,6 +244,17 @@ namespace A2v10.Interop
 			writer.WriteEndElement();
 		}
 
+		void WriteAttribute(XmlWriter writer, XmlSchemaAttribute attr, ExpandoObject model)
+		{
+			Object val = model.Get<Object>(attr.Name);
+			if (val != null)
+			{
+				var strVal = TypedValue(attr.SchemaTypeName.Name, val, false);
+				if (!String.IsNullOrEmpty(strVal))
+					writer.WriteAttributeString(attr.Name, strVal);
+			}
+		}
+
 		void WriteNil(XmlWriter writer)
 		{
 			writer.WriteAttributeString("xsi", "nil", XmlSchema.InstanceNamespace, "true");
@@ -209,7 +270,7 @@ namespace A2v10.Interop
 			Object val = model.Get<Object>(elem.Name);
 			if (val != null)
 			{
-				var strVal = TypedValue(elem.SchemaTypeName.Name, val);
+				var strVal = TypedValue(elem.SchemaTypeName.Name, val, elem.IsNillable);
 				if (String.IsNullOrEmpty(strVal) && elem.IsNillable)
 					WriteNil(writer);
 				else
@@ -233,7 +294,7 @@ namespace A2v10.Interop
 				var val = model.Get<Object>(se.Name);
 				if (val != null)
 				{
-					var typedVal = TypedValue(se.SchemaTypeName.Name, val);
+					var typedVal = TypedValue(se.SchemaTypeName.Name, val, se.IsNillable);
 					if (typedVal != null)
 					{
 						writer.WriteStartElement(se.Name);
@@ -245,7 +306,7 @@ namespace A2v10.Interop
 			}
 		}
 
-		String TypedValue(String typeName, Object val)
+		String TypedValue(String typeName, Object val, Boolean isNillable)
 		{
 			if (val == null)
 				return null;
@@ -258,16 +319,28 @@ namespace A2v10.Interop
 				case "Decimal2Column":
 					var dVal2 = Convert.ToDecimal(val);
 					return String.Format(CultureInfo.InvariantCulture, "{0:0.00}", dVal2); ;
+				case "DGdecimal2_P":
+				case "Decimal2Column_P":
+					var dVal2p = Convert.ToDecimal(val);
+					return String.Format(CultureInfo.InvariantCulture, "{0:0.00}", dVal2p);
 				case "DGdecimal3":
 				case "Decimal3Column":
 					var dVal3 = Convert.ToDecimal(val);
 					return String.Format(CultureInfo.InvariantCulture, "{0:0.000}", dVal3); ;
 				case "DGdecimal0":
 					var dVal0 = Convert.ToDecimal(val);
+					if (isNillable && dVal0 == 0)
+						return null;
 					return String.Format(CultureInfo.InvariantCulture, "{0:0}", dVal0); ;
 				case "DGchk":
+				case "ChkColumn":
 					var bVal = Convert.ToBoolean(val);
 					return bVal ? "1" : null;
+				case "DGMonth":
+					var intVal = Convert.ToInt32(val);
+					if (intVal == 0)
+						return null;
+					return intVal.ToString();
 			}
 			return val.ToString();
 		}

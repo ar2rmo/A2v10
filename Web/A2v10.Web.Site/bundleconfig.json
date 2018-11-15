@@ -49,6 +49,7 @@
 			"app/components/feedback.js",
 			"app/components/doctitle.js",
 			"app/components/megamenu.js",
+			"app/components/iframetarget.js",
 			"app/directives/*.js",
 			"app/controllers/base.js",
 			"app/controllers/shell.js"
@@ -100,22 +101,82 @@
 		"minify": { "enabled": false }
 	},
 	{
+		"outputFileName": "Scripts/eusign.js",
+		"inputFiles": [
+			"app/services/eusign.js"
+		],
+		"minify": { "enabled": false }
+	},
+	{
+		"outputFileName": "Scripts/iframe.js",
+		"inputFiles": [
+			"app/controllers/iframe.js"
+		],
+		"minify": { "enabled": false }
+	},
+	{
 		"outputFileName": "Scripts/commonsite.js",
-			"inputFiles": [
-				"app/app.js",
-				"app/platform/polyfills.js",
-				"app/services/utils.js",
-				"app/services/url.js",
-				"app/services/period.js",
-				"app/services/modelinfo.js",
-				"app/platform/webvue.js",
-				"app/services/http.js",
-				"app/services/log.js",
-				"app/services/validators.js",
-				"app/services/datamodel.js",
-				"app/services/dataservice.js",
-				"app/controllers/standalone.js"
-			],
+		"inputFiles": [
+			"app/app.js",
+			"app/platform/polyfills.js",
+			"app/services/utils.js",
+			"app/services/url.js",
+			"app/services/period.js",
+			"app/services/modelinfo.js",
+			"app/platform/webvue.js",
+			"app/services/http.js",
+			"app/services/log.js",
+			"app/services/validators.js",
+			"app/standalone/collectionview.js",
+			"app/standalone/pager.js",
+			"app/services/datamodel.js",
+			"app/services/dataservice.js",
+			"app/components/include.js",
+			"app/components/modal.js",
+			"app/components/toastr.js",
+			//"app/standalone/filters.js",
+			"app/standalone/controller.js",
+			"app/standalone/shell.js"
+		],
+		"minify": { "enabled": false }
+	},
+	{
+		"outputFileName": "Scripts/eusignframe.js",
+		"inputFiles": [
+			"app/app.js",
+			"app/platform/polyfills.js",
+			"app/services/utils.js",
+			"app/services/url.js",
+			"app/services/period.js",
+			"app/services/modelinfo.js",
+			"app/platform/webvue.js",
+			"app/services/http.js",
+			"app/services/log.js",
+			"app/services/validators.js",
+			"app/services/datamodel.js",
+			"app/services/dataservice.js",
+			"scripts/eusign.js",
+			"app/standalone/controller.js"
+		],
+		"minify": { "enabled": false }
+	},
+	{
+		"outputFileName": "Scripts/a2v10-vue-site.js",
+		"inputFiles": [
+			"app/app.js",
+			"app/platform/polyfills.js",
+			"app/services/utils.js",
+			"app/services/url.js",
+			"app/services/period.js",
+			"app/services/modelinfo.js",
+			"app/platform/webvue.js",
+			"app/services/http.js",
+			"app/services/log.js",
+			"app/services/validators.js",
+			"app/services/datamodel.js",
+			"app/services/dataservice.js",
+			"app/site/controller.js"
+		],
 		"minify": { "enabled": false }
 	}
 ]

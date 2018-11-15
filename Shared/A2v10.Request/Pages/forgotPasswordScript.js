@@ -15,6 +15,7 @@
 			email: '',
 			processing: false,
 			info: $(PageData),
+			appLinks: $(AppLinks),
 			submitted: false,
 			serverError: '',
 			emailError: '',
@@ -66,6 +67,8 @@
 							that.showConfirm = true;
 						} else if (result === 'NotFound') {
 							that.serverError = that.locale.$InvalidEMailError;
+						} else if (result === 'NotAllowed') {
+							that.serverError = that.locale.$ResetPasswordNotAllowed;
 						}
 						else
 							alert(result);
@@ -81,6 +84,9 @@
 			},
 			reload() {
 				window.location.reload();
+			},
+			getReferUrl(url) {
+				return getReferralUrl(url);
 			}
 		}
 	});

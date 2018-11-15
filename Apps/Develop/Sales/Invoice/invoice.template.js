@@ -39,16 +39,31 @@ const template = {
 
 module.exports = template;
 
-function modelLoad(root, caller) {
+async function modelLoad(root, caller) {
 	if (root.Document.$isNew)
 		cmn.documentCreate(root.Document, 'Invoice');
+	/*
+	const ctrl = this.$ctrl;
+	let x = await ctrl.$invoke('testCommand', { Text: '%' });
+	console.dir(x);
+	let y = await ctrl.$invoke('testCommand', {Text:'AAA'});
+	console.dir(y);
+	let z = await ctrl.$invoke('testCommand', { Text: 'CCC' });
+	console.dir(z);
+	*/
+	/*
+	ctrl.$defer(async () => {
+		await Promise.all([x, y]);
+		console.dir(x);
+	});
+	*/
 }
 
 async function createShipment(doc) {
 	const vm = doc.$vm;
 	let result = await vm.$invoke('createShipment', { Id: doc.Id });
 	if (result.Document) {
-		vm.$navigate('/sales/waybill/edit', result.Document.Id)
+		vm.$navigate('/sales/waybill/edit', result.Document.Id);
         /*
         А можно не открывать, а просто показать
         doc.Shipment.$append(result.Document);

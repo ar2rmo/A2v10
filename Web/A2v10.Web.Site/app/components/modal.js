@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180410-7153
+// 20181103-7342
 // components/modal.js
 
 
@@ -14,23 +14,24 @@
 
 	const eventBus = require('std:eventBus');
 	const locale = window.$$locale;
+	const utils = require('std:utils');
 
 	const modalTemplate = `
 <div class="modal-window" @keydown.tab="tabPress">
 	<include v-if="isInclude" class="modal-body" :src="dialog.url"></include>
 	<div v-else class="modal-body">
-		<div class="modal-header" v-drag-window><span v-text="title"></span><button class="btnclose" @click.prevent="modalClose(false)">&#x2715;</button></div>
+		<div class="modal-header" v-drag-window><span v-text="title"></span><button ref='btnclose' class="btnclose" @click.prevent="modalClose(false)">&#x2715;</button></div>
 		<div :class="bodyClass">
 			<i v-if="hasIcon" :class="iconClass" />
 			<div class="modal-body-content">
-				<div v-text="dialog.message" />
+				<div v-html="messageText()" />
 				<ul v-if="hasList" class="modal-error-list">
 					<li v-for="(itm, ix) in dialog.list" :key="ix" v-text="itm"/>
 				</ul>
 			</div>
 		</div>
 		<div class="modal-footer">
-			<button class="btn btn-default" v-for="(btn, index) in buttons"  :key="index" @click.prevent="modalClose(btn.result)" v-text="btn.text"></button>
+			<button class="btn btn-default" v-for="(btn, index) in buttons"  :key="index" @click.prevent="modalClose(btn.result)" v-text="btn.text"/>
 		</div>
 	</div>
 </div>
@@ -75,7 +76,7 @@
 				opts.init.cy = Number.parseFloat(cs.height);
 				document.addEventListener('mouseup', onRelease, false);
 				document.addEventListener('mousemove', onMouseMove, false);
-			};
+			}
 
 			function onRelease(event) {
 				opts.down = false;
@@ -132,6 +133,9 @@
 			modalClose(result) {
 				eventBus.$emit('modalClose', result);
 			},
+			messageText() {
+				return utils.text.sanitize(this.dialog.message);
+			},
 			tabPress(event) {
 				function createThisElems() {
 					let qs = document.querySelectorAll('.modal-body [tabindex]');
@@ -143,7 +147,7 @@
 					ea = ea.sort((a, b) => a.ti > b.ti);
 					//console.dir(ea);
 					return ea;
-				};
+				}
 
 
 				if (this._tabElems === undefined) {
@@ -157,7 +161,7 @@
 				let aElem = document.activeElement;
 				let ti = +aElem.getAttribute("tabindex");
 				//console.warn(`ti: ${ti}, maxIndex: ${maxIndex}, back: ${back}`);
-				if (ti == 0) {
+				if (ti === 0) {
 					event.preventDefault();
 					return;
 				}
@@ -183,14 +187,19 @@
 			},
 			title: function () {
 				// todo localization
-				let defTitle = this.dialog.style === 'confirm' ? locale.$Confirm : locale.$Error;
-				return this.dialog.title || defTitle;
+				if (this.dialog.title)
+					return this.dialog.title;
+				return this.dialog.style === 'confirm' ? locale.$Confirm :
+					this.dialog.style === 'info' ? locale.$Message : locale.$Error;
 			},
 			bodyClass() {
 				return 'modal-body ' + (this.dialog.style || '');
 			},
 			iconClass() {
-				return "ico ico-" + this.dialog.style;
+				let ico = this.dialog.style;
+				if (ico === 'info')
+					ico = 'info-blue';
+				return "ico ico-" + ico;
 			},
 			hasList() {
 				return this.dialog.list && this.dialog.list.length;
@@ -202,15 +211,19 @@
 				if (this.dialog.buttons)
 					return this.dialog.buttons;
 				else if (this.dialog.style === 'alert')
-					return [{ text: okText, result: false }];
+					return [{ text: okText, result: false, tabindex:1 }];
+				else if (this.dialog.style === 'info')
+					return [{ text: okText, result: false, tabindex:1 }];
 				return [
-					{ text: okText, result: true },
-					{ text: cancelText, result: false }
+					{ text: okText, result: true, tabindex:2 },
+					{ text: cancelText, result: false, tabindex:1 }
 				];
 			}
 		},
 		created() {
 			document.addEventListener('keyup', this.keyUpHandler);
+			if (document.activeElement)
+				document.activeElement.blur();
 		},
 		mounted() {
 		},

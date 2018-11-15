@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180619-7227
+// 20180821-7280
 // components/datepicker.js
 
 
@@ -18,7 +18,7 @@
 		extends: baseControl,
 		template: `
 <div :class="cssClass2()" class="date-picker">
-	<label v-if="hasLabel" v-text="label" />
+	<label v-if="hasLabel"><span v-text="label"/><slot name="hint"/></label>
 	<div class="input-group">
 		<input v-focus v-model.lazy="model" :class="inputClass" :disabled="disabled" />
 		<a href @click.stop.prevent="toggle($event)"><i class="ico ico-calendar"></i></a>
@@ -75,7 +75,7 @@
 			cssClass2() {
 				let cx = this.cssClass();
 				if (this.isOpen)
-					cx += ' open'
+					cx += ' open';
 				return cx;
 			},
 			__clickOutside() {

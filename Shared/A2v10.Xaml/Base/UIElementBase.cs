@@ -11,6 +11,7 @@ namespace A2v10.Xaml
 		public Boolean? If { get; set; }
 		public Boolean? Show { get; set; }
 		public Boolean? Hide { get; set; }
+		public RenderMode? Render { get; set; }
 
 		internal Boolean IsInGrid { get; set; }
 
@@ -20,11 +21,6 @@ namespace A2v10.Xaml
 		public Thickness Absolute { get; set; }
 
 		public String Tip { get; set; }
-
-		internal virtual Boolean SkipRender(RenderContext context)
-		{
-			return false;
-		}
 
 		internal abstract void RenderElement(RenderContext context, Action<TagBuilder> onRender = null);
 
@@ -148,6 +144,8 @@ namespace A2v10.Xaml
 				input.MergeAttribute(":mask", maskBind.GetPathFormat(context));
 			else if (!String.IsNullOrEmpty(valBind.Mask))
 				input.MergeAttribute("mask", valBind.Mask);
+			if (valBind.HideZeros)
+				input.MergeAttribute(":hide-zeros", "true");
 		}
 
 		internal void MergeValidateValueItemProp(TagBuilder input, RenderContext context, String valueName)
@@ -205,5 +203,45 @@ namespace A2v10.Xaml
 			else if (align != TextAlign.Default)
 				input.MergeAttribute("align", align.ToString().ToLowerInvariant());
 		}
+
+		internal virtual Boolean SkipRender(RenderContext context)
+		{
+			var rm = GetRenderMode(context);
+			if (rm == null)
+				return false;
+			if (rm == RenderMode.Hide)
+				return true;
+			if (rm == RenderMode.Debug)
+				return context.IsDebugConfiguration ? false : true;
+			return false;
+		}
+
+		internal RenderMode? GetRenderMode(RenderContext context)
+		{
+			var renderBind = GetBinding(nameof(Render));
+			if (renderBind == null && Render == null)
+				return null;
+			if (renderBind != null)
+			{
+				var rm = context.CalcDataModelExpression(renderBind.Path);
+				if (rm is String rmString)
+				{
+					if (Enum.TryParse<RenderMode>(rmString, out RenderMode rmResult))
+					{
+						return rmResult;
+					}
+					throw new XamlException($"Invalid RenderMode '{rmResult}', Expected 'Show', 'Hide', 'ReadOnly' or 'Debug'");
+				}
+				else if (rm is Boolean rmBool)
+					return rmBool ? RenderMode.Show : RenderMode.Hide;
+			}
+			else if (Render != null)
+			{
+				return Render;
+			}
+			return null;
+		}
+
+
 	}
 }

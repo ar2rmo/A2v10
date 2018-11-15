@@ -98,6 +98,8 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -193,6 +195,8 @@
     <ClInclude Include="a2formview.h" />
     <ClInclude Include="A2v10.Designer.h" />
     <ClInclude Include="a2formdoc.h" />
+    <ClInclude Include="button.h" />
+    <ClInclude Include="checkbox.h" />
     <ClInclude Include="childfrm.h" />
     <ClInclude Include="commandwnd.h" />
     <ClInclude Include="consolewnd.h" />
@@ -210,6 +214,7 @@
     <ClInclude Include="outputwnd.h" />
     <ClInclude Include="propertieswnd.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="solutioncreatedlg.h" />
     <ClInclude Include="solutionwnd.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -222,6 +227,8 @@
     <ClCompile Include="a2formview.cpp" />
     <ClCompile Include="A2v10.Designer.cpp" />
     <ClCompile Include="a2formdoc.cpp" />
+    <ClCompile Include="button.cpp" />
+    <ClCompile Include="checkbox.cpp" />
     <ClCompile Include="childfrm.cpp" />
     <ClCompile Include="commandwnd.cpp" />
     <ClCompile Include="consolewnd.cpp" />
@@ -237,6 +244,7 @@
     <ClCompile Include="propertieswnd.cpp" />
     <ClCompile Include="recttracker.cpp" />
     <ClCompile Include="sciview.cpp" />
+    <ClCompile Include="solutioncreatedlg.cpp" />
     <ClCompile Include="solutionwnd.cpp" />
     <ClCompile Include="moduledoc.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -254,6 +262,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\A2v10.Designer.ico" />
+    <Image Include="res\consoletoolbar.bmp" />
     <Image Include="res\debugtoolbar.bmp" />
     <Image Include="res\explorer_hc.bmp" />
     <Image Include="res\fileview.bmp" />

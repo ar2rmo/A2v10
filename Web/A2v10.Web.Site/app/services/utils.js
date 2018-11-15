@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180619-7227
+// 20181104-7343
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -44,6 +44,7 @@ app.modules['std:utils'] = function () {
 		toNumber: toNumber,
 		parse: parse,
 		getStringId: getStringId,
+		isEqual: isEqual,
 		date: {
 			today: dateToday,
 			zero: dateZero,
@@ -58,11 +59,17 @@ app.modules['std:utils'] = function () {
 			compare: dateCompare,
 			endOfMonth: endOfMonth,
 			minDate: dateCreate(1901, 1, 1),
-			maxDate: dateCreate(2999, 12, 31)
+			maxDate: dateCreate(2999, 12, 31),
+			fromDays: fromDays
 		},
 		text: {
 			contains: textContains,
-			containsText: textContainsText
+			containsText: textContainsText,
+			sanitize
+		},
+		func: {
+			curry,
+			debounce
 		},
 		debounce: debounce
 	};
@@ -77,7 +84,7 @@ app.modules['std:utils'] = function () {
 	function isObjectExact(value) { return isObject(value) && !Array.isArray(value); }
 
 	function isPrimitiveCtor(ctor) {
-		return ctor === String || ctor === Number || ctor === Boolean || ctor === Date;
+		return ctor === String || ctor === Number || ctor === Boolean || ctor === Date || ctor === File || ctor === Object;
 	}
 
 	function isDateCtor(ctor) {
@@ -86,6 +93,13 @@ app.modules['std:utils'] = function () {
 
 	function isEmptyObject(obj) {
 		return !obj || Object.keys(obj).length === 0 && obj.constructor === Object;
+	}
+
+	function isEqual(o1, o2) {
+		if (o1 === o2) return true;
+		if (isDate(o1) && isDate(o2))
+			return o1.getTime() === o2.getTime();
+		return false;
 	}
 
 	function notBlank(val) {
@@ -250,8 +264,15 @@ app.modules['std:utils'] = function () {
 			return '0';
 		if (isNumber(obj))
 			return obj;
-		else if (isObjectExact(obj))
-			return obj.$id || 0;
+		else if (isObjectExact(obj)) {
+			if ('$id' in obj)
+				return obj.$id || 0;
+			else if ("Id" in obj)
+				return obj.Id || 0;
+			else {
+				console.error('Id or @id not found in object');
+			}
+		}
 		return '0';
 	}
 
@@ -263,6 +284,7 @@ app.modules['std:utils'] = function () {
 
 	function dateToday() {
 		let td = new Date();
+		td.setHours(0, 0, 0, 0);
 		td.setHours(0, -td.getTimezoneOffset(), 0, 0);
 		return td;
 	}
@@ -275,13 +297,17 @@ app.modules['std:utils'] = function () {
 
 	function dateTryParse(str) {
 		if (!str) return dateZero();
+		if (isDate(str)) return str;
 		let dt;
 		if (str.length === 8) {
 			dt = new Date(+str.substring(0, 4), +str.substring(4, 6) - 1, +str.substring(6, 8), 0, 0, 0, 0);
+		} else if (str.startsWith('\"\\/\"')) {
+			dt = new Date(str.substring(4, str.length - 4));
 		} else {
 			dt = new Date(str);
 		}
 		if (!isNaN(dt.getTime())) {
+			dt.setHours(0, 0, 0, 0);
 			dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
 			return dt;
 		}
@@ -318,7 +344,9 @@ app.modules['std:utils'] = function () {
 	}
 
 	function endOfMonth(dt) {
-		return new Date(dt.getFullYear(), dt.getMonth() + 1, 0);
+		var dte = new Date(dt.getFullYear(), dt.getMonth() + 1, 0, 0, 0, 0);
+		dte.setHours(0, -dte.getTimezoneOffset(), 0, 0);
+		return dte;
 	}
 
 	function dateCreate(year, month, day) {
@@ -328,10 +356,10 @@ app.modules['std:utils'] = function () {
 	}
 
 	function dateDiff(unit, d1, d2) {
+		if (d1.getTime() > d2.getTime())
+			[d1, d2] = [d2, d1];
 		switch (unit) {
 			case "month":
-				if (d1.getTime() > d2.getTime())
-					[d1, d2] = [d2, d1];
 				let delta = 0;
 				if (d2.getDate() < d1.getDate())
 					delta = -1;
@@ -350,8 +378,21 @@ app.modules['std:utils'] = function () {
 				}
 				month += d2.getMonth() - d1.getMonth();
 				return month + delta;
+			case "day":
+				let du = 1000 * 60 * 60 * 24;
+				return Math.floor((d2 - d1) / du);
+			case "year":
+			case 'year':
+				var dd = new Date(d1.getFullYear(), d2.getMonth(), d2.getDate(), d2.getHours(), d2.getMinutes(), d2.getSeconds(), d2.getMilliseconds());
+				return d2.getFullYear() - d1.getFullYear() + (dd < d1 ? (d2 > d1 ? -1 : 0) : (d2 < d1 ? 1 : 0));
 		}
 		throw new Error('Invalid unit value for utils.date.diff');
+	}
+
+	function fromDays(days) {
+		let dt = new Date(1900, 0, days, 0, 0, 0, 0);
+		dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
+		return dt;
 	}
 
 	function dateAdd(dt, nm, unit) {
@@ -370,6 +411,7 @@ app.modules['std:utils'] = function () {
 				if (day > ldm)
 					day = ldm;
 				var dtx = new Date(dt.getFullYear(), newMonth, day);
+				dtx.setHours(0, -dtx.getTimezoneOffset(), 0, 0);
 				return dtx;
 			case 'day':
 				du = 1000 * 60 * 60 * 24;
@@ -396,6 +438,11 @@ app.modules['std:utils'] = function () {
 		return t1 - t2;
 	}
 
+	function sanitize(text) {
+		let t = '' + text || '';
+		return t.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+			.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+	}
 
 	function textContains(text, probe) {
 		if (!probe)
@@ -434,6 +481,10 @@ app.modules['std:utils'] = function () {
 		};
 	}
 
+	function curry(fn, ...args) {
+		return (..._arg) => {
+			return fn(...args, ..._arg);
+		};
+	}
 };
-
 

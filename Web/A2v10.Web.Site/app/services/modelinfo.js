@@ -1,18 +1,19 @@
 ﻿
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180511-7186*/
+// 20181019-7323
 /* services/modelinfo.js */
 
 app.modules['std:modelInfo'] = function () {
 
 	return {
 		copyfromQuery: copyFromQuery,
-		get: getPagerInfo
+		get: getPagerInfo,
+		reconcile: reconcile
 	};
 
 	function copyFromQuery(mi, q) {
-		let psq = { PageSize: q.pageSize, Offset: q.offset, SortDir: q.dir, SortOrder: q.order };
+		let psq = { PageSize: q.pageSize, Offset: q.offset, SortDir: q.dir, SortOrder: q.order, GroupBy: q.group };
 		for (let p in psq) {
 			mi[p] = psq[p];
 		}
@@ -25,14 +26,26 @@ app.modules['std:modelInfo'] = function () {
 
 	function getPagerInfo(mi) {
 		if (!mi) return undefined;
-		let x = { pageSize: mi.PageSize, offset: mi.Offset, dir: mi.SortDir, order: mi.SortOrder };
-		if (mi.Filter)
+		let x = { pageSize: mi.PageSize, offset: mi.Offset, dir: mi.SortDir, order: mi.SortOrder, group: mi.GroupBy };
+		if (mi.Filter) {
 			for (let p in mi.Filter) {
-				let fVal = mi.Filter[p];
-				if (!fVal) continue; // empty value, skip it
-				x[p] = fVal;
+				x[p] = mi.Filter[p];
 			}
+		}
 		return x;
+	}
+
+	function reconcile(mi) {
+		if (!mi) return;
+		if (!mi.Filter) return;
+		for (let p in mi.Filter) {
+			let fv = mi.Filter[p];
+			if (typeof fv === 'string' && fv.startsWith('\"\\/\"')) {
+				let dx = new Date(fv.substring(4, fv.length - 4));
+				mi.Filter[p] = dx;
+				//console.dir(mi.Filter[p]);
+			}
+		}
 	}
 };
 

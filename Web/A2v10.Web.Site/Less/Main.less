@@ -108,7 +108,7 @@ header, .header {
 
 	.btn {
 		background-color: transparent;
-		white-space:nowrap;
+		white-space: nowrap;
 		color: white;
 		padding: 4px;
 		height: @header-height - 4px;
@@ -116,6 +116,14 @@ header, .header {
 		&:hover {
 			background-color: @brand-hover-color;
 		}
+	}
+
+	.user-name .person-name {
+		display: inline-block;
+		vertical-align: bottom;
+		overflow: hidden;
+		max-width: 20rem;
+		text-overflow: ellipsis;
 	}
 }
 
@@ -169,6 +177,7 @@ header, .header {
 @import "Splitter.less";
 @import "Taskpad.less";
 @import "Image.less";
+@import "Upload.less";
 
 footer, .footer {
 	position: absolute;
@@ -192,13 +201,16 @@ footer, .footer {
 
 	.debug-btn {
 		display: inline;
-		margin-left: 0.5rem;
 	}
 
 	.menu {
 		margin-bottom: -2px;
 		font-size: @font-size;
 		text-transform: none;
+	}
+
+	.version-info {
+		margin-right:6px;
 	}
 
 	button {
@@ -367,6 +379,7 @@ pre.a2-code {
 @import "Pager.less";
 @import "DropDown.less";
 @import "Popover.less";
+@import "Card.less";
 @import "Grid.less";
 @import "Layout.less";
 
@@ -384,6 +397,7 @@ pre.a2-code {
 	color: @danger-txt-color;
 	border: 1px solid @danger-brd-color;
 	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+	user-select:text;
 
 	.message {
 		padding: 15px 10px;
@@ -454,6 +468,7 @@ h5, .h5 {
 	color: #777;
 	font-weight: bold;
 	font-family: inherit;
+	word-break:break-word;
 }
 
 
@@ -493,6 +508,7 @@ h5, .h5 {
 .a2-graphics {
 	display: block;
 	width: 100%;
+	line-height:0;
 }
 
 .a2-changelog {
@@ -509,6 +525,13 @@ h5, .h5 {
 		font-weight: bold;
 		font-family: inherit;
 	}
+}
+
+.tooltip {
+	position:absolute;
+	padding:6px;
+	background-color:white;
+	border:1px solid #ccc;
 }
 
 @import "AppPages.less";

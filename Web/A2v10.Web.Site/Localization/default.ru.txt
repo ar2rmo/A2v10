@@ -8,21 +8,28 @@
 @Tracing=Трассировка
 @Settings=Настройка
 @Feedback=Обратная связь
-@DataModel=Модель данних
+@DataModel=Модель данных
 @Profiling=Профилирование
 @Profile=Профиль
 @ChangePassword=Сменить пароль
 @SubstUser=Сменить пользователя
+@AllUsers=Все пользователи
+@AdminUsers=Администраторы
 @User=Пользователь
 @OldPassword=Старый пароль
 @NewPassword=Новый пароль
 @SetPassword=Установить пароль
+@Error=Ошибка
+@Warning=Предупреждение
 ;
 @ResetPassword=Восстановление пароля
 @ResetPasswordMailText=Для восстановления пароля перейдите <a href="{0}">по ссылке</a>
 @ConfirmEMail=Подтверждение е-mail
 @ConfirmEMailMailText=Для подтверждения е-mail перейдите <a href="{0}">по ссылке</a>
+@EMailAlreadyConfirmed=Ваш e-mail уже подтвержден.
 @SetNewPassword=Установка пароля
+@InviteEMail=Добро пожаловать!
+@ChangePasswordDisabled=Смена пароля запрещена
 ;
 @Home=Главная
 @Documents=Документы
@@ -76,3 +83,4 @@
 @Error.DuplicateCode=Элемент с таким кодом уже существует
 @Error.Exception=Что-то пошло не так, как ожидалось :-(
 @Error.FileFormatException=Некорректный формат файла
+@Error.DataReadOnly=База данных только для чтения

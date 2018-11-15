@@ -47,7 +47,10 @@
     <None Include="Admin\Identity\Group\model.json" />
     <None Include="Admin\Identity\Role\model.json" />
     <None Include="Admin\Identity\User\model.json" />
+    <None Include="bundleconfig.json" />
     <None Include="Develop\Agent\model.json" />
+    <None Include="Develop\Dashboard\model.json" />
+    <None Include="Develop\links.json" />
     <None Include="Develop\Catalog\Buildings\model.json" />
     <None Include="Develop\Catalog\Inbox\model.json" />
     <None Include="Develop\Catalog\MyClients\model.json" />
@@ -57,6 +60,7 @@
     <None Include="Develop\Document\Request\index.view.xaml">
       <SubType>Designer</SubType>
     </None>
+    <None Include="VueSite\blog\model.json" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Develop\Catalog\Customers\model.json" />
@@ -71,6 +75,7 @@
     <None Include="Develop\redirect.json" />
     <None Include="Develop\Sales\Catalog\model.json" />
     <None Include="Develop\Sales\Customer\model.json" />
+    <None Include="Develop\Sales\inbox\model.json" />
     <None Include="Develop\Sales\Invoice\index.template.xlsx" />
     <None Include="Develop\Sales\Invoice\Invoice.mrt" />
     <None Include="Develop\Sales\Invoice\model.json" />
@@ -78,6 +83,7 @@
     <None Include="Develop\Sales\Waybill\waybill.mrt" />
     <None Include="Develop\app.json" />
     <None Include="Develop\solution.json" />
+    <None Include="Develop\_api\payment\model.json" />
     <None Include="model.schema.json" />
   </ItemGroup>
   <ItemGroup>
@@ -90,6 +96,10 @@
     <Content Include="Develop\Agent\editCustomer.template.js" />
     <Content Include="Develop\Agent\editFolder.template.js" />
     <Content Include="Develop\Agent\editSupplier.template.js" />
+    <Content Include="VueSite\blog\blog.html" />
+    <Content Include="VueSite\blog\blog.js" />
+    <Content Include="VueSite\index\index.view.html" />
+    <Content Include="VueSite\layout.html" />
     <Content Include="Develop\Catalog\Buildings\index.view.html" />
     <Content Include="Develop\Catalog\Customers\edit.template.js" />
     <Content Include="Develop\Catalog\Customers\index.template.js" />
@@ -105,6 +115,7 @@
     <Content Include="Develop\Common\Agent\index.template.js" />
     <Content Include="Develop\Common\another.js" />
     <Content Include="Develop\Common\module1.js" />
+    <Content Include="Develop\Dashboard\homepage.template.js" />
     <Content Include="Develop\Document\common.js" />
     <Content Include="Develop\Document\Quotations\element.template.js" />
     <Content Include="Develop\Document\Quotations\index.template.js" />
@@ -116,18 +127,29 @@
     <Content Include="Develop\Document\Request\entityChoice.template.js" />
     <Content Include="Develop\Document\Request\index.template.js" />
     <Content Include="Develop\demo_test.js" />
+    <Content Include="Develop\Purchase\Goods\index.template.js" />
     <Content Include="Develop\Purchase\WaybillIn\index.template.js" />
     <Content Include="Develop\Purchase\WaybillIn\waybillin.template.js" />
     <Content Include="Develop\Sales\Customer\index.template.js" />
+    <Content Include="Develop\Sales\inbox\index.template.js" />
+    <Content Include="Develop\Sales\Invoice\empty.template.js" />
     <Content Include="Develop\Sales\Invoice\upload.template.js" />
     <Content Include="Develop\Sales\Invoice\index.template.js" />
     <Content Include="Develop\Sales\Invoice\invoice.template.js" />
+    <Content Include="Develop\Sales\Waybill\confirm.template.js" />
+    <Content Include="Develop\Sales\Waybill\checkeusign.template.js" />
+    <Content Include="Develop\Sales\Waybill\eusign.template.js" />
     <Content Include="Develop\Sales\Waybill\index.template.js" />
     <Content Include="Develop\Sales\Waybill\waybill.template.js" />
-    <Content Include="Develop\_assets\app.min.js" />
+    <Content Include="Develop\_assets\app.min.js">
+      <DependentUpon>app.js</DependentUpon>
+    </Content>
     <Content Include="Develop\_assets\app.css" />
     <Content Include="Develop\_assets\app.js" />
-    <Content Include="Develop\_assets\app.min.css" />
+    <Content Include="Develop\_assets\app.min.css">
+      <DependentUpon>app.css</DependentUpon>
+    </Content>
+    <Content Include="Develop\_emails\confirmemail.uk.html" />
     <Content Include="Develop\_pages\contacts.uk.html" />
   </ItemGroup>
   <ItemGroup>
@@ -136,6 +158,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\A2v10.Data\A2v10.Data.Interfaces\A2v10.Data.Interfaces.csproj">
+      <Project>{1c5a0097-29a8-4157-80c0-b865ceafccce}</Project>
+      <Name>A2v10.Data.Interfaces</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Shared\A2v10.Workflow\A2v10.Workflow.csproj">
       <Project>{76269196-db55-4299-ae0f-a33a5bab294f}</Project>
       <Name>A2v10.Workflow</Name>
@@ -300,6 +326,8 @@
   <ItemGroup>
     <Folder Include="Develop\Localization\" />
     <Folder Include="Develop\_files\" />
+    <Folder Include="Develop\_platform\" />
+    <Folder Include="Develop\_static\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Develop\Agent\browseCustomer.dialog.xaml">
@@ -380,6 +408,48 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Develop\Sales\Invoice\upload.wizard.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\Sales\Waybill\confirm.dialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\Dashboard\HomePage.view.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\Sales\inbox\index.view.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\Sales\Invoice\empty.dialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\Sales\Invoice\empty.view.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\Sales\Waybill\eusign.dialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Develop\Sales\Waybill\checkeusign.dialog.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </None>

@@ -24,6 +24,7 @@
 			confirm: '',
 			processing: false,
 			info: $(PageData),
+			appLinks: $(AppLinks),
 			submitted: false,
 			serverError: '',
 			emailError: '',
@@ -80,6 +81,10 @@
 			},
 			validPhone() {
 				return this.submitted ? !!this.phone : true;
+			},
+			refer() {
+				let qs = parseQueryString(window.location.search.toLowerCase());
+				return qs.ref || '';
 			}
 		},
 		methods: {
@@ -95,7 +100,8 @@
 					PersonName: this.name,
 					Email: this.email,
 					Phone: this.phone,
-					Password: this.password
+					Password: this.password,
+					Referral: this.refer
 				};
 				const that = this;
 				post('/account/register', dataToSend)
@@ -108,8 +114,12 @@
 							that.confirmSent();
 						else if (result === 'AlreadyTaken')
 							that.alreadyTaken();
+						else if (result === 'PhoneNumberAlreadyTaken')
+							that.phoneAlreadyTaken();
 						else if (result === 'DDOS')
 							that.ddos();
+						else if (result === 'InvalidEmail')
+							that.invalidEmail();
 						else
 							alert(result);
 					})
@@ -130,8 +140,14 @@
 			alreadyTaken() {
 				this.serverError = this.locale.$AlreadyTaken.replace('{0}', this.email);
 			},
+			phoneAlreadyTaken() {
+				this.serverError = this.locale.$PhoneNumberAlreadyTaken.replace('{0}', this.maskedPhone);
+			},
 			ddos() {
 				this.serverError = this.locale.$TryLater;
+			},
+			invalidEmail() {
+				this.serverError = this.locale.$InvalidEMailError;
 			},
 			failure(msg) {
 				this.password = '';
@@ -147,6 +163,9 @@
 					this.$refs.phoneInput.value = this.maskedPhone;
 					this.$emit('change', this.phone);
 				}
+			},
+			getReferUrl(url) {
+				return getReferralUrl(url);
 			}
 		},
 		mounted() {

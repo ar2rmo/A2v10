@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180605-7210*/
+/*20181112-7353*/
 /*components/newbutton.js*/
 
 (function () {
@@ -11,14 +11,14 @@
 
 	const newButtonTemplate =
 `<div class="dropdown dir-down a2-new-btn" v-dropdown v-if="isVisible">
-	<button class="btn" :class="btnClass" toggle><i class="ico" :class="iconClass"></i></button>
+	<button class="btn btn-icon" :class="btnClass" toggle aria-label="New"><i class="ico" :class="iconClass"></i></button>
 	<div class="dropdown-menu menu down-right">
 		<div class="super-menu" :class="cssClass">
 			<div v-for="(m, mx) in topMenu" :key="mx" class="menu-group">
 				<div class="group-title" v-text="m.Name"></div>
 				<template v-for="(itm, ix) in m.Menu">
 					<div class="divider" v-if=isDivider(itm)></div>
-					<a v-else @click.prevent='doCommand(itm.Url)' 
+					<a v-else @click.prevent='doCommand(itm.Url, itm.Description)' 
 						class="dropdown-item" tabindex="-1"><i class="ico" :class="'ico-' + itm.Icon"></i><span v-text="itm.Name"></span></a>
 				</template>
 			</div>
@@ -67,12 +67,20 @@
 			isDivider(itm) {
 				return itm.Name === '-';
 			},
-			doCommand(cmd) {
+			doCommand(cmd, strOpts) {
+				let requeryAfter = false;
+				if (strOpts) {
+					try {
+						requeryAfter = JSON.parse(strOpts).requeryAfter;
+					} catch (err) {
+						requeryAfter = false;
+					}
+				}
 				cmd = cmd || '';
 				if (cmd.startsWith('navigate:')) {
 					this.navigate(cmd.substring(9));
 				} else if (cmd.startsWith('dialog:')) {
-					this.dialog(cmd.substring(7));
+					this.dialog(cmd.substring(7), requeryAfter);
 				} else {
 					alert('invalid command:' + cmd);
 				}
@@ -81,11 +89,14 @@
 				//let urlToNavigate = urltools.createUrlForNavigate(url);
 				this.$store.commit('navigate', { url: url });
 			},
-			dialog(url) {
+			dialog(url, requeryAfter) {
 				const dlgData = { promise: null};
 				eventBus.$emit('modaldirect', url, dlgData);
 				dlgData.promise.then(function (result) {
 					// todo: resolve?
+					if (requeryAfter) {
+						eventBus.$emit('requery', url, dlgData);
+					}
 				});
 			}
 		}

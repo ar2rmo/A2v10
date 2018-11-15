@@ -12,14 +12,17 @@ const template = {
 		"TDocument.$HasParent"() { return this.ParentDoc.Id !== 0; },
 		"TDocParent.$Name": parentName
 	},
+	events: {
+	},
 	commands: {
 		clearFilter(f) {
 			f.Id = 0;
-			f.Name = ''
-		}
+			f.Name = '';
+		},
+		startWorkflow,
+		attachReport
 	}
 };
-
 
 function mark() {
 	return this.Done ? "success" : '';
@@ -39,3 +42,18 @@ function agentPopoverUrl() {
 
 module.exports = template;
 
+async function startWorkflow(doc) {
+	let vm = this.$vm;
+	let result = await vm.$invoke('startWorkflow', { Id: doc.Id });
+	console.dir(result);
+	vm.$toast({ text: 'Workflow start successfully', style: 'success' });
+}
+
+async function attachReport(doc) {
+	const vm = this.$vm;
+	let result = await vm.$invoke('attachReport', { Id: doc.Id });
+	console.dir(result);
+	//alert('attach result:' + result);
+	vm.$toast("Успешно добавлено");
+	doc.Attachments.$append({ Id: result.Id });
+}

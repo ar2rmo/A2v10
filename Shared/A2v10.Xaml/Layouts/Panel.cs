@@ -19,16 +19,6 @@ namespace A2v10.Xaml
 		Yellow
 	}
 
-	public enum ShadowStyle
-	{
-		None,
-		Shadow1,
-		Shadow2,
-		Shadow3,
-		Shadow4,
-		Shadow5
-	}
-
 	public class Panel : Container, ITableControl
 	{
 		public Object Header { get; set; }
@@ -46,6 +36,8 @@ namespace A2v10.Xaml
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
+			if (SkipRender(context))
+				return;
 			var panel = new TagBuilder("a2-panel", null, IsInGrid);
 			MergeBindingAttributeBool(panel, context, ":initial-collapsed", nameof(Collapsed), Collapsed);
 			MergeBindingAttributeBool(panel, context, ":collapsible", nameof(Collapsible), Collapsible);

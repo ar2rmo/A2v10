@@ -5,38 +5,36 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
-using Microsoft.AspNet.Identity;
-using Microsoft.AspNet.Identity.Owin;
-using Microsoft.Owin.Security;
-using System.Web.Helpers;
-using System.Text;
-using A2v10.Web.Mvc.Filters;
-using System.IO;
-using Newtonsoft.Json;
-
-using A2v10.Request;
-using A2v10.Infrastructure;
-using A2v10.Web.Mvc.Models;
-using A2v10.Web.Mvc.Identity;
-using System.Configuration;
-using A2v10.Data.Interfaces;
 using System.Threading;
 using System.Security;
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Web.Helpers;
+using System.Text;
+using System.IO;
 
-namespace A2v10.Web.Site.Controllers
+using Microsoft.AspNet.Identity;
+using Microsoft.AspNet.Identity.Owin;
+
+using Newtonsoft.Json;
+
+using A2v10.Request;
+using A2v10.Infrastructure;
+using A2v10.Web.Mvc.Models;
+using A2v10.Data.Interfaces;
+using A2v10.Web.Mvc.Filters;
+using A2v10.Web.Identity;
+
+namespace A2v10.Web.Mvc.Controllers
 {
 	[Authorize]
-	public class AccountController : Controller
+	public class AccountController : IdentityController
 	{
-		private AppSignInManager _signInManager;
-		private AppUserManager _userManager;
 
-		IApplicationHost _host;
-		IDbContext _dbContext;
-		ILocalizer _localizer; 
+		private readonly IApplicationHost _host;
+		private readonly IDbContext _dbContext;
+		private readonly ILocalizer _localizer;
 
 		public AccountController()
 		{
@@ -48,9 +46,8 @@ namespace A2v10.Web.Site.Controllers
 		}
 
 		public AccountController(AppUserManager userManager, AppSignInManager signInManager)
+			: base(userManager, signInManager)
 		{
-			UserManager = userManager;
-			SignInManager = signInManager;
 			// DI ready
 			var serviceLocator = ServiceLocator.Current;
 			_host = serviceLocator.GetService<IApplicationHost>();
@@ -58,31 +55,7 @@ namespace A2v10.Web.Site.Controllers
 			_localizer = serviceLocator.GetService<ILocalizer>();
 		}
 
-		public AppSignInManager SignInManager
-		{
-			get
-			{
-				return _signInManager ?? HttpContext.GetOwinContext().Get<AppSignInManager>();
-			}
-			private set
-			{
-				_signInManager = value;
-			}
-		}
-
-		public AppUserManager UserManager
-		{
-			get
-			{
-				return _userManager ?? HttpContext.GetOwinContext().GetUserManager<AppUserManager>();
-			}
-			private set
-			{
-				_userManager = value;
-			}
-		}
-
-		void SendPage(String rsrcHtml, String rsrcScript, String serverInfo = null)
+		void SendPage(String rsrcHtml, String rsrcScript, String serverInfo = null, String errorMessage = null)
 		{
 			try
 			{
@@ -90,23 +63,28 @@ namespace A2v10.Web.Site.Controllers
 
 				AppTitleModel appTitle = _dbContext.Load<AppTitleModel>(_host.CatalogDataSource, "a2ui.[AppTitle.Load]");
 
-				StringBuilder layout = new StringBuilder(ResourceHelper.InitLayoutHtml);
+				StringBuilder layout = new StringBuilder(_localizer.Localize(null, GetRedirectedPage("layout", ResourceHelper.InitLayoutHtml)));
 				layout.Replace("$(Lang)", CurrentLang);
 				layout.Replace("$(Build)", _host.AppBuild);
+				layout.Replace("$(AssetsStyleSheets)", _host.AppStyleSheetsLink("applink"));
 				StringBuilder html = new StringBuilder(rsrcHtml);
 				layout.Replace("$(Partial)", html.ToString());
-				layout.Replace("$(Title)", appTitle.AppTitle);
+				layout.Replace("$(Title)", appTitle?.AppTitle);
 				layout.Replace("$(Description)", _host.AppDescription);
+				layout.Replace("$(ErrorMessage)", _localizer.Localize(null, errorMessage));
+				layout.Replace("@(SiteMeta)", GetSiteMetaTags());
 
 
 				String mtMode = _host.IsMultiTenant.ToString().ToLowerInvariant();
+				String regMode = _host.IsRegistrationEnabled.ToString().ToLowerInvariant();
 
 				StringBuilder script = new StringBuilder(rsrcScript);
 				script.Replace("$(Utils)", ResourceHelper.pageUtils);
 				script.Replace("$(Locale)", ResourceHelper.locale);
 				script.Replace("$(Mask)", ResourceHelper.mask);
 
-				script.Replace("$(PageData)", $"{{ version: '{_host.AppVersion}', title: '{appTitle?.AppTitle}', subtitle: '{appTitle?.AppSubTitle}', multiTenant: {mtMode} }}");
+				script.Replace("$(PageData)", $"{{ version: '{_host.AppVersion}', title: '{appTitle?.AppTitle}', subtitle: '{appTitle?.AppSubTitle}', multiTenant: {mtMode}, registration: {regMode} }}");
+				script.Replace("$(AppLinks)", _localizer.Localize(null, _host.AppLinks()));
 				script.Replace("$(ServerInfo)", serverInfo ?? "null");
 				script.Replace("$(Token)", formToken);
 				layout.Replace("$(PageScript)", script.ToString());
@@ -121,6 +99,40 @@ namespace A2v10.Web.Site.Controllers
 			}
 		}
 
+		String GetSiteMetaTags()
+		{
+			var host = Request.Headers["Host"];
+			if (host == null)
+				return String.Empty;
+			Int32 dotPos = host.IndexOfAny(":".ToCharArray());
+			if (dotPos != -1)
+				host = host.Substring(0, dotPos);
+			host = host.Replace('.', '_').ToLowerInvariant();
+			String path = _host.MakeFullPath(false, "_meta/", $"{host}.head");
+			if (System.IO.File.Exists(path))
+				return System.IO.File.ReadAllText(path);
+			return String.Empty;
+		}
+
+		String GetRedirectedPage(String pageName, String fallback)
+		{
+			String path = _host.MakeFullPath(false, "_platform/", $"{pageName}.{CurrentLang}.html");
+			if (!System.IO.File.Exists(path))
+				return fallback;
+			String text = System.IO.File.ReadAllText(path) + "\r\n";
+			Int32 ix = text.IndexOf("@PartialFile:");
+			if (ix == -1)
+				return text;
+			StringBuilder sb = new StringBuilder();
+			Int32 spIndex = text.IndexOfAny(" \n\r<>".ToCharArray(), ix);
+			sb.Append(text.Substring(0, ix));
+			String partialFileName = text.Substring(ix + 13, spIndex - ix - 13);
+			String partialPath = _host.MakeFullPath(false, "_platform/", $"{partialFileName}.{CurrentLang}.html");
+			sb.Append(System.IO.File.ReadAllText(partialPath));
+			sb.Append(text.Substring(spIndex));
+			return sb.ToString();
+		}
+
 		// GET: /Account/Login
 		[AllowAnonymous]
 		[HttpGet]
@@ -129,7 +141,8 @@ namespace A2v10.Web.Site.Controllers
 		{
 			Session.Abandon();
 			ClearAllCookies();
-			SendPage(ResourceHelper.LoginHtml, ResourceHelper.LoginScript);
+			String page = GetRedirectedPage("login", ResourceHelper.LoginHtml);
+			SendPage(page, ResourceHelper.LoginScript);
 		}
 
 		// POST: /Account/Login
@@ -146,6 +159,8 @@ namespace A2v10.Web.Site.Controllers
 				String json = tr.ReadToEnd();
 				model = JsonConvert.DeserializeObject<LoginViewModel>(json);
 			}
+			// LOWER CASE!
+			model.Name = model.Name.ToLower();
 			var user = await UserManager.FindByNameAsync(model.Name);
 			if (user == null)
 				return Json(new { Status = "Failure" });
@@ -178,19 +193,6 @@ namespace A2v10.Web.Site.Controllers
 			return Json(new { Status = status });
 		}
 
-		//
-		// GET: /Account/VerifyCode
-		[AllowAnonymous]
-		public async Task<ActionResult> VerifyCode(String provider, String returnUrl, Boolean rememberMe)
-		{
-			// Require that the user has already logged in via username/password or external login
-			if (!await SignInManager.HasBeenVerifiedAsync())
-			{
-				return View("Error");
-			}
-			return View(new VerifyCodeViewModel { Provider = provider, ReturnUrl = returnUrl, RememberMe = rememberMe });
-		}
-
 		void ClearAllCookies()
 		{
 			var expires = DateTime.Now.AddDays(-1d);
@@ -209,7 +211,18 @@ namespace A2v10.Web.Site.Controllers
 				cc.Expires = DateTime.Now.AddDays(-1d);
 		}
 
-		//
+		// GET: /Account/VerifyCode
+		[AllowAnonymous]
+		public async Task<ActionResult> VerifyCode(String provider, String returnUrl, Boolean rememberMe)
+		{
+			// Require that the user has already logged in via username/password or external login
+			if (!await SignInManager.HasBeenVerifiedAsync())
+			{
+				return View("Error");
+			}
+			return View(new VerifyCodeViewModel { Provider = provider, ReturnUrl = returnUrl, RememberMe = rememberMe });
+		}
+
 		// POST: /Account/VerifyCode
 		[HttpPost]
 		[AllowAnonymous]
@@ -249,7 +262,13 @@ namespace A2v10.Web.Site.Controllers
 				Response.Write("Turn on the multiTenant mode");
 				return;
 			}
-			SendPage(ResourceHelper.RegisterTenantHtml, ResourceHelper.RegisterTenantScript);
+			if (!_host.IsRegistrationEnabled)
+			{
+				Response.Write("Registration is disabled in this site");
+				return;
+			}
+			String page = GetRedirectedPage("register", ResourceHelper.RegisterTenantHtml);
+			SendPage(page, ResourceHelper.RegisterTenantScript);
 		}
 
 		static ConcurrentDictionary<String, DateTime> _ddosChecker = new ConcurrentDictionary<String, DateTime>();
@@ -302,6 +321,13 @@ namespace A2v10.Web.Site.Controllers
 			_ddosChecker.AddOrUpdate(host, now, (key, value) => now);
 		}
 
+		void RemoveDDOSTime()
+		{
+			String host = Request.UserHostAddress;
+			_ddosChecker.TryRemove(host, out DateTime dt);
+		}
+
+
 		// POST: /Register/Login
 		[ActionName("Register")]
 		[HttpPost]
@@ -314,6 +340,8 @@ namespace A2v10.Web.Site.Controllers
 			var seconds = IsDDOS();
 			if (seconds > 0)
 				return Json(new { Status = "DDOS" }); //, Seconds = seconds });
+			if (!_host.IsRegistrationEnabled)
+				return Json(new { Status = "DISABLED" }); //
 			try
 			{
 				RegisterTenantModel model;
@@ -323,8 +351,15 @@ namespace A2v10.Web.Site.Controllers
 					model = JsonConvert.DeserializeObject<RegisterTenantModel>(json);
 				}
 
+				// LOWER case
+				model.Name = model.Name.ToLower();
+				model.Referral = model.Referral.ToLower();
+
 				if (!IsEmailValid(model.Name) || !IsEmailValid(model.Email))
-					throw new InvalidDataException("AlreadyTaken");
+				{
+					RemoveDDOSTime();
+					throw new InvalidDataException("InvalidEmail");
+				}
 
 				// create user with tenant
 				var user = new AppUser
@@ -333,22 +368,37 @@ namespace A2v10.Web.Site.Controllers
 					Email = model.Email,
 					PhoneNumber = model.Phone,
 					PersonName = model.PersonName,
-					Tenant = -1
+					Tenant = -1,
+					RegisterHost = Request.UrlReferrer.Host
 				};
+
+				if (String.IsNullOrEmpty(user.Email))
+					user.Email = model.Name;
+
+				var phoneUser = await UserManager.FindAsync(new UserLoginInfo("PhoneNumber", model.Phone));
+				if (phoneUser != null)
+				{
+					RemoveDDOSTime();
+					throw new InvalidDataException("PhoneNumberAlreadyTaken");
+				}
+
+
 				var result = await UserManager.CreateAsync(user, model.Password);
+
 				if (result.Succeeded)
 				{
-					SaveDDOSTime();
 					// email confirmation
 					String confirmCode = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
-					var callbackUrl = Url.Action("confirmemail", "account", new { userId = user.Id, code = confirmCode }, protocol: Request.Url.Scheme);
+					var callbackUrl = Url.Action("confirmemail", "account", new { userId = user.Id, code = confirmCode }, Request.Url.Scheme);
 
 					String subject = _localizer.Localize(null, "@[ConfirmEMail]");
-					String body = _localizer
-						.Localize(null, "@[ConfirmEMailBody]")
+					String body = GetEMailBody("confirmemail", "@[ConfirmEMailBody]")
 						.Replace("{0}", callbackUrl);
 
 					await UserManager.SendEmailAsync(user.Id, subject, body);
+
+					SaveDDOSTime();
+
 					status = "ConfirmSent";
 				}
 				else
@@ -357,6 +407,7 @@ namespace A2v10.Web.Site.Controllers
 					foreach (var e in result.Errors) {
 						if (e.Contains("is already taken"))
 						{
+							RemoveDDOSTime();
 							status = "AlreadyTaken";
 							break;
 						}
@@ -381,23 +432,39 @@ namespace A2v10.Web.Site.Controllers
 			{
 				if (userId == null || code == null)
 				{
-					SendPage(ResourceHelper.ErrorHtml, ResourceHelper.SimpleScript);
+					SendPage(GetRedirectedPage("error", ResourceHelper.ErrorHtml), ResourceHelper.SimpleScript);
 					return;
 				}
+				var user = await UserManager.FindByIdAsync(userId.Value);
+				if (user.EmailConfirmed)
+				{
+					SendPage(GetRedirectedPage("error", ResourceHelper.ErrorHtml), ResourceHelper.SimpleScript, null, "@[EMailAlreadyConfirmed]");
+					return;
+				}
+
 				var result = await UserManager.ConfirmEmailAsync(userId.Value, code);
 				if (result.Succeeded)
 				{
-					var user = await UserManager.FindByIdAsync(userId.Value);
+					user = await UserManager.FindByIdAsync(userId.Value);
 					await UserManager.UpdateUser(user);
-					//await UserManager.SendEmailAsync(user.Id, subject, body);
-					SendPage(ResourceHelper.ConfirmEMailHtml, ResourceHelper.SimpleScript);
+
+					String subject = _localizer.Localize(null, "@[InviteEMail]");
+					String body = GetEMailBody("invite", null);
+					if (!String.IsNullOrEmpty(body))
+					{
+						var inviteCallback = Url.Action("Default", "Shell", routeValues:null, protocol: Request.Url.Scheme);
+						body = body.Replace("{0}", inviteCallback);
+						await UserManager.SendEmailAsync(user.Id, subject, body);
+					}
+
+					SendPage(GetRedirectedPage("confirmemail", ResourceHelper.ConfirmEMailHtml), ResourceHelper.SimpleScript);
 					return;
 				}
-				SendPage(ResourceHelper.ErrorHtml, ResourceHelper.SimpleScript);
+				SendPage(GetRedirectedPage("error", ResourceHelper.ErrorHtml), ResourceHelper.SimpleScript);
 			}
 			catch (Exception /*ex*/)
 			{
-				SendPage(ResourceHelper.ErrorHtml, ResourceHelper.SimpleScript);
+				SendPage(GetRedirectedPage("error", ResourceHelper.ErrorHtml), ResourceHelper.SimpleScript);
 			}
 		}
 
@@ -406,7 +473,8 @@ namespace A2v10.Web.Site.Controllers
 		[OutputCache(Duration = 0)]
 		public void ForgotPassword()
 		{
-			SendPage(ResourceHelper.ForgotPasswordHtml, ResourceHelper.ForgotPasswordScript);
+			String page = GetRedirectedPage("forgotpassword", ResourceHelper.ForgotPasswordHtml);
+			SendPage(page, ResourceHelper.ForgotPasswordScript);
 		}
 
 		//
@@ -427,12 +495,16 @@ namespace A2v10.Web.Site.Controllers
 					String json = tr.ReadToEnd();
 					model = JsonConvert.DeserializeObject<ForgotPasswordViewModel>(json);
 				}
+				// LOWER CASE!
+				model.Name = model.Name.ToLower();
 				var user = await UserManager.FindByNameAsync(model.Name);
 				if (user == null || !(await UserManager.IsEmailConfirmedAsync(user.Id)))
 				{
 					// Don't reveal that the user does not exist or is not confirmed
 					status = _host.IsDebugConfiguration ? "NotFound" : "Success";
 				}
+				else if (!user.ChangePasswordEnabled)
+					status = "NotAllowed";
 				else
 				{
 					String code = await UserManager.GeneratePasswordResetTokenAsync(user.Id);
@@ -462,7 +534,8 @@ namespace A2v10.Web.Site.Controllers
 			if (code == null)
 				return;
 			String serverInfo = $"{{token: '{code}'}}";
-			SendPage(ResourceHelper.ResetPasswordHtml, ResourceHelper.ResetPasswordScript, serverInfo);
+			String page = GetRedirectedPage("resetpassword", ResourceHelper.ResetPasswordHtml);
+			SendPage(page, ResourceHelper.ResetPasswordScript, serverInfo);
 		}
 
 		//
@@ -483,6 +556,8 @@ namespace A2v10.Web.Site.Controllers
 					String json = tr.ReadToEnd();
 					model = JsonConvert.DeserializeObject<ResetPasswordViewModel>(json);
 				}
+				// LOWER CASE!
+				model.Name = model.Name.ToLower();
 				var user = await UserManager.FindByNameAsync(model.Name);
 				if (user == null || String.IsNullOrEmpty(model.Code))
 				{
@@ -536,6 +611,9 @@ namespace A2v10.Web.Site.Controllers
 				if (user == null)
 					throw new SecurityException("User not found");
 
+				if (!user.ChangePasswordEnabled)
+					throw new SecurityException("Change password not allowed");
+
 				var ir = await UserManager.ChangePasswordAsync(model.Id, model.OldPassword, model.NewPassword);
 				if (ir.Succeeded)
 				{
@@ -557,7 +635,7 @@ namespace A2v10.Web.Site.Controllers
 		//
 		// GET: /Account/SendCode
 		[AllowAnonymous]
-		public async Task<ActionResult> SendCode(String returnUrl, Boolean rememberMe)
+		public async Task<ActionResult> SendCode(String returnUrl, Boolean? rememberMe)
 		{
 			var userId = await SignInManager.GetVerifiedUserIdAsync();
 			if (userId == 0)
@@ -566,7 +644,8 @@ namespace A2v10.Web.Site.Controllers
 			}
 			var userFactors = await UserManager.GetValidTwoFactorProvidersAsync(userId);
 			var factorOptions = userFactors.Select(purpose => new SelectListItem { Text = purpose, Value = purpose }).ToList();
-			return View(new SendCodeViewModel { Providers = factorOptions, ReturnUrl = returnUrl, RememberMe = rememberMe });
+			var rm = rememberMe != null ? rememberMe.Value : false;
+			return View(new SendCodeViewModel { Providers = factorOptions, ReturnUrl = returnUrl, RememberMe = rm });
 		}
 
 		//
@@ -596,29 +675,7 @@ namespace A2v10.Web.Site.Controllers
 			return RedirectToLocal("~/");
 		}
 
-
-		protected override void Dispose(Boolean disposing)
-		{
-			if (disposing)
-			{
-				if (_userManager != null)
-				{
-					_userManager.Dispose();
-					_userManager = null;
-				}
-
-				if (_signInManager != null)
-				{
-					_signInManager.Dispose();
-					_signInManager = null;
-				}
-			}
-
-			base.Dispose(disposing);
-		}
-
-		#region Helpers
-		private IAuthenticationManager AuthenticationManager => HttpContext.GetOwinContext().Authentication;
+		#region helpers
 
 		private void AddErrors(IdentityResult result)
 		{
@@ -651,7 +708,7 @@ namespace A2v10.Web.Site.Controllers
 			// may be locked out
 			if (success.HasValue)
 			{
-				user.LastLoginDate = DateTime.Now;
+				user.LastLoginDate = DateTime.UtcNow;
 				if (Request.UserHostName == Request.UserHostAddress)
 					user.LastLoginHost = $"{Request.UserHostName}";
 				else
@@ -674,6 +731,23 @@ namespace A2v10.Web.Site.Controllers
 		{
 			var ema = new EmailAddressAttribute();
 			return ema.IsValid(mail);
+		}
+
+		String GetEMailBody(String code, String dictName)
+		{
+			String emailFile = _host.MakeFullPath(false, "_emails", $"{code}.{CurrentLang}.html");
+			String body;
+			if (System.IO.File.Exists(emailFile))
+			{
+				body = System.IO.File.ReadAllText(emailFile);
+			} else {
+				if (dictName == null)
+					return null;
+				body = _localizer.Localize(null, dictName);
+			}
+			if (body.IndexOf("{0}") == - 1)
+				throw new InvalidDataException($"Invalid email template for {code}");
+			return body;
 		}
 
 		#endregion

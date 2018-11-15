@@ -14,6 +14,11 @@
 @ChangePassword=Change password
 @SubstUser=Change user
 @User=User
+@OldPassword=Old password
+@NewPassword=New password
+@SetPassword=Set password
+@Error=Error
+@Warning=Warning
 ;
 @Home=Home
 @Documents=Documents
@@ -27,11 +32,14 @@
 @ResetPassword=Password recovery
 @ResetPasswordMailText=To reset your password, click <a href="{0}">here</a> please
 @ConfirmEMail=Confirm е-mail
-@ConfirmEMailMailText=T confirm your е-mail, click <a href="{0}">here</a> please
+@ConfirmEMailMailText=To confirm your е-mail, click <a href="{0}">here</a> please
+@EMailAlreadyConfirmed=Your e-mail already confirmed.
 @SetNewPassword=Set new password
 @OldPassword=Old password
 @NewPassword=New password
 @SetPassword=Set password
+@InviteEMail=Welcome!
+@ChangePasswordDisabled=Change password is disabled
 ;
 @Create=Create
 @CreateDocument=Create document
@@ -76,4 +84,5 @@
 @Error.DuplicateCode=Duplicate code
 @Error.Exception=Something went wrong as expected :-(
 @Error.FileFormatException=File contains corrupted data
+@Error.DataReadOnly=The database is read-only
 

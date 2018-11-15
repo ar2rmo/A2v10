@@ -108,7 +108,11 @@ namespace A2v10.Xaml
 	public class RenderContext
 	{
 		public String RootId { get; set; }
+		public String Path { get; set; }
+
 		public TextWriter Writer { get; private set; }
+
+		public Boolean IsDebugConfiguration { get; }
 
 		private Stack<GridRowCol> _stackGrid = new Stack<GridRowCol>();
 		private Stack<ScopeElem> _stackScope = new Stack<ScopeElem>();
@@ -126,6 +130,7 @@ namespace A2v10.Xaml
 			_dataModel = ri.DataModel;
 			_localizer = ri.Localizer;
 			_currentLocale = ri.CurrentLocale;
+			IsDebugConfiguration = ri.IsDebugConfiguration;
 		}
 
 		public Boolean IsDialog => _root is Dialog;
@@ -139,6 +144,13 @@ namespace A2v10.Xaml
 					return _dataModel.IsReadOnly;
 				return false;
 			}
+		}
+
+		public Object CalcDataModelExpression(String expression)
+		{
+			if (_dataModel == null)
+				return null;
+			return _dataModel.CalcExpression<Object>(expression);
 		}
 
 		public void RenderSpace()

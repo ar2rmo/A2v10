@@ -2,13 +2,14 @@
 <html lang="$(Locale)">
 <head>
 	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="description" content="$(Description)" />
 	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
 	<meta name="format-detection" content="telephone=no" />
+	<meta name="google" content="notranslate" />
 	<meta name="rootUrl" content="$(RootUrl)" />
 	<meta name="helpUrl" content="$(HelpUrl)" />
-	<meta name="google" content="notranslate" />
+	<meta name="theme-color" content="#4d6082" />
 	<title></title>
 	<link href="/css/$(Theme).min.css?v=$(Build)" rel="stylesheet" />
 	$(AssetsStyleSheets)
@@ -19,7 +20,7 @@
 	<div id="shell" class="shell" v-cloak>
 		<header class="header">
 			<div class="h-block">
-				<!--<i class="bowtie-user"></i>-->
+				<!--<i class="ico-user"></i>-->
 				<a class="app-title" href='/' @click.prevent="root" v-text="title" tabindex="-1"></a>
 				<span class="app-subtitle" v-text="subtitle"></span>
 			</div>
@@ -29,11 +30,9 @@
 			<a class="nav-admin middle" v-if="hasFeedback" tabindex="-1" @click.prevent="showFeedback" title="@[Feedback]" :class="{open: feedbackVisible}"><i class="ico ico-comment-outline"></i></a>
 			<a class="nav-admin" v-if="userIsAdmin" href="/admin/" tabindex="-1"><i class="ico ico-gear-outline"></i></a>
 			<div class="dropdown dir-down" v-dropdown>
-				<button class="btn" toggle><i class="ico ico-user"></i> $(PersonName)<span class="caret"></span></button>
+				<button class="btn user-name" toggle title="$(PersonName)"><i class="ico ico-user"></i> <span id="layout-person-name" class="person-name">$(PersonName)</span><span class="caret"></span></button>
 				<div class="dropdown-menu menu down-right">
-					<!--
-					<a @click.prevent="profile" class="dropdown-item" tabindex="-1"><i class="ico ico-user"></i> @[Profile]</a>
-					-->
+					<a v-for="(itm, itmIndex) in profileItems" @click.prevent="doProfileMenu(itm)" class="dropdown-item" tabindex="-1"><i class="ico" :class="'ico-' + itm.icon"></i> <span v-text="itm.title" :key="itmIndex"></span></a>
 					<a @click.prevent="changePassword" class="dropdown-item" tabindex="-1"><i class="ico ico-access"></i> @[ChangePassword]</a>
 					<template v-if="userIsAdmin">
 						<div class="divider"></div>
@@ -60,11 +59,11 @@
 				<a v-for="(lnk, lx) in appLinks" :href="lnk.url" :key="lx" @click.prevent="appLink(lnk)" tabindex="-1" v-text="lnk.title">@[About]</a>
 			</div>
 
-
 			<span class="divider"></span>
 
-			@[Version]&nbsp;
-			<span v-text="version"></span>
+			<span class="version-info">
+				@[Version] <span v-text="version"></span>
+			</span>
 			<div class="debug-btn dropdown dir-up" v-dropdown v-if="isDebug">
 				<button class="btn btn-debug" toggle>@[Debug]<span class="caret up"></span></button>
 				<div class="dropdown-menu menu up-right">
@@ -72,8 +71,8 @@
 					<a @click.prevent="debugTrace" class="dropdown-item" tabindex="-1"><i class="ico ico-chart-stacked-line"></i> @[Profiling]</a>
 					<div class="divider"></div>
 					<!--
-					<a @click.prevent="debugOptions" class="dropdown-item"><i class="ico ico-wrench"></i> Настройка</a>
-					-->
+				<a @click.prevent="debugOptions" class="dropdown-item"><i class="ico ico-wrench"></i> Настройка</a>
+				-->
 					<label class="checkbox">
 						<input type="checkbox" v-model="traceEnabled" />
 						<span>@[Tracing]</span>
@@ -81,12 +80,13 @@
 				</div>
 			</div>
 		</footer>
+		<a2-iframe-target></a2-iframe-target>
 	</div>
 	<script type="text/javascript" src="/scripts/vue.$(Minify)js?v=$(Build)"></script>
 	<script type="text/javascript" src="/scripts/d3.min.js?v=$(Build)"></script>
 	<script type="text/javascript" src="/scripts/locale-$(Locale).min.js?v=$(Build)"></script>
 	<script type="text/javascript" src="/scripts/main.js?v=$(Build)"></script>
-	<script type="text/javascript" src="/shell/script"></script>
 	$(AssetsScripts)
+	<script type="text/javascript" src="/shell/script"></script>
 </body>
 </html>

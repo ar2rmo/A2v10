@@ -64,8 +64,11 @@ namespace A2v10.Runtime
 		}
 
 		public Boolean IsMultiTenant => false;
+		public Boolean IsRegistrationEnabled => false;
+		public String UseClaims => null;
 		public Int32? TenantId { get; set; }
 		public String CatalogDataSource => null;
+		public String TenantDataSource => null;
 
 		public String AppVersion => AppInfo.MainAssembly.Version;
 		public String AppBuild => AppInfo.MainAssembly.Build;

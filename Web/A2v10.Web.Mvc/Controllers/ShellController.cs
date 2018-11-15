@@ -2,7 +2,6 @@
 
 using System;
 using System.Web.Mvc;
-using System.Threading;
 using System.Threading.Tasks;
 
 using System.Dynamic;
@@ -12,18 +11,18 @@ using System.Collections.Generic;
 using System.IO;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Web;
 
 using Microsoft.AspNet.Identity;
+using Microsoft.AspNet.Identity.Owin;
 
 using Newtonsoft.Json;
+
 using A2v10.Infrastructure;
 using A2v10.Request;
-using A2v10.Web.Mvc.Identity;
+using A2v10.Web.Identity;
 using A2v10.Web.Mvc.Filters;
-using A2v10.Web.Mvc.Models;
 using A2v10.Request.Models;
-using System.Web;
-using Microsoft.AspNet.Identity.Owin;
 
 namespace A2v10.Web.Mvc.Controllers
 {
@@ -87,7 +86,10 @@ namespace A2v10.Web.Mvc.Controllers
 
 			if (pathInfo.StartsWith("shell"))
 			{
-				await Shell(pathInfo, pathInfo.Contains("admin"));
+				Boolean adminShell = pathInfo.Contains("admin");
+				if (adminShell)
+					_baseController.Admin = true;
+				await Shell(pathInfo, adminShell);
 			}
 			else if (pathInfo.StartsWith("_page/"))
 			{
@@ -114,6 +116,10 @@ namespace A2v10.Web.Mvc.Controllers
 			{
 				await Image("/" + pathInfo); // with _image prefix
 			}
+			else if (pathInfo.StartsWith("_attachment/"))
+			{
+				await Attachment("/" + pathInfo); // with _attachment/ prefix
+			}
 			else if (pathInfo.StartsWith("_upload/"))
 			{
 				await Upload("/" + pathInfo); // with _image prefix
@@ -122,9 +128,17 @@ namespace A2v10.Web.Mvc.Controllers
 			{
 				await Export("/" + pathInfo);
 			}
+			else if (pathInfo.StartsWith("_iframe/"))
+			{
+				await IFrame("/" + pathInfo);
+			}
 			else if (pathInfo.StartsWith("file/"))
 			{
 				LoadFile(pathInfo.Substring(5));
+			}
+			else if (pathInfo.StartsWith("fragment/"))
+			{
+				LoadFragment(pathInfo.Substring(9));
 			}
 			else if (pathInfo.StartsWith("_static_image/"))
 			{
@@ -145,7 +159,7 @@ namespace A2v10.Web.Mvc.Controllers
 				{
 					{ "$(RootUrl)", RootUrl },
 					{ "$(HelpUrl)", _baseController.Host.HelpUrl },
-					{ "$(PersonName)", User.Identity.GetUserPersonName() },
+					{ "$(PersonName)", Server.HtmlEncode(User.Identity.GetUserPersonName()) },
 					{ "$(Theme)", _baseController.Host.Theme },
 					{ "$(Build)", _baseController.Host.AppBuild },
 					{ "$(Locale)", _baseController.CurrentLang },
@@ -167,9 +181,7 @@ namespace A2v10.Web.Mvc.Controllers
 				Response.ContentType = "text/javascript";
 				ExpandoObject loadPrms = new ExpandoObject();
 				loadPrms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
-				loadPrms.Set("UserId", UserId);
-				if (_baseController.Host.IsMultiTenant)
-					loadPrms.Set("TenantId", TenantId);
+				SetSqlQueryParams(loadPrms);
 				await _baseController.RenderModel(pathInfo, loadPrms, Response.Output);
 			}
 			catch (Exception ex)
@@ -188,15 +200,14 @@ namespace A2v10.Web.Mvc.Controllers
 				Response.ContentType = "text/html";
 				ExpandoObject loadPrms = new ExpandoObject();
 				loadPrms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
-				loadPrms.Set("UserId", UserId);
-				if (_baseController.Host.IsMultiTenant)
-					loadPrms.Set("TenantId", TenantId);
 				if (pathInfo.StartsWith("app/"))
 				{
+					SetUserTenantToParams(loadPrms); // without claims
 					await _baseController.RenderApplicationKind(kind, pathInfo, loadPrms, Response.Output);
 				}
 				else
 				{
+					SetSqlQueryParams(loadPrms);
 					await _baseController.RenderElementKind(kind, pathInfo, loadPrms, Response.Output);
 				}
 			}
@@ -224,11 +235,10 @@ namespace A2v10.Web.Mvc.Controllers
 			Response.ContentType = "application/json";
 			try
 			{
-
 				using (var tr = new StreamReader(Request.InputStream))
 				{
 					String json = tr.ReadToEnd();
-					await _baseController.Data(command, TenantId, UserId, json, Response.Output);
+					await _baseController.Data(command, SetSqlQueryParams, json, Response);
 				}
 			}
 			catch (Exception ex)
@@ -253,6 +263,55 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 		}
 
+		void SetQueryStringAndSqlQueryParams(ExpandoObject prms)
+		{
+			SetUserTenantToParams(prms);
+			SetClaimsToParams(prms);
+			prms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
+		}
+
+		void SetSqlQueryParams(ExpandoObject prms)
+		{
+			SetUserTenantToParams(prms);
+			SetClaimsToParams(prms);
+		}
+
+		void SetUserTenantToParams(ExpandoObject prms)
+		{
+			prms.Set("UserId", UserId);
+			if (_baseController.Host.IsMultiTenant)
+				prms.Set("TenantId", TenantId);
+		}
+
+		void SetClaimsToParams(ExpandoObject prms)
+		{
+			if (_baseController.Admin)
+				return; // no claims for admin application
+			String claims = _baseController.Host.UseClaims;
+			if (String.IsNullOrEmpty(claims))
+				return;
+			foreach (var s in claims.Split(','))
+			{
+				var strClaim = s.Trim().ToLowerInvariant();
+				prms.Set(strClaim.ToPascalCase(), User.Identity.GetUserClaim(strClaim));
+			}
+		}
+
+		async Task IFrame(String path)
+		{
+			// HTTP GET
+			try
+			{
+				ExpandoObject loadPrms = new ExpandoObject();
+				SetSqlQueryParams(loadPrms);
+				await _baseController.RenderEUSignIFrame(Response.Output, path, loadPrms);
+			}
+			catch (Exception ex)
+			{
+				_baseController.WriteHtmlException(ex, Response.Output);
+			}
+		}
+
 		async Task Export(String path)
 		{
 			// HTTP GET
@@ -261,9 +320,7 @@ namespace A2v10.Web.Mvc.Controllers
 				ExpandoObject prms = new ExpandoObject();
 				ExpandoObject loadPrms = new ExpandoObject();
 				loadPrms.Append(_baseController.CheckPeriod(Request.QueryString), toPascalCase: true);
-				loadPrms.Set("UserId", UserId);
-				if (_baseController.Host.IsMultiTenant)
-					loadPrms.Set("TenantId", TenantId);
+				SetSqlQueryParams(loadPrms);
 				await _baseController.Export(path, TenantId, UserId, loadPrms, Response);
 			}
 			catch (Exception ex)
@@ -295,6 +352,49 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 		}
 
+		void LoadFragment(String path)
+		{
+			// HTTP GET
+			try
+			{
+				Int32 ix = path.LastIndexOf('-');
+				if (ix != -1)
+					path = path.Substring(0, ix) + "." + path.Substring(ix + 1);
+				path += $".{_baseController.CurrentLang}.html";
+				String fullPath = _baseController.Host.MakeFullPath(false, "_fragments/" + path, "");
+				if (!System.IO.File.Exists(fullPath))
+					throw new FileNotFoundException($"File not found '{path}'");
+				Response.ContentType = "text/html";
+				using (var stream = System.IO.File.OpenRead(fullPath))
+				{
+					stream.CopyTo(Response.OutputStream);
+				}
+			}
+			catch (Exception ex)
+			{
+				_baseController.WriteHtmlException(ex, Response.Output);
+			}
+		}
+
+
+		async Task Attachment(String url)
+		{
+			try
+			{
+				AttachmentInfo info = await _baseController.DownloadAttachment(url, SetSqlQueryParams);
+				if (info == null)
+					return;
+				Response.ContentType = info.Mime;
+				if (info.Stream == null)
+					return;
+				Response.BinaryWrite(info.Stream);
+			}
+			catch (Exception ex)
+			{
+				_baseController.WriteHtmlException(ex, Response.Output);
+			}
+		}
+
 		async Task Image(String url)
 		{
 			if (Request.HttpMethod == "POST")
@@ -303,7 +403,7 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 			else
 			{
-				await LoadAttachment(url);
+				await LoadImage(url);
 			}
 		}
 
@@ -317,7 +417,7 @@ namespace A2v10.Web.Mvc.Controllers
 			try
 			{
 				var files = Request.Files;
-				await _baseController.SaveUploads(TenantId, url, files, UserId, Response.Output);
+				await _baseController.SaveUploads(url, files, SetQueryStringAndSqlQueryParams, Response.Output);
 			}
 			catch (Exception ex)
 			{
@@ -325,11 +425,11 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 		}
 
-		async Task LoadAttachment(String url)
+		async Task LoadImage(String url)
 		{
 			try
 			{
-				AttachmentInfo info = await _baseController.Attachment(TenantId, url, UserId);
+				AttachmentInfo info = await _baseController.DownloadAttachment(url, SetSqlQueryParams);
 				if (info == null)
 					return;
 				Response.ContentType = info.Mime;
@@ -401,7 +501,7 @@ namespace A2v10.Web.Mvc.Controllers
 				Boolean isUserAdmin = User.Identity.IsUserAdmin();
 				if (admin && !isUserAdmin)
 					throw new AccessViolationException("The current user is not an administrator");
-				await _baseController.ShellScript(CatalogDataSource, TenantId, UserId, User.Identity.IsUserAdmin(), admin, Response.Output);
+				await _baseController.ShellScript(CatalogDataSource, SetSqlQueryParams, User.Identity.IsUserAdmin(), admin, Response.Output);
 			}
 			catch (Exception ex)
 			{

@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+using System;
 using System.Web;
 using System.Dynamic;
 using System.Threading.Tasks;
@@ -8,20 +10,25 @@ using Microsoft.Owin;
 using Microsoft.AspNet.Identity.Owin;
 
 using A2v10.Infrastructure;
-using A2v10.Web.Mvc.Identity;
+using A2v10.Web.Identity;
 
 namespace A2v10.Web.Mvc.Hooks
 {
 	public class CreateUserHandler : IModelHandler
 	{
-		readonly IApplicationHost _host;
+		private IApplicationHost _host;
 		readonly IOwinContext _context;
 		readonly AppUserManager _userManager;
-		public CreateUserHandler(IApplicationHost host)
+
+		public CreateUserHandler()
 		{
-			_host = host;
 			_context = HttpContext.Current.GetOwinContext();
 			_userManager = _context.GetUserManager<AppUserManager>();
+		}
+
+		public void Inject(IApplicationHost host)
+		{
+			_host = host;
 		}
 
 		public async Task AfterSave(Object beforeData, Object afterData)
@@ -42,6 +49,8 @@ namespace A2v10.Web.Mvc.Hooks
 				throw new SecurityException("Set password failed." + errors);
 			}
 			var user = await _userManager.FindByIdAsync(userId);
+			user.EmailConfirmed = true;
+			user.SetModified(UserModifiedFlag.EmailConfirmed);
 			await _userManager.UpdateAsync(user);
 		}
 	}

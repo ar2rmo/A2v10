@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180424-7163*/
+/*20181104-7343*/
 /*components/textbox.js*/
 
 (function () {
@@ -9,44 +9,49 @@
 	const mask = require('std:mask');
 
 	let textBoxTemplate =
-		`<div :class="cssClass()">
-	<label v-if="hasLabel" v-text="label" />
+`<div :class="cssClass()">
+	<label v-if="hasLabel"><span v-text="label"/><slot name="hint"/></label>
 	<div class="input-group">
-		<input ref="input" :type="controlType" v-focus autocomplete="off"
+		<input v-if="password" type="password" style="display:none" autocomplete="off"/>
+		<input ref="input" :type="controlType" v-focus autocomplete="off" :id="testId"
 			v-bind:value="modelValue" 
-					v-on:change="onChange($event.target.value)" 
-					v-on:input="onInput($event.target.value)"
-				:class="inputClass" :placeholder="placeholder" :disabled="disabled" :tabindex="tabIndex" :maxlength="maxLength"/>
+				v-on:change="onChange($event.target.value)" 
+				v-on:input="onInput($event.target.value)"
+				v-on:keypress="onKey($event)"
+				:class="inputClass" :placeholder="placeholder" :disabled="disabled" :tabindex="tabIndex" :maxlength="maxLength" :spellcheck="spellCheck"/>
 		<slot></slot>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 	</div>
+	<slot name="popover"></slot>
 	<span class="descr" v-if="hasDescr" v-text="description"></span>
 </div>
 `;
 
 	let textAreaTemplate =
-		`<div :class="cssClass()">
-	<label v-if="hasLabel" v-text="label" />
+`<div :class="cssClass()">
+	<label v-if="hasLabel"><span v-text="label"/><slot name="hint"/></label>
 	<div class="input-group">
-		<textarea v-focus v-auto-size="autoSize" v-bind:value="modelValue2" 
+		<textarea v-focus v-auto-size="autoSize" v-bind:value="modelValue2" :id="testId"
 			v-on:change="onChange($event.target.value)" 
 			v-on:input="onInput($event.target.value)"
-			:rows="rows" :class="inputClass" :placeholder="placeholder" :disabled="disabled" :tabindex="tabIndex" :maxlength="maxLength"/>
+			:rows="rows" :class="inputClass" :placeholder="placeholder" :disabled="disabled" :tabindex="tabIndex" :maxlength="maxLength" :spellcheck="spellCheck"/>
 		<slot></slot>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 	</div>
+	<slot name="popover"></slot>
 	<span class="descr" v-if="hasDescr" v-text="description"></span>
 </div>
 `;
 
 	let staticTemplate =
-		`<div :class="cssClass()">
-	<label v-if="hasLabel" v-text="label" />
+`<div :class="cssClass()">
+	<label v-if="hasLabel"><span v-text="label"/><slot name="hint"/></label>
 	<div class="input-group static">
-		<span v-focus v-text="textProp" :class="inputClass" :tabindex="tabIndex"/>
+		<span v-focus v-text="textProp" :class="inputClass" :tabindex="tabIndex" :id="testId"/>
 		<slot></slot>
 		<validator :invalid="invalid" :errors="errors" :options="validatorOptions"></validator>
 	</div>
+	<slot name="popover"></slot>
 	<span class="descr" v-if="hasDescr" v-text="description"></span>
 </div>
 `;
@@ -71,11 +76,13 @@
 			itemToValidate: Object,
 			propToValidate: String,
 			placeholder: String,
-			password: Boolean
+			password: Boolean,
+			number: Boolean,
+			spellCheck: { type: Boolean, default: undefined }
 		},
 		computed: {
 			controlType() {
-				return this.password ? "password" : "text";
+				return this.password ? 'password' : 'text';
 			}
 		},
 		methods: {
@@ -84,8 +91,9 @@
 					this.item[this.prop] = mask.getUnmasked(this.mask, value);
 				else
 					this.item[this.prop] = utils.parse(value, this.dataType);
-				if (this.$refs.input.value !== this.modelValue) {
-					this.$refs.input.value = this.modelValue;
+				let mv = this.modelValue;
+				if (this.$refs.input.value !== mv) {
+					this.$refs.input.value = mv;
 					this.$emit('change', this.item[this.prop]);
 				}
 			},
@@ -96,6 +104,13 @@
 			onChange(value) {
 				if (this.updateTrigger !== 'input')
 					this.updateValue(value);
+			},
+			onKey(event) {
+				if (!this.number) return;
+				if (event.charCode < 48 || event.charCode > 57) {
+					event.preventDefault();
+					event.stopPropagation();
+				}
 			}
 		}
 	});
@@ -114,7 +129,8 @@
 			propToValidate: String,
 			placeholder: String,
 			autoSize: Boolean,
-			rows: Number
+			rows: Number,
+			spellCheck: { type: Boolean, default:undefined }
 		},
 		computed: {
 			modelValue2() {

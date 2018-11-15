@@ -50,6 +50,8 @@ namespace A2v10.Xaml
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
+			if (SkipRender(context))
+				return;
 			var tb = new TagBuilder("div", "toolbar", IsInGrid);
 			onRender?.Invoke(tb);
 			if (Style != ToolbarStyle.Default)
@@ -68,13 +70,21 @@ namespace A2v10.Xaml
 				return;
 			}
 			List<UIElementBase> rightList = new List<UIElementBase>();
-			// Те, что влево и не установлены
+
+			Boolean bFirst = true;
+
 			foreach (var ch in Children)
 			{
 				if (GetAlgin(ch) == ToolbarAlign.Right)
 					rightList.Add(ch);
 				else
-					ch.RenderElement(context);
+				{
+					if (bFirst)
+						ch.RenderElement(context, (tag) => tag.AddCssClass("first-elem"));
+					else
+						ch.RenderElement(context);
+					bFirst = false;
+				}
 			}
 			if (rightList.Count == 0)
 				return;

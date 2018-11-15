@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
 using System;
 using System.Web;
@@ -10,20 +10,25 @@ using Microsoft.Owin;
 using Microsoft.AspNet.Identity.Owin;
 
 using A2v10.Infrastructure;
-using A2v10.Web.Mvc.Identity;
+using A2v10.Web.Identity;
 
 namespace A2v10.Web.Mvc.Hooks
 {
 	public class SetPasswordHandler : IModelHandler
 	{
-		readonly IApplicationHost _host;
+		IApplicationHost _host;
 		readonly IOwinContext _context;
 		readonly AppUserManager _userManager;
-		public SetPasswordHandler(IApplicationHost host)
+
+		public SetPasswordHandler()
 		{
-			_host = host;
 			_context = HttpContext.Current.GetOwinContext();
 			_userManager = _context.GetUserManager<AppUserManager>();
+		}
+
+		public void Inject(IApplicationHost host)
+		{
+			_host = host;
 		}
 
 		public async Task AfterSave(Object beforeData, Object afterData)

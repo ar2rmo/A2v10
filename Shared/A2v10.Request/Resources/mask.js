@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180603-7206*/
+/*20180821-7279*/
 /* services/mask.js */
 
 function maskTool() {
@@ -56,7 +56,7 @@ function maskTool() {
 
 		function nextValueChar() {
 			let ch;
-			while (true) {
+			for (; ;) {
 				ch = value[j];
 				if (!ch) return PLACE_CHAR;
 				// TODO: this is for digits only!
@@ -65,7 +65,6 @@ function maskTool() {
 					return ch;
 				}
 			}
-			return PLACE_CHAR;
 		}
 
 		let ch = nextValueChar();
@@ -77,10 +76,10 @@ function maskTool() {
 			}
 			else if (isMaskChar(mc)) {
 				str += ch;
-				ch = nextValueChar()
+				ch = nextValueChar();
 			} else {
 				str += mc;
-				if (mc == ch)
+				if (mc === ch)
 					ch = nextValueChar();
 			}
 		}
@@ -341,4 +340,4 @@ function maskTool() {
 		evt.initEvent('change', false, true);
 		input.dispatchEvent(evt);
 	}
-};
+}

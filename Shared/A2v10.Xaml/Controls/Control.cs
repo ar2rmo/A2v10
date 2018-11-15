@@ -7,20 +7,16 @@ namespace A2v10.Xaml
 	public abstract class Control : UIElement
 	{
 		public Boolean Block { get; set; }
-
 		public String Label { get; set; }
-
 		public String Description { get; set; }
-
 		public Boolean Required { get; set; }
-
 		public Boolean Disabled { get; set; }
-
 		public Int32 TabIndex { get; set; }
-
 		public Length Width { get; set; }
-
 		public Validator Validator { get; set; }
+		public Popover Popover { get; set; }
+		public String TestId { get; set; }
+		public Popover Hint { get; set; }
 
 		Lazy<UIElementCollection> _addOns = new Lazy<UIElementCollection>();
 
@@ -30,6 +26,8 @@ namespace A2v10.Xaml
 		{
 			base.MergeAttributes(tag, context, mode);
 			tag.AddCssClassBool(Block, "block");
+			if (Popover != null)
+				tag.AddCssClass("with-popover");
 			AddControlAttributes(tag, context);
 			if (TabIndex != 0 && mode.HasFlag(MergeAttrMode.TabIndex))
 				tag.MergeAttribute(":tab-index", TabIndex.ToString());
@@ -38,6 +36,8 @@ namespace A2v10.Xaml
 				tag.MergeStyle("width", Width.Value);
 				tag.AddCssClass("with-width");
 			}
+			if (!String.IsNullOrEmpty(TestId) && context.IsDebugConfiguration)
+				tag.MergeAttribute("test-id", TestId);
 		}
 
 		private void AddControlAttributes(TagBuilder tag, RenderContext context)
@@ -53,6 +53,8 @@ namespace A2v10.Xaml
 
 		internal void RenderAddOns(RenderContext context)
 		{
+			RenderPopover(context);
+			RenderHint(context);
 			if (!_addOns.IsValueCreated)
 				return;
 			foreach (var ctl in AddOns)
@@ -64,6 +66,33 @@ namespace A2v10.Xaml
 					MergeDisabled(tag, context, nativeControl: true);
 				});
 			}
+		}
+
+		internal void RenderPopover(RenderContext context)
+		{
+			if (Popover == null)
+				return;
+			var tag = new TagBuilder("template");
+			tag.MergeAttribute("slot", "popover");
+			tag.RenderStart(context);
+			Popover.RenderElement(context);
+			tag.RenderEnd(context);
+		}
+
+		internal void RenderHint(RenderContext context)
+		{
+			if (Hint == null)
+				return;
+			if (Hint.Icon == Icon.NoIcon)
+				Hint.Icon = Icon.Help;
+			var tag = new TagBuilder("template");
+			tag.MergeAttribute("slot", "hint");
+			tag.RenderStart(context);
+			Hint.RenderElement(context, (t) =>
+			{
+				t.AddCssClass("hint");
+			});
+			tag.RenderEnd(context);
 		}
 
 		internal virtual void MergeDisabled(TagBuilder tag, RenderContext context, Boolean nativeControl = false)
@@ -81,13 +110,28 @@ namespace A2v10.Xaml
 			}
 		}
 
-		internal void CheckDisabledModel(RenderContext context)
+		internal virtual Boolean SkipCheckReadOnly()
 		{
-			if (context.IsDataModelIsReadOnly)
+			return false;
+		}
+
+		internal Boolean CheckDisabledModel(RenderContext context)
+		{
+			var rm = GetRenderMode(context);
+			if (rm == RenderMode.Hide)
+				return true;
+			if (rm == RenderMode.Debug)
+				return context.IsDebugConfiguration ? false : true;
+			if (rm == RenderMode.Show)
+				return false; // skip read only
+			if (context.IsDataModelIsReadOnly || rm == RenderMode.ReadOnly)
 			{
+				if (SkipCheckReadOnly())
+					return false;
 				Disabled = true;
 				RemoveBinding(nameof(Disabled));
 			}
+			return false;
 		}
 	}
 }

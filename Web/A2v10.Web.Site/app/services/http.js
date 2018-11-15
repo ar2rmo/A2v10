@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180701-7237
+// 20180903-7300
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -14,7 +14,8 @@ app.modules['std:http'] = function () {
 		get: get,
 		post: post,
 		load: load,
-		upload: upload
+		upload: upload,
+		localpost
 	};
 
 	function doRequest(method, url, data, raw) {
@@ -28,14 +29,17 @@ app.modules['std:http'] = function () {
 						resolve(xhr.response);
 						return;
 					}
-					let ct = xhr.getResponseHeader('content-type');
+					let ct = xhr.getResponseHeader('content-type') || '';
 					let xhrResult = xhr.responseText;
-					if (ct.indexOf('application/json') !== -1)
-						xhrResult = JSON.parse(xhr.responseText);
+					if (ct && ct.indexOf('application/json') !== -1)
+						xhrResult = xhr.responseText ? JSON.parse(xhr.responseText) : '';
 					resolve(xhrResult);
 				}
 				else if (xhr.status === 255) {
-					reject(xhr.responseText || xhr.statusText);
+					if (raw)
+						reject(xhr.statusText); // response is blob!
+					else
+						reject(xhr.responseText || xhr.statusText);
 				}
 				else
 					reject(xhr.statusText);
@@ -54,8 +58,8 @@ app.modules['std:http'] = function () {
 		});
 	}
 
-	function get(url) {
-		return doRequest('GET', url);
+	function get(url, raw) {
+		return doRequest('GET', url, null, raw);
 	}
 
 	function post(url, data, raw) {
@@ -68,7 +72,7 @@ app.modules['std:http'] = function () {
 			xhr.onload = function (response) {
 				eventBus.$emit('endRequest', url);
 				if (xhr.status === 200) {
-					let xhrResult = JSON.parse(xhr.responseText);
+					let xhrResult = xhr.responseText ? JSON.parse(xhr.responseText) : '';
 					resolve(xhrResult);
 				} else if (xhr.status === 255) {
 					reject(xhr.responseText || xhr.statusText);
@@ -89,7 +93,7 @@ app.modules['std:http'] = function () {
 		let fc = selector ? selector.firstElementChild : null;
 		if (fc && fc.__vue__) {
 			fc.__vue__.$destroy();
-		};
+		}
 		return new Promise(function (resolve, reject) {
 			doRequest('GET', url)
 				.then(function (html) {
@@ -124,6 +128,37 @@ app.modules['std:http'] = function () {
 					alert(error);
 					resolve(false);
 				});
+		});
+	}
+
+	function localpost(command, data) {
+		return new Promise(function (resolve, reject) {
+			let xhr = new XMLHttpRequest();
+
+			xhr.onload = function (response) {
+				if (xhr.status === 200) {
+					let ct = xhr.getResponseHeader('content-type');
+					let xhrResult = xhr.responseText;
+					if (ct.indexOf('application/json') !== -1)
+						xhrResult = JSON.parse(xhr.responseText);
+					resolve(xhrResult);
+				}
+				else if (xhr.status === 255) {
+					reject(xhr.responseText || xhr.statusText);
+				}
+				else {
+					reject(xhr.statusText);
+				}
+			};
+			xhr.onerror = function (response) {
+				reject(response);
+			};
+			let url = "http://127.0.0.1:64031/" + command;
+			xhr.open("POST", url, true);
+			xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+			xhr.setRequestHeader('Accept', 'text/plain');
+			xhr.setRequestHeader('Content-Type', 'text/plain');
+			xhr.send(data);
 		});
 	}
 };

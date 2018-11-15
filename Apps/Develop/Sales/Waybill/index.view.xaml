@@ -11,6 +11,8 @@
 			<Button Icon="Add" Tip="Создать накладную" Command="{BindCmd Create, Url={StaticResource OpenUrl}}">Создать</Button>
 			<Button Icon="ArrowOpen" Command="{BindCmd OpenSelected, Url={StaticResource OpenUrl}, Argument={Bind Documents}}">Открыть</Button>
 			<Button Icon="Delete" Command="{BindCmd DbRemoveSelected, Argument={Bind Documents}, Confirm='Удалить документ?'}">Удалить</Button>
+			<Button Icon="Workflow1" Command="{BindCmd ExecuteSelected, CommandName='startWorkflow', Argument={Bind Documents}}">Workflow</Button>
+			<Button Icon="Attach" Command="{BindCmd ExecuteSelected, CommandName='attachReport', Argument={Bind Documents}}">Attach report</Button>
 			<Separator />
 			<TextBox Label="Контрагент:" Value="{Bind Parent.Filter.Agent.Name}">
 				<TextBox.AddOns>
@@ -26,11 +28,24 @@
 			-->
 			<Separator />
 			<Button Icon="Reload" Command="{BindCmd Reload}" Tip="Обновить данные">Обновить</Button>
+			<Button Icon="MessageOutline" Tip="Подтвердить телефон" Command="{BindCmd Dialog, Action=Show, Url='/sales/waybill/confirmPhone'}">Подтвердить телефон</Button>
 			<!--
 			<Button Icon="Download" Tip="Download"/>
 			<Code Content="{Bind Parent.Filter}"></Code>
 			<CheckBox Label="Show column" Value="{Bind Root.$$ColumnVisible}"/>
 			-->
+			<ComboBox Value="{Bind Parent.Grouping.GroupBy}">
+				<ComboBoxItem Content="Без группировки" Value=""/>
+				<ComboBoxItem Content="По контрагентам" Value="Agent.Name"/>
+				<ComboBoxItem Content="По датам" Value="Date"/>
+				<ComboBoxItem Content="По контрагентам + по датам" Value="Agent.Name-Date"/>
+			</ComboBox>
+			<!--
+			<Code Content="{Bind Documents.$ModelInfo}"></Code>
+			-->
+			<Button Icon="ArrowOpen" Content="Открыть во фрейме" Command="{BindCmd OpenSelectedFrame, Argument={Bind Documents}, Url='/sales/waybill/edit'}"/>
+			<Button Icon="FileSignature" Content="Подписать" Command="{BindCmd Dialog, Action=Show, Argument={Bind Documents.$selected.Attachments[0]}, Url='/Sales/Waybill/EUSign'}" />
+			<Button Icon="Check" Content="Проверить подпись" Command="{BindCmd Dialog, Action=Show, Argument={Bind Documents.$selected.Attachments[0]}, Url='/Sales/Waybill/CheckEUSign'}" />
 		</Toolbar>
 	</Page.Toolbar>
 	<Page.CollectionView>
@@ -45,10 +60,11 @@
 	<Page.Pager>
 		<Pager Source="{Bind Parent.Pager}" />
 	</Page.Pager>
+	<!--="{Bind Parent.GroupBy}-->
 	<DataGrid ItemsSource="{Bind Parent.ItemsSource}" Hover="True" HeadersVisibility="Column"
 				Striped="True" Sort="True" GridLines="Vertical" FixedHeader="True"
 				DoubleClick="{BindCmd OpenSelected, Url={StaticResource OpenUrl}, Argument={Bind Documents}}"
-				MarkerStyle="Both" Mark="{Bind $Mark}">
+				MarkerStyle="Both" Mark="{Bind $Mark}" GroupBy="{Bind Parent.Grouping.GroupBy}">
 		<DataGridColumn Header="Код" Content="{Bind Id}" Align="Right" Fit="True"  Wrap="NoWrap"
 			Command="{BindCmd Open, Url={StaticResource OpenUrl}}" Icon="{Bind $Icon}"/>
 		<DataGridColumn Header="Дата" Content="{Bind Date, DataType=Date}" Align="Center" Fit="True" Wrap="NoWrap"/>
@@ -60,6 +76,13 @@
 		<DataGridColumn Header="Склад" Content="{Bind DepFrom.Name}" />
 		<DataGridColumn Header="Сумма" Content="{Bind Sum, DataType=Currency}" Align="Right" Fit="True" Wrap="NoWrap"/>
 		<DataGridColumn Header="Примечание" Content="{Bind Memo}"/>
+		<DataGridColumn Header="" Fit="True">
+			<CommandBar If="{Bind !Attachments.$isEmpty}">
+				<Repeater ItemsSource="{Bind Attachments}">
+					<Button Icon="FilePreview" Command="{BindCmd Attachment, Url='/Sales/Waybill/Attachment', Argument={Bind}, Export=False, NewWindow=True}" />
+				</Repeater>
+			</CommandBar>
+		</DataGridColumn>
 		<!--
 		<DataGridColumn Header="Dynamic" Content="{Bind Memo}" If="{Bind Root.$$ColumnVisible}" />
 		-->

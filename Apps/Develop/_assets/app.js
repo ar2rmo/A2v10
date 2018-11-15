@@ -1,7 +1,5 @@
 ﻿/* application scripts here */
 
-/*
 (function() {
-
 })();
-*/
+

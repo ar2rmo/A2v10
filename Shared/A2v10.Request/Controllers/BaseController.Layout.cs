@@ -12,7 +12,6 @@ using Newtonsoft.Json;
 using A2v10.Request.Properties;
 using A2v10.Infrastructure;
 using A2v10.Data.Interfaces;
-using System.Text.RegularExpressions;
 using A2v10.Request.Models;
 
 namespace A2v10.Request
@@ -25,22 +24,22 @@ namespace A2v10.Request
 			StringBuilder sb = new StringBuilder(_localizer.Localize(null, layout));
 			foreach (var p in prms)
 				sb.Replace(p.Key, p.Value);
-			sb.Replace("$(AssetsStyleSheets)", AppStyleSheetsLink);
+			sb.Replace("$(AssetsStyleSheets)", _host.AppStyleSheetsLink("shell"));
 			sb.Replace("$(AssetsScripts)", AppScriptsLink);
 			writer.Write(sb.ToString());
 		}
 
-		public async Task ShellScript(String dataSource, Int32 tenantId, Int64 userId, Boolean userAdmin, Boolean bAdmin, TextWriter writer)
+		public async Task ShellScript(String dataSource, Action<ExpandoObject> setParams, Boolean userAdmin, Boolean bAdmin, TextWriter writer)
 		{
 			String shell = bAdmin ? Resources.shellAdmin : Resources.shell;
 
 			ExpandoObject loadPrms = new ExpandoObject();
-			loadPrms.Set("UserId", userId);
-			if (_host.IsMultiTenant)
-				loadPrms.Set("TenantId", tenantId);
+			setParams?.Invoke(loadPrms);
 
 			String proc = bAdmin ? "a2admin.[Menu.Admin.Load]" : "a2ui.[Menu.User.Load]";
 			IDataModel dm = await _dbContext.LoadModelAsync(dataSource, proc, loadPrms);
+
+			SetUserStatePermission(dm);
 
 			String jsonMenu = JsonConvert.SerializeObject(dm.Root.RemoveEmptyArrays(), BaseController.StandardSerializerSettings);
 
@@ -53,21 +52,11 @@ namespace A2v10.Request
 			writer.Write(sb.ToString());
 		}
 
-		String AppStyleSheetsLink
+		void SetUserStatePermission(IDataModel model)
 		{
-			get
-			{
-				// TODO _host AssestsDistionary
-				var fp = _host.MakeFullPath(Admin, "_assets", "");
-				if (!Directory.Exists(fp))
-					return String.Empty;
-				foreach (var f in Directory.EnumerateFiles(fp, "*.css"))
-				{
-					// at least one file
-					return $"<link  href=\"/shell/appstyles\" rel=\"stylesheet\" />";
-				}
-				return String.Empty;
-			}
+			if (_userStateManager == null)
+				return;
+			_userStateManager.SetReadOnly(model.Eval<Boolean>("UserState.ReadOnly"));
 		}
 
 		String AppScriptsLink

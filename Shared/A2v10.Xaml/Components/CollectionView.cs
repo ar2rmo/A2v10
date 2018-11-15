@@ -25,12 +25,16 @@ namespace A2v10.Xaml
 
 		public SortDescription Sort { get; set; }
 
+		public GroupDescription GroupBy { get; set; }
+
 		public FilterDescription Filter { get; set; }
 
 		public String FilterDelegate { get; set; }
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
+			if (SkipRender(context))
+				return;
 			RenderStart(context, onRender);
 			foreach (var ch in Children)
 				ch.RenderElement(context);
@@ -63,12 +67,18 @@ namespace A2v10.Xaml
 			if (Filter != null)
 			{
 				_outer.MergeAttribute(":initial-filter", Filter.GetJsValue(context));
+				_outer.MergeAttribute(":persistent-filter", Filter.GetPersistentValue(context));
 				if (RunAt == RunMode.Client)
 				{
 					if (String.IsNullOrEmpty(FilterDelegate))
 						throw new XamlException("To filter on the client, a FilterDelegate is required");
 					_outer.MergeAttribute(":filter-delegate", $"$delegate('{FilterDelegate}')");
 				}
+			}
+
+			if (GroupBy != null)
+			{
+				_outer.MergeAttribute(":initial-group", GroupBy.GetJsValue(context));
 			}
 
 			if (PageSize != null)

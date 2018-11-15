@@ -11,8 +11,8 @@ namespace A2v10.Xaml
 	public class Page : RootContainer
 	{
 
-		public UIElement Toolbar { get; set; }
-		public UIElement Taskpad { get; set; }
+		public UIElementBase Toolbar { get; set; }
+		public UIElementBase Taskpad { get; set; }
 		public Pager Pager { get; set; }
 		public String Title { get; set; }
 
@@ -21,6 +21,8 @@ namespace A2v10.Xaml
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
+			if (SkipRender(context))
+				return;
 			TagBuilder page = null;
 			Boolean isGridPage = (Toolbar != null) || (Taskpad != null) || (Pager != null);
 
@@ -74,6 +76,10 @@ namespace A2v10.Xaml
 			else
 				RenderChildren(context);
 
+			var outer = new TagBuilder("div", "page-canvas-outer").RenderStart(context);
+			new TagBuilder("div", "page-canvas").MergeAttribute("id", "page-canvas").Render(context);
+			outer.RenderEnd(context);
+
 			if (CollectionView != null)
 				CollectionView.RenderEnd(context);
 			else
@@ -89,6 +95,7 @@ namespace A2v10.Xaml
 			if (Background != BackgroundStyle.None)
 				tag.AddCssClass("background-" + Background.ToString().ToKebabCase());
 			tag.AddCssClass(CssClass);
+			tag.AddCssClassBoolNo(UserSelect, "user-select");
 		}
 
 		void RenderTitle(RenderContext context)
@@ -102,13 +109,37 @@ namespace A2v10.Xaml
 			}
 		}
 
+		protected override void OnEndInit()
+		{
+			base.OnEndInit();
+			Toolbar?.SetParent(this);
+			Taskpad?.SetParent(this);
+			Pager?.SetParent(this);
+			CollectionView?.SetParent(this);
+		}
+
 		internal override void OnDispose()
 		{
 			base.OnDispose();
 			Toolbar?.OnDispose();
 			Taskpad?.OnDispose();
 			Pager?.OnDispose();
+			CollectionView?.OnDispose();
 		}
 
+		protected override T FindInside<T>()
+		{
+			if (this is T)
+				return this as T;
+			else if (Toolbar is T)
+				return Toolbar as T;
+			else if (CollectionView is T)
+				return CollectionView as T;
+			else if (Taskpad is T)
+				return Taskpad as T;
+			else if (Pager is T)
+				return Pager as T;
+			return null;
+		}
 	}
 }

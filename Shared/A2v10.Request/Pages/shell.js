@@ -1,5 +1,5 @@
 ﻿
-/*20180605-7210*/
+/*20181005-7312*/
 
 (function () {
 
@@ -14,9 +14,9 @@
 			menu: menu.Menu ? menu.Menu[0].Menu : null,
 			newMenu: menu.NewMenu,
 			settingsMenu: menu.SettingsMenu,
-			title: menu.SysParams.AppTitle,
-			subtitle: menu.SysParams.AppSubTitle,
-			sideBarMode: menu.SysParams.SideBarMode,
+			title: menu.SysParams ? menu.SysParams.AppTitle : '',
+			subtitle: menu.SysParams ? menu.SysParams.AppSubTitle : '',
+			sideBarMode: menu.SysParams ? menu.SysParams.SideBarMode : '',
 			userIsAdmin: $(Admin),
 			isDebug: $(Debug),
 			appData: $(AppData)
@@ -30,6 +30,15 @@
 			},
 			hasFeedback() {
 				return this.appData && this.appData.feedback;
+			},
+			profileItems() {
+				return this.appData ? this.appData.profileMenu : null;
+			}
+		},
+		methods: {
+			doProfileMenu(itm) {
+				//console.dir(this);
+				this.navigate(itm.url);
 			}
 		}
 	});

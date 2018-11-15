@@ -8,7 +8,11 @@ namespace A2v10.Xaml
 	{
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
-			new TagBuilder("hr").Render(context, TagRenderMode.SelfClosing);
+			if (SkipRender(context))
+				return;
+			var hr = new TagBuilder("hr", null, IsInGrid);
+			MergeAttributes(hr, context, MergeAttrMode.Visibility | MergeAttrMode.Margin);
+			hr.Render(context, TagRenderMode.SelfClosing);
 		}
 	}
 }

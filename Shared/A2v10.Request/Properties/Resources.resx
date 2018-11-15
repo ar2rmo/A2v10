@@ -124,6 +124,9 @@
   <data name="aboutScript" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Pages\aboutScript.js;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="appLinkScript" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Pages\appLinkScript.js;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
   <data name="appPage" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Pages\appPage.html;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
@@ -138,6 +141,18 @@
   </data>
   <data name="error" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Pages\error.html;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="errorDialog" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Pages\errorDialog.html;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="euSignDialog" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Pages\euSignDialog.html;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="euSignFrame" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Pages\euSignFrame.html;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="euSignFrameScript" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Pages\euSignFrameScript.js;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
   <data name="forgotPassword" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Pages\forgotPassword.html;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
@@ -195,6 +210,9 @@
   </data>
   <data name="simpleScript" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Pages\simpleScript.js;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="standaloneDialogScript" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Pages\standaloneDialogScript.js;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
   <data name="stiReport" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Pages\stiReport.html;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>

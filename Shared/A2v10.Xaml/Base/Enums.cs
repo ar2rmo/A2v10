@@ -14,7 +14,15 @@ namespace A2v10.Xaml
 	public enum TextColorStyle
 	{
 		Default = 0,
-		Gray
+		Gray,
+		Danger
+	}
+
+	public enum FloatMode
+	{
+		None,
+		Left,
+		Right
 	}
 
 	public enum VerticalAlign
@@ -64,7 +72,8 @@ namespace A2v10.Xaml
 	public enum TextSize
 	{
 		Normal,
-		Small
+		Small,
+		Big
 	}
 
 	public enum WrapMode
@@ -78,7 +87,8 @@ namespace A2v10.Xaml
 	public enum AutoSelectMode
 	{
 		None,
-		FirstItem
+		FirstItem,
+		ItemId
 	}
 
 	public enum RowMarkerStyle
@@ -119,11 +129,31 @@ namespace A2v10.Xaml
 		White
 	}
 
+	public enum ShadowStyle
+	{
+		None,
+		Shadow1,
+		Shadow2,
+		Shadow3,
+		Shadow4,
+		Shadow5
+	}
+
+	public enum RenderMode
+	{
+		Show,
+		Hide,
+		ReadOnly,
+		Debug
+	}
+
 	public enum Icon
 	{
 		NoIcon = 0,
 		Access,
 		Add,
+		AddressBook,
+		AddressCard,
 		Alert,
 		Approve,
 		ArrowDown,
@@ -137,7 +167,13 @@ namespace A2v10.Xaml
 		ArrowSort,
 		Attach,
 		Ban,
+		BanRed,
+		Bank,
+		BankAccount,
+		BankUah,
+		BrandExcel,
 		Calendar,
+		Call,
 		ChartArea,
 		ChartBar,
 		ChartColumn,
@@ -146,10 +182,13 @@ namespace A2v10.Xaml
 		ChartStackedArea,
 		ChartStackedBar,
 		ChartStackedLine,
+		Check,
 		ChevronDown,
 		ChevronLeft,
+		ChevronDoubleLeft,
 		ChevronLeftEnd,
 		ChevronRight,
+		ChevronDoubleRight,
 		ChevronRightEnd,
 		ChevronUp,
 		Clear,
@@ -164,6 +203,10 @@ namespace A2v10.Xaml
 		CommentOutline,
 		CommentPrevious,
 		CommentUrgent,
+		CurrencyUah,
+		CurrencyUsd,
+		CurrencyEuro,
+		CurrencyOther,
 		Copy,
 		Cut,
 		Delete,
@@ -184,8 +227,12 @@ namespace A2v10.Xaml
 		Error,
 		ErrorOutline,
 		Exit,
+		Export,
+		ExportExcel,
 		External,
 		Eye,
+		EyeDisabled,
+		EyeDisabledRed,
 		Failure,
 		FailureRed,
 		FailureOutline,
@@ -201,6 +248,8 @@ namespace A2v10.Xaml
 		FileImport,
 		FileLink,
 		FilePreview,
+		FileSignature,
+		FileUser,
 		Filter,
 		FilterOutline,
 		Folder,
@@ -216,6 +265,7 @@ namespace A2v10.Xaml
 		InfoBlue,
 		InfoOutline,
 		Image,
+		Import,
 		Items,
 		Link,
 		List,
@@ -231,6 +281,10 @@ namespace A2v10.Xaml
 		MinusCircle,
 		Package,
 		PackageOutline,
+		PaneLeft,
+		PaneLeftBlue,
+		PaneRight,
+		PaneRightBlue,
 		Paste,
 		Pencil,
 		PencilOutline,
@@ -253,6 +307,8 @@ namespace A2v10.Xaml
 		Requery,
 		Save,
 		SaveClose,
+		SaveCloseOutline,
+		SaveOutline,
 		Search,
 		Security,
 		Server,
@@ -284,12 +340,15 @@ namespace A2v10.Xaml
 		UnpinOutline,
 		Upload,
 		User,
+		UserMinus,
+		UserPlus,
 		Users,
 		Waiting,
 		WaitingOutline,
 		Warning,
 		WarningOutline,
 		WarningYellow,
+		Workflow1,
 		Wrench
 	}
 }

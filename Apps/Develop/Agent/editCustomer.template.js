@@ -19,17 +19,18 @@ const template = {
 	},
 	events: {
 		"Model.load": modelLoad,
-		/**
+		/*
 		 * clear dependent values
 		 */
-		"Agent.Address.Country.change": (addr) => { addr.City = ''; addr.Street = '' },
+		"Agent.Address.Country.change": (addr) => { addr.City = ''; addr.Street = ''; },
 		"Agent.Address.City.change": (addr) => { addr.Street = ''; }
 	},
 	validators: {
 		"Agent.Name": 'Введите наименование',
+		'Agent.$Bit1': 'Установите значение',
 		"Agent.Code": [
 			'Введите код',
-			{ valid: duplicateCode, async: true, msg: "Контрагент с таким кодом ОКПО уже существует" },
+			{ valid: duplicateCode, async: true, msg: "Контрагент с таким кодом ОКПО уже существует" }
 		],
 		'Agent.Memo': { valid: 'notBlank', msg: 'Введите примечание', severity:'warning'},
 		'Agent.Address.Build': 'Введите номер дома'
@@ -38,6 +39,7 @@ const template = {
 
 function modelLoad(root, caller) {
 	const ag = root.Agent;
+	console.dir(root.$ctrl);
 	if (!ag.$isNew) return;
 	ag.Type = 'C';
 	ag.Kind = 'Customer';
@@ -72,7 +74,7 @@ function getStreets() {
 	let addr = root.Agent.Address;
 	let cntry = root.Countries.find(c => c.Code === addr.Country);
 	if (!cntry) return null;
-	let city = cntry.Cities.find(c => c.Name == addr.City);
+	let city = cntry.Cities.find(c => c.Name === addr.City);
 	if (!city) return null;
 	city.Streets.$load(); // ensure lazy
 	return city.Streets;
