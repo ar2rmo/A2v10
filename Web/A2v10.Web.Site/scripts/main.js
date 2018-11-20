@@ -19,7 +19,7 @@
 	let rootElem = document.querySelector('meta[name=rootUrl]');
 	window.$$rootUrl = rootElem ? rootElem.content || '' : '';
 
-	function require(module) {
+	function require(module, noerror) {
 		if (module in app.modules) {
 			let am = app.modules[module];
 			if (typeof am === 'function') {
@@ -28,12 +28,16 @@
 			}
 			return am;
 		}
+		if (noerror)
+			return null;
 		throw new Error('module "' + module + '" not found');
 	}
 
-	function component(name) {
+	function component(name, noerror) {
 		if (name in app.components)
 			return app.components[name];
+		if (noerror)
+			return {};
 		throw new Error('component "' + name + '" not found');
 	}
 
@@ -95,7 +99,7 @@
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181104-7343
+// 20181117-7359
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -160,7 +164,8 @@ app.modules['std:utils'] = function () {
 		text: {
 			contains: textContains,
 			containsText: textContainsText,
-			sanitize
+			sanitize,
+			splitPath
 		},
 		func: {
 			curry,
@@ -537,6 +542,14 @@ app.modules['std:utils'] = function () {
 		let t = '' + text || '';
 		return t.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
 			.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+	}
+
+	function splitPath(path) {
+		let propIx = path.lastIndexOf('.');
+		return {
+			obj: path.substring(0, propIx),
+			prop: path.substring(propIx + 1)
+		};
 	}
 
 	function textContains(text, probe) {
@@ -1219,7 +1232,7 @@ app.modules['std:http'] = function () {
 		});
 	}
 
-	function load(url, selector) {
+	function load(url, selector, baseUrl) {
 		let fc = selector ? selector.firstElementChild : null;
 		if (fc && fc.__vue__) {
 			fc.__vue__.$destroy();
@@ -1248,7 +1261,7 @@ app.modules['std:http'] = function () {
 					}
 					if (selector.firstElementChild && selector.firstElementChild.__vue__) {
 						let ve = selector.firstElementChild.__vue__;
-						ve.$data.__baseUrl__ = urlTools.normalizeRoot(url);
+						ve.$data.__baseUrl__ = baseUrl || urlTools.normalizeRoot(url);
 						// save initial search
 						ve.$data.__baseQuery__ = urlTools.parseUrlAndQuery(url).query;
 					}
@@ -1706,7 +1719,7 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181112-7355
+// 20181117-7359
 // services/datamodel.js
 
 (function () {
@@ -1729,10 +1742,20 @@ app.modules['std:validators'] = function () {
 	const platform = require('std:platform');
 	const validators = require('std:validators');
 	const utils = require('std:utils');
-	const log = require('std:log');
+	const log = require('std:log', true);
 	const period = require('std:period');
 
 	let __initialized__ = false;
+
+	function loginfo(msg) {
+		if (!log) return;
+		log.info(msg);
+	}
+
+	function logtime(msg, time) {
+		if (!log) return;
+		log.time(msg, time);
+	}
 
 	function defHidden(obj, prop, value, writable) {
 		Object.defineProperty(obj, prop, {
@@ -1865,11 +1888,11 @@ app.modules['std:validators'] = function () {
 			for (let p in props[objname]) {
 				let propInfo = props[objname][p];
 				if (utils.isPrimitiveCtor(propInfo)) {
-					log.info(`create scalar property: ${objname}.${p}`);
+					loginfo(`create scalar property: ${objname}.${p}`);
 					elem._meta_.props[p] = propInfo;
 				} else if (utils.isObjectExact(propInfo)) {
 					if (!propInfo.get) { // plain object
-						log.info(`create object property: ${objname}.${p}`);
+						loginfo(`create object property: ${objname}.${p}`);
 						elem._meta_.props[p] = TMarker;
 						if (!elem._meta_.markerProps)
 							elem._meta_.markerProps = {};
@@ -1893,7 +1916,7 @@ app.modules['std:validators'] = function () {
 					continue;
 				}
 				else if (utils.isFunction(propInfo)) {
-					log.info(`create property: ${objname}.${p}`);
+					loginfo(`create property: ${objname}.${p}`);
 					Object.defineProperty(elem, p, {
 						configurable: false,
 						enumerable: true,
@@ -1901,7 +1924,7 @@ app.modules['std:validators'] = function () {
 					});
 				} else if (utils.isObjectExact(propInfo)) {
 					if (propInfo.get) { // has get, maybe set
-						log.info(`create property: ${objname}.${p}`);
+						loginfo(`create property: ${objname}.${p}`);
 						Object.defineProperty(elem, p, {
 							configurable: false,
 							enumerable: true,
@@ -2029,7 +2052,7 @@ app.modules['std:validators'] = function () {
 			elem._seal_ = seal
 		}
 		if (startTime) {
-			log.time('create root time:', startTime, false);
+			logtime('create root time:', startTime, false);
 		}
 		return elem;
 	}
@@ -2466,18 +2489,18 @@ app.modules['std:validators'] = function () {
 				this._needValidate_ = true;
 			}
 		}
-		log.info('emit: ' + event);
+		loginfo('emit: ' + event);
 		let templ = this.$template;
 		if (!templ) return;
 		let events = templ.events;
 		if (!events) return;
 		if (event in events) {
 			// fire event
-			log.info('handle: ' + event);
+			loginfo('handle: ' + event);
 			let func = events[event];
 			let rv = func.call(this, ...arr);
 			if (rv === false)
-				log.info(event + ' returns false');
+				loginfo(event + ' returns false');
 			return rv;
 		}
 	}
@@ -2553,9 +2576,9 @@ app.modules['std:validators'] = function () {
 			const doExec = function () {
 				const realExec = function () {
 					if (utils.isFunction(cmdf))
-						cmdf.call(that, arg);
+						return cmdf.call(that, arg);
 					else if (utils.isFunction(cmdf.exec))
-						cmdf.exec.call(that, arg);
+						return cmdf.exec.call(that, arg);
 					else
 						console.error($`There is no method 'exec' in command '${cmd}'`);
 				};
@@ -2563,15 +2586,14 @@ app.modules['std:validators'] = function () {
 				if (optConfirm) {
 					vm.$confirm(optConfirm).then(realExec);
 				} else {
-					realExec();
+					return realExec();
 				}
 			};
 
 			if (optSaveRequired && vm.$isDirty)
 				vm.$save().then(doExec);
 			else
-				doExec();
-
+				return doExec();
 
 		} finally {
 			this._root_._enableValidate_ = true;
@@ -2723,7 +2745,7 @@ app.modules['std:validators'] = function () {
 			}
 		}
 		var e = performance.now();
-		log.time('validation time:', startTime);
+		logtime('validation time:', startTime);
 		return allerrs;
 		//console.dir(allerrs);
 	}
@@ -3392,6 +3414,22 @@ app.modules['std:tools'] = function () {
 		};
 		eventBus.$emit('confirm', dlgData);
 		return dlgData.promise;
+	}
+};
+
+// Copyright © 2018 Alex Kukhtin. All rights reserved.
+
+/*20180227-7121*/
+/* services/routing.js */
+
+app.modules['std:routing'] = function () {
+
+	return {
+		dataUrl
+	};
+
+	function dataUrl(msg) {
+		return '_data';
 	}
 };
 
@@ -5993,7 +6031,7 @@ Vue.component('popover', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181024-7328
+// 20181117-7359
 // components/collectionview.js
 
 /*
@@ -6004,7 +6042,7 @@ TODO:
 (function () {
 
 
-	const log = require('std:log');
+	const log = require('std:log', true);
 	const utils = require('std:utils');
 	const period = require('std:period');
 
@@ -6145,7 +6183,7 @@ TODO:
 					// not found in target array
 					arr.$origin.$clearSelected();
 				}
-				log.time('get paged source:', s);
+				if (log) log.time('get paged source:', s);
 				return arr;
 			},
 			sourceCount() {
@@ -6839,7 +6877,7 @@ TODO:
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180821-7280
+// 20181116-7357
 // components/list.js
 
 /* TODO:
@@ -6848,6 +6886,7 @@ TODO:
 (function () {
 
 	const utils = require('std:utils');
+	const eventBus = require('std:eventBus');
 
 	Vue.component("a2-list", {
 		template:
@@ -8952,7 +8991,7 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181031-7339
+// 20181117-7359
 // controllers/base.js
 
 (function () {
@@ -8964,14 +9003,14 @@ Vue.directive('resize', {
 	const utils = require('std:utils');
 	const dataservice = require('std:dataservice');
 	const urltools = require('std:url');
-	const log = require('std:log');
+	const log = require('std:log', true /*no error*/);
 	const locale = window.$$locale;
 	const mask = require('std:mask');
 	const modelInfo = require('std:modelInfo');
 	const platform = require('std:platform');
 
 	const store = component('std:store');
-	const documentTitle = component("std:doctitle");
+	const documentTitle = component("std:doctitle", true /*no error*/);
 
 	let __updateStartTime = 0;
 	let __createStartTime = 0;
@@ -9060,8 +9099,7 @@ Vue.directive('resize', {
 				if (this.$isReadOnly(opts)) return;
 				if (this.$isLoading) return;
 				const root = this.$data;
-				root._exec_(cmd, arg, confirm, opts);
-				return;
+				return root._exec_(cmd, arg, confirm, opts);
                 /*
                 const doExec = () => {
                     let root = this.$data;
@@ -9077,6 +9115,10 @@ Vue.directive('resize', {
                     doExec();
                 }
                 */
+			},
+
+			$toJson(data) {
+				return utils.toJson(data);
 			},
 
 			$isReadOnly(opts) {
@@ -9107,7 +9149,8 @@ Vue.directive('resize', {
 					return;
 				let self = this;
 				let root = window.$$rootUrl;
-				let url = root + '/_data/save';
+				const routing = require('std:routing'); // defer loading
+				let url = `${root}/${routing.dataUrl()}/save`;
 				let urlToSave = this.$indirectUrl || this.$baseUrl;
 				const isCopy = this.$data.$isCopy;
 				const validRequired = !!opts && opts.options && opts.options.validRequired;
@@ -9176,7 +9219,8 @@ Vue.directive('resize', {
 			$invoke(cmd, data, base, opts) {
 				let self = this;
 				let root = window.$$rootUrl;
-				let url = root + '/_data/invoke';
+				const routing = require('std:routing');
+				let url = `${root}/${routing.dataUrl()}/invoke`;
 				let baseUrl = self.$indirectUrl || self.$baseUrl;
 				if (base)
 					baseUrl = urltools.combine('_page', base, 'index', 0);
@@ -9233,7 +9277,8 @@ Vue.directive('resize', {
 					return self.$loadLazy(args.$parent, prop);
 				}
 				let root = window.$$rootUrl;
-				let url = root + '/_data/reload';
+				const routing = require('std:routing'); // defer loading
+				let url = `${root}/${routing.dataUrl()}/reload`;
 				let dat = self.$data;
 
 				let mi = args ? modelInfo.get(args.$ModelInfo) : null;
@@ -9738,6 +9783,8 @@ Vue.directive('resize', {
 
 			$format(value, opts) {
 				if (!opts) return value;
+				if (utils.isString(opts))
+					opts = { dataType: opts };
 				if (!opts.format && !opts.dataType && !opts.mask)
 					return value;
 				if (opts.mask)
@@ -9779,9 +9826,10 @@ Vue.directive('resize', {
 			},
 
 			$loadLazy(elem, propName) {
+				const routing = require('std:routing'); // defer loading
 				let self = this,
 					root = window.$$rootUrl,
-					url = root + '/_data/loadlazy',
+					url = `${root}/${routing.dataUrl()}/loadlazy`,
 					selfMi = elem[propName].$ModelInfo,
 					parentMi = elem.$parent.$ModelInfo;
 
@@ -9836,6 +9884,24 @@ Vue.directive('resize', {
 
 			$defer: platform.defer,
 
+			$hasError(path) {
+				let ps = utils.text.splitPath(path);
+				let err = this[ps.obj]._errors_;
+				if (!err) return false;
+				let arr = err[path];
+				return arr && arr.length;
+			},
+
+			$errorMessage(path) {
+				let ps = utils.text.splitPath(path);
+				let err = this[ps.obj]._errors_;
+				if (!err) return '';
+				let arr = err[path];
+				if (arr && arr.length)
+					return arr[0].msg;
+				return '';
+			},
+
 			__beginRequest() {
 				this.$data.__requestsCount__ += 1;
 			},
@@ -9866,10 +9932,12 @@ Vue.directive('resize', {
 				modelInfo.copyfromQuery(mi, nq);
 				this.$reload(source);
 			},
-			__doInit__() {
+			__doInit__(baseUrl) {
 				const root = this.$data;
 				if (!root._modelLoad_) return;
 				let caller = null;
+				if (baseUrl)
+					root.__baseUrl__ = baseUrl;
 				if (this.$caller)
 					caller = this.$caller.$data;
 				this.__createController__();
@@ -9932,7 +10000,8 @@ Vue.directive('resize', {
 			this.$on('cwChange', this.__cwChange);
 			this.__asyncCache__ = {};
 			this.__currentToken__ = window.app.nextToken();
-			log.time('create time:', __createStartTime, false);
+			if (log)
+				log.time('create time:', __createStartTime, false);
 		},
 		beforeDestroy() {
 		},
@@ -9954,7 +10023,8 @@ Vue.directive('resize', {
 			__createStartTime = performance.now();
 		},
 		updated() {
-			log.time('update time:', __updateStartTime, false);
+			if (log)
+				log.time('update time:', __updateStartTime, false);
 		}
 	});
 
@@ -9963,7 +10033,7 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20181112-7353*/
+/*20181116-7357*/
 /* controllers/shell.js */
 
 (function () {
@@ -10056,11 +10126,15 @@ Vue.directive('resize', {
 		},
 		computed: {
 			seg0: () => store.getters.seg0,
+			seg1: () => store.getters.seg1,
 			locale() { return locale; }
 		},
 		methods: {
 			isActive(item) {
 				return this.seg0 === item.Url;
+			},
+			isActive2(item) {
+				return this.seg1 === item.Url;
 			},
 			itemHref: (item) => '/' + item.Url,
 			navigate(item) {
@@ -10081,6 +10155,11 @@ Vue.directive('resize', {
 			},
 			helpHref() {
 				let am = this.menu.find(x => this.isActive(x));
+				if (am && am.Menu) {
+					let am2 = am.Menu.find(x => this.isActive2(x));
+					if (am2 && am2.Help)
+						return urlTools.helpHref(am2.Help);
+				}
 				if (am && am.Help)
 					return urlTools.helpHref(am.Help);
 				return urlTools.helpHref('');

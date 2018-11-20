@@ -588,17 +588,17 @@ namespace A2v10.Request
 		private void EndInit()
 		{
 			foreach (var a in Actions.Values)
-				a.SetParent(this);
+				a?.SetParent(this);
 			foreach (var c in Commands.Values)
-				c.SetParent(this);
+				c?.SetParent(this);
 			foreach (var d in Dialogs.Values)
-				d.SetParent(this);
+				d?.SetParent(this);
 			foreach (var p in Popups.Values)
-				p.SetParent(this);
+				p?.SetParent(this);
 			foreach (var r in Reports.Values)
-				r.SetParent(this);
+				r?.SetParent(this);
 			foreach (var u in Uploads.Values)
-				u.SetParent(this);
+				u?.SetParent(this);
 		}
 
 		public RequestCommand GetCommand(String command)
@@ -608,7 +608,7 @@ namespace A2v10.Request
 				cmd.command = command;
 				return cmd;
 			}
-			throw new RequestModelException($"Command '{command}' not found in model.json");
+			throw new RequestModelException($"Command '{command}' not found in '/{_modelPath}/model.json'");
 		}
 
 		public RequestReport GetReport()
@@ -799,7 +799,8 @@ namespace A2v10.Request
 			}
 			else
 			{
-				throw new RequestModelException($"Invalid base url: {baseUrl}");
+				// default : page
+				kind = RequestUrlKind.Page;
 			}
 			var rm = await CreateFromUrl(host, bAdmin, kind, baseUrl);
 			rm._kind = kind;

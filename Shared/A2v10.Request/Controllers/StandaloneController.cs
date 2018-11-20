@@ -14,35 +14,9 @@ using Newtonsoft.Json.Converters;
 
 namespace A2v10.Request
 {
-
-	public class ViewInfo
-	{
-		public String View;
-		public String Script;
-		public String PageId;
-		public IDataModel DataModel;
-	}
-
 	public class StandaloneController
 	{
 		public BaseController _baseController = new BaseController();
-
-		public async Task LoadModel(HttpResponseBase response, String pathInfo, Int64 userId)
-		{
-			try
-			{
-				response.ContentType = "text/javascript";
-				var exp = new ExpandoObject();
-				if (userId != 0)
-					exp.Set("UserId", userId);
-				await _baseController.RenderModel(pathInfo, exp, response.Output);
-			}
-			catch (Exception ex)
-			{
-				_baseController.WriteScriptException(ex, response.Output);
-			}
-		}
-
 
 		public async Task LoadData(HttpRequestBase request, HttpResponseBase response)
 		{
@@ -113,7 +87,8 @@ namespace A2v10.Request
 			ViewInfo viewInfo = new ViewInfo()
 			{
 				View = $"{rw.Path}/{rw.GetView()}",
-				PageId = $"el{Guid.NewGuid()}"
+				PageId = $"el{Guid.NewGuid()}",
+				Id = rw.Id
 			};
 
 			var modelParams = new ExpandoObject();
@@ -123,8 +98,8 @@ namespace A2v10.Request
 			var modelScript = new StringBuilder();
 			using (var strWriter = new StringWriter(modelScript))
 			{
-				rw.view = BaseController.NO_VIEW; // no view here
-				await _baseController.Render(rw, strWriter, modelParams);
+				//rw.view = BaseController.NO_VIEW; // no view here
+				//await _baseController.Render(rw, strWriter, modelParams);
 			}
 
 			var ctrlScriptSb = new StringBuilder(_baseController.Localize(Resources.standaloneDialogScript));
@@ -136,7 +111,10 @@ namespace A2v10.Request
 				.AppendLine(ctrlScriptSb.ToString())
 				.AppendLine("</script>");
 
-			viewInfo.Script = scriptSb.ToString();
+			viewInfo.Scripts = new ScriptInfo()
+			{
+				Script = scriptSb.ToString()
+			};
 			return viewInfo;
 		}
 	}

@@ -19,7 +19,7 @@
 	let rootElem = document.querySelector('meta[name=rootUrl]');
 	window.$$rootUrl = rootElem ? rootElem.content || '' : '';
 
-	function require(module) {
+	function require(module, noerror) {
 		if (module in app.modules) {
 			let am = app.modules[module];
 			if (typeof am === 'function') {
@@ -28,12 +28,16 @@
 			}
 			return am;
 		}
+		if (noerror)
+			return null;
 		throw new Error('module "' + module + '" not found');
 	}
 
-	function component(name) {
+	function component(name, noerror) {
 		if (name in app.components)
 			return app.components[name];
+		if (noerror)
+			return {};
 		throw new Error('component "' + name + '" not found');
 	}
 
@@ -95,7 +99,7 @@
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181104-7343
+// 20181117-7359
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -160,7 +164,8 @@ app.modules['std:utils'] = function () {
 		text: {
 			contains: textContains,
 			containsText: textContainsText,
-			sanitize
+			sanitize,
+			splitPath
 		},
 		func: {
 			curry,
@@ -537,6 +542,14 @@ app.modules['std:utils'] = function () {
 		let t = '' + text || '';
 		return t.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
 			.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+	}
+
+	function splitPath(path) {
+		let propIx = path.lastIndexOf('.');
+		return {
+			obj: path.substring(0, propIx),
+			prop: path.substring(propIx + 1)
+		};
 	}
 
 	function textContains(text, probe) {
@@ -1219,7 +1232,7 @@ app.modules['std:http'] = function () {
 		});
 	}
 
-	function load(url, selector) {
+	function load(url, selector, baseUrl) {
 		let fc = selector ? selector.firstElementChild : null;
 		if (fc && fc.__vue__) {
 			fc.__vue__.$destroy();
@@ -1248,7 +1261,7 @@ app.modules['std:http'] = function () {
 					}
 					if (selector.firstElementChild && selector.firstElementChild.__vue__) {
 						let ve = selector.firstElementChild.__vue__;
-						ve.$data.__baseUrl__ = urlTools.normalizeRoot(url);
+						ve.$data.__baseUrl__ = baseUrl || urlTools.normalizeRoot(url);
 						// save initial search
 						ve.$data.__baseQuery__ = urlTools.parseUrlAndQuery(url).query;
 					}
@@ -2002,7 +2015,7 @@ Vue.component('a2-pager', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181112-7355
+// 20181117-7359
 // services/datamodel.js
 
 (function () {
@@ -2025,10 +2038,20 @@ Vue.component('a2-pager', {
 	const platform = require('std:platform');
 	const validators = require('std:validators');
 	const utils = require('std:utils');
-	const log = require('std:log');
+	const log = require('std:log', true);
 	const period = require('std:period');
 
 	let __initialized__ = false;
+
+	function loginfo(msg) {
+		if (!log) return;
+		log.info(msg);
+	}
+
+	function logtime(msg, time) {
+		if (!log) return;
+		log.time(msg, time);
+	}
 
 	function defHidden(obj, prop, value, writable) {
 		Object.defineProperty(obj, prop, {
@@ -2161,11 +2184,11 @@ Vue.component('a2-pager', {
 			for (let p in props[objname]) {
 				let propInfo = props[objname][p];
 				if (utils.isPrimitiveCtor(propInfo)) {
-					log.info(`create scalar property: ${objname}.${p}`);
+					loginfo(`create scalar property: ${objname}.${p}`);
 					elem._meta_.props[p] = propInfo;
 				} else if (utils.isObjectExact(propInfo)) {
 					if (!propInfo.get) { // plain object
-						log.info(`create object property: ${objname}.${p}`);
+						loginfo(`create object property: ${objname}.${p}`);
 						elem._meta_.props[p] = TMarker;
 						if (!elem._meta_.markerProps)
 							elem._meta_.markerProps = {};
@@ -2189,7 +2212,7 @@ Vue.component('a2-pager', {
 					continue;
 				}
 				else if (utils.isFunction(propInfo)) {
-					log.info(`create property: ${objname}.${p}`);
+					loginfo(`create property: ${objname}.${p}`);
 					Object.defineProperty(elem, p, {
 						configurable: false,
 						enumerable: true,
@@ -2197,7 +2220,7 @@ Vue.component('a2-pager', {
 					});
 				} else if (utils.isObjectExact(propInfo)) {
 					if (propInfo.get) { // has get, maybe set
-						log.info(`create property: ${objname}.${p}`);
+						loginfo(`create property: ${objname}.${p}`);
 						Object.defineProperty(elem, p, {
 							configurable: false,
 							enumerable: true,
@@ -2325,7 +2348,7 @@ Vue.component('a2-pager', {
 			elem._seal_ = seal
 		}
 		if (startTime) {
-			log.time('create root time:', startTime, false);
+			logtime('create root time:', startTime, false);
 		}
 		return elem;
 	}
@@ -2762,18 +2785,18 @@ Vue.component('a2-pager', {
 				this._needValidate_ = true;
 			}
 		}
-		log.info('emit: ' + event);
+		loginfo('emit: ' + event);
 		let templ = this.$template;
 		if (!templ) return;
 		let events = templ.events;
 		if (!events) return;
 		if (event in events) {
 			// fire event
-			log.info('handle: ' + event);
+			loginfo('handle: ' + event);
 			let func = events[event];
 			let rv = func.call(this, ...arr);
 			if (rv === false)
-				log.info(event + ' returns false');
+				loginfo(event + ' returns false');
 			return rv;
 		}
 	}
@@ -2849,9 +2872,9 @@ Vue.component('a2-pager', {
 			const doExec = function () {
 				const realExec = function () {
 					if (utils.isFunction(cmdf))
-						cmdf.call(that, arg);
+						return cmdf.call(that, arg);
 					else if (utils.isFunction(cmdf.exec))
-						cmdf.exec.call(that, arg);
+						return cmdf.exec.call(that, arg);
 					else
 						console.error($`There is no method 'exec' in command '${cmd}'`);
 				};
@@ -2859,15 +2882,14 @@ Vue.component('a2-pager', {
 				if (optConfirm) {
 					vm.$confirm(optConfirm).then(realExec);
 				} else {
-					realExec();
+					return realExec();
 				}
 			};
 
 			if (optSaveRequired && vm.$isDirty)
 				vm.$save().then(doExec);
 			else
-				doExec();
-
+				return doExec();
 
 		} finally {
 			this._root_._enableValidate_ = true;
@@ -3019,7 +3041,7 @@ Vue.component('a2-pager', {
 			}
 		}
 		var e = performance.now();
-		log.time('validation time:', startTime);
+		logtime('validation time:', startTime);
 		return allerrs;
 		//console.dir(allerrs);
 	}

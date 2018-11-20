@@ -14,38 +14,66 @@ namespace A2v10.Request
 {
 	public class SiteController
 	{
-		BaseController _baseController = new BaseController();
+
+		private readonly BaseController _baseController;
 
 		public SiteController()
 		{
+			_baseController = new BaseController();
+			//_baseController.NormalizeBaseUrl = NormalizeUrl;
 		}
 
-		public String NormalizeUrl(String url)
+		public Func<Int64> UserId { get; set; }
+
+		String NormalizeUrl(String url)
 		{
+			if (url != null && url.StartsWith("/"))
+				url = url.Substring(1);
 			if (String.IsNullOrEmpty(url))
-				return "index/index/0";
+				return "home/index/0";
 			var urlSegments = url.Split('/');
 			if (urlSegments.Length == 1)
 				return url + "/index/0";
 			return url;
 		}
 
-		public async Task<ViewInfo> LoadView(String pathInfo)
+		public ExpandoObject CreateParams()
+		{
+			var loadPrms = new ExpandoObject();
+			if (UserId != null)
+				loadPrms.Set("UserId", UserId());
+			return loadPrms;
+		}
+
+		public Task<ViewInfo> LoadView(String pathInfo)
+		{
+			pathInfo = NormalizeUrl(pathInfo);
+			return LoadViewKind(pathInfo, RequestUrlKind.Page);
+		}
+
+		public Task<ViewInfo> LoadDialog(String pathInfo)
+		{
+			return LoadViewKind(pathInfo, RequestUrlKind.Dialog);
+		}
+
+		async Task<ViewInfo> LoadViewKind(String pathInfo, RequestUrlKind kind)
 		{
 			var host = _baseController.Host;
-			var rm = await RequestModel.CreateFromUrl(host, false, RequestUrlKind.Page, NormalizeUrl(pathInfo));
+			var rm = await RequestModel.CreateFromUrl(host, false, kind, NormalizeUrl(pathInfo));
 			var rw = rm.GetCurrentAction();
-			var loadPrms = new ExpandoObject();
 			var pageId = $"el{Guid.NewGuid()}";
-			var dmrw = await _baseController.GetDataModelForView(rw, loadPrms);
+			var dmrw = await _baseController.GetDataModelForView(rw, CreateParams());
 			rw = dmrw.RequestView;
 			var viewInfo = new ViewInfo()
 			{
 				PageId = pageId,
-				View = $"~/App_apps/{host.AppKey}/{rw.Path}/{rw.GetView()}.cshtml",
-				DataModel = dmrw.Model
+				View = host.MakeRelativePath(rw.Path, $"{rw.GetView()}.cshtml"),
+				Path = rw.Path,
+				BaseUrl = rw.ParentModel.BasePath,
+				DataModel = dmrw.Model,
+				Id = rw.Id
 			};
-			viewInfo.Script = await _baseController.GetModelScriptModel(rw, viewInfo.DataModel, pageId);
+			viewInfo.Scripts = await _baseController.WriteModelScript(rw, viewInfo.DataModel, pageId);
 			return viewInfo;
 		}
 
@@ -81,6 +109,41 @@ namespace A2v10.Request
 
 			Response.ContentType = "text/html";
 			Response.Write(html.ToString());
+		}
+
+		public async Task Data(String command, HttpRequestBase Request, HttpResponseBase Response)
+		{
+			Response.ContentType = "application/json";
+			using (var tr = new StreamReader(Request.InputStream))
+			{
+				String json = tr.ReadToEnd();
+				await _baseController.Data(command, SetParams, json, Response);
+			}
+		}
+
+		void SetParams(ExpandoObject prms)
+		{
+			if (UserId != null) {
+				prms.Set("UserId", UserId());
+			}
+		}
+
+		public async Task<Boolean> ProcessRequest(String pathInfo, HttpRequestBase Request, HttpResponseBase Response)
+		{
+			if (pathInfo == null)
+				return false;
+			if (pathInfo.StartsWith("_data/"))
+			{
+				String command = pathInfo.Substring(6);
+				await Data(command, Request, Response);
+				return true;
+			}
+			return false;
+		}
+
+		public void WriteExceptionStatus(Exception ex, HttpResponseBase response)
+		{
+			_baseController.WriteExceptionStatus(ex, response);
 		}
 	}
 }

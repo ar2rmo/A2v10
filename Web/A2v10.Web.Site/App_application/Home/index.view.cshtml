@@ -1,0 +1,43 @@
+﻿@model A2v10.Request.ViewInfo
+@{
+	var dataModel = Model.DataModel;
+	ViewBag.Title = "Home page";
+	Object home = Model.DataModel.Eval<dynamic>("Home");
+}
+<div id="@Model.PageId">
+	<div>
+		<a href="/Blog">Go to the blog page</a>
+		<br />
+		<a href="/Contacts">Go to the Contacts page</a>
+	</div>
+	<div>
+		I am the index page (RAZOR)
+	</div>
+	<div>ModelId = <span>@(dataModel.Eval<Int32>("Home.Id"))</span></div>
+
+	<div>
+		from Vue:<code v-text="Home.$ItemId"></code>
+		<input type="text" v-model="Home.Text" />
+		<button v-on:click="$exec('sayHello')">Say hello!</button>
+		<button v-on:click="$reload">Reload me</button>
+		<button v-on:click="$save">Save</button>
+		<button v-on:click="$invoke('test')">Invoke</button>
+		<hr />
+		dirty: <code v-text="$isDirty"></code>
+		valid: <code v-text="Home.$valid"></code>
+		baseUrl: <code v-text="$baseUrl"></code>
+	</div>
+
+	<hr />
+	@Html.RenderPartialView("PartInside", home)
+	<hr />
+	@Html.RenderPartialView("PartShared", home)
+	<hr />
+	<code>
+		@Model.Scripts.DataScript
+	</code>
+</div>
+
+@section scripts {
+	@Html.RenderVueModelScript("controller")
+}

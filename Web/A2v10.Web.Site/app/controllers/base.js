@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181031-7339
+// 20181117-7359
 // controllers/base.js
 
 (function () {
@@ -12,14 +12,14 @@
 	const utils = require('std:utils');
 	const dataservice = require('std:dataservice');
 	const urltools = require('std:url');
-	const log = require('std:log');
+	const log = require('std:log', true /*no error*/);
 	const locale = window.$$locale;
 	const mask = require('std:mask');
 	const modelInfo = require('std:modelInfo');
 	const platform = require('std:platform');
 
 	const store = component('std:store');
-	const documentTitle = component("std:doctitle");
+	const documentTitle = component("std:doctitle", true /*no error*/);
 
 	let __updateStartTime = 0;
 	let __createStartTime = 0;
@@ -108,8 +108,7 @@
 				if (this.$isReadOnly(opts)) return;
 				if (this.$isLoading) return;
 				const root = this.$data;
-				root._exec_(cmd, arg, confirm, opts);
-				return;
+				return root._exec_(cmd, arg, confirm, opts);
                 /*
                 const doExec = () => {
                     let root = this.$data;
@@ -125,6 +124,10 @@
                     doExec();
                 }
                 */
+			},
+
+			$toJson(data) {
+				return utils.toJson(data);
 			},
 
 			$isReadOnly(opts) {
@@ -155,7 +158,8 @@
 					return;
 				let self = this;
 				let root = window.$$rootUrl;
-				let url = root + '/_data/save';
+				const routing = require('std:routing'); // defer loading
+				let url = `${root}/${routing.dataUrl()}/save`;
 				let urlToSave = this.$indirectUrl || this.$baseUrl;
 				const isCopy = this.$data.$isCopy;
 				const validRequired = !!opts && opts.options && opts.options.validRequired;
@@ -224,7 +228,8 @@
 			$invoke(cmd, data, base, opts) {
 				let self = this;
 				let root = window.$$rootUrl;
-				let url = root + '/_data/invoke';
+				const routing = require('std:routing');
+				let url = `${root}/${routing.dataUrl()}/invoke`;
 				let baseUrl = self.$indirectUrl || self.$baseUrl;
 				if (base)
 					baseUrl = urltools.combine('_page', base, 'index', 0);
@@ -281,7 +286,8 @@
 					return self.$loadLazy(args.$parent, prop);
 				}
 				let root = window.$$rootUrl;
-				let url = root + '/_data/reload';
+				const routing = require('std:routing'); // defer loading
+				let url = `${root}/${routing.dataUrl()}/reload`;
 				let dat = self.$data;
 
 				let mi = args ? modelInfo.get(args.$ModelInfo) : null;
@@ -786,6 +792,8 @@
 
 			$format(value, opts) {
 				if (!opts) return value;
+				if (utils.isString(opts))
+					opts = { dataType: opts };
 				if (!opts.format && !opts.dataType && !opts.mask)
 					return value;
 				if (opts.mask)
@@ -827,9 +835,10 @@
 			},
 
 			$loadLazy(elem, propName) {
+				const routing = require('std:routing'); // defer loading
 				let self = this,
 					root = window.$$rootUrl,
-					url = root + '/_data/loadlazy',
+					url = `${root}/${routing.dataUrl()}/loadlazy`,
 					selfMi = elem[propName].$ModelInfo,
 					parentMi = elem.$parent.$ModelInfo;
 
@@ -884,6 +893,24 @@
 
 			$defer: platform.defer,
 
+			$hasError(path) {
+				let ps = utils.text.splitPath(path);
+				let err = this[ps.obj]._errors_;
+				if (!err) return false;
+				let arr = err[path];
+				return arr && arr.length;
+			},
+
+			$errorMessage(path) {
+				let ps = utils.text.splitPath(path);
+				let err = this[ps.obj]._errors_;
+				if (!err) return '';
+				let arr = err[path];
+				if (arr && arr.length)
+					return arr[0].msg;
+				return '';
+			},
+
 			__beginRequest() {
 				this.$data.__requestsCount__ += 1;
 			},
@@ -914,10 +941,12 @@
 				modelInfo.copyfromQuery(mi, nq);
 				this.$reload(source);
 			},
-			__doInit__() {
+			__doInit__(baseUrl) {
 				const root = this.$data;
 				if (!root._modelLoad_) return;
 				let caller = null;
+				if (baseUrl)
+					root.__baseUrl__ = baseUrl;
 				if (this.$caller)
 					caller = this.$caller.$data;
 				this.__createController__();
@@ -980,7 +1009,8 @@
 			this.$on('cwChange', this.__cwChange);
 			this.__asyncCache__ = {};
 			this.__currentToken__ = window.app.nextToken();
-			log.time('create time:', __createStartTime, false);
+			if (log)
+				log.time('create time:', __createStartTime, false);
 		},
 		beforeDestroy() {
 		},
@@ -1002,7 +1032,8 @@
 			__createStartTime = performance.now();
 		},
 		updated() {
-			log.time('update time:', __updateStartTime, false);
+			if (log)
+				log.time('update time:', __updateStartTime, false);
 		}
 	});
 

@@ -12,7 +12,11 @@ namespace A2v10.Xaml
 		Success,
 		Warning,
 		Info,
-		Danger
+		Danger,
+		Dark,
+		Light,
+		//Primary,
+		//Secondary
 	}
 
 	[ContentProperty("Content")]
@@ -21,18 +25,26 @@ namespace A2v10.Xaml
 		public Object Content { get; set; }
 		public AlertStyle Style { get; set; }
 		public Icon Icon { get; set; }
+		public ShadowStyle DropShadow { get; set; }
+
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
 			if (SkipRender(context))
 				return;
 			var tag = new TagBuilder("div", "a2-alert", IsInGrid);
+			tag.MergeAttribute("role", "alert");
 			MergeAttributes(tag, context);
 			var bindStyle = GetBinding(nameof(Style));
 			if (bindStyle != null)
 				tag.MergeAttribute(":class", bindStyle.GetPath(context));
 			else if (Style != AlertStyle.Default)
 				tag.AddCssClass(Style.ToString().ToLowerInvariant());
+			if (DropShadow != ShadowStyle.None)
+			{
+				tag.AddCssClass("drop-shadow");
+				tag.AddCssClass(DropShadow.ToString().ToLowerInvariant());
+			}
 			tag.RenderStart(context);
 			RenderIcon(context, Icon);
 			if (Content is UIElementBase)
