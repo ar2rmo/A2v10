@@ -49,7 +49,7 @@
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180623-7233
+// 20181120-7363
 // platform/polyfills.js
 
 
@@ -70,10 +70,12 @@
 		let elRect = el.getBoundingClientRect();
 		let pElem = el.parentElement;
 		while (pElem) {
-			if (pElem.offsetHeight < pElem.scrollHeight)
+			if (pElem.offsetHeight <= pElem.scrollHeight)
 				break;
 			pElem = pElem.parentElement;
 		}
+		if (!pElem)
+			return;
 		let parentRect = pElem.getBoundingClientRect();
 		if (elRect.top < parentRect.top)
 			el.scrollIntoView(true);
@@ -99,7 +101,7 @@
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181120-7363
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -152,6 +154,7 @@ app.modules['std:utils'] = function () {
 			equal: dateEqual,
 			isZero: dateIsZero,
 			formatDate: formatDate,
+			format: formatDate,
 			add: dateAdd,
 			diff: dateDiff,
 			create: dateCreate,
@@ -1499,7 +1502,7 @@ app.modules['std:mask'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180903-7300
+// 20181125-7372
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1596,6 +1599,11 @@ app.modules['std:http'] = function () {
 		return new Promise(function (resolve, reject) {
 			doRequest('GET', url)
 				.then(function (html) {
+					if (html.startsWith('<!DOCTYPE')) {
+						// full page - may be login?
+						window.location.assign('/');
+						return;
+					}
 					let dp = new DOMParser();
 					let rdoc = dp.parseFromString(html, 'text/html');
 					// first element from fragment body
@@ -1861,7 +1869,7 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181125-7372
 // services/datamodel.js
 
 (function () {
@@ -2141,6 +2149,18 @@ app.modules['std:validators'] = function () {
 			return !this.$valid;
 		});
 
+		elem.$errors = function (prop) {
+			if (!this) return null;
+			let root = this._root_;
+			if (!root) return null;
+			if (!root._validate_)
+				return null;
+			let path = `${this._path_}.${prop}`; 
+			let arr = root._validate_(this, path, this[prop]);
+			if (arr && arr.length === 0) return null;
+			return arr;
+		};
+		
 		if (elem._meta_.$group === true) {
 			defPropertyGet(elem, "$groupName", function () {
 				if (!utils.isDefined(this.$level))
@@ -3718,7 +3738,7 @@ Vue.component('a2-pager', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181127-7375
 // controllers/base.js
 
 (function () {
@@ -3865,7 +3885,7 @@ Vue.component('a2-pager', {
 					this.$confirm(confirm).then(() => root._exec_(cmd, arg.$selected));
 			},
 			$canExecute(cmd, arg, opts) {
-				if (this.$isLoading) return false;
+				//if (this.$isLoading) return false; // do not check here. avoid blinking
 				if (this.$isReadOnly(opts))
 					return false;
 				let root = this.$data;
@@ -4344,7 +4364,11 @@ Vue.component('a2-pager', {
 							let arr = arg.$parent;
 							return __runDialog(url, arg, query, (result) => { arr.$append(result); });
 						default: // simple show dialog
-							return __runDialog(url, arg, query, () => { });
+							return __runDialog(url, arg, query, (result) => {
+								if (opts && opts.reloadAfter) {
+									that.$reload();
+								}
+							});
 					}
 				}
 

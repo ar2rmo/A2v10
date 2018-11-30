@@ -49,7 +49,7 @@
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180623-7233
+// 20181120-7363
 // platform/polyfills.js
 
 
@@ -70,10 +70,12 @@
 		let elRect = el.getBoundingClientRect();
 		let pElem = el.parentElement;
 		while (pElem) {
-			if (pElem.offsetHeight < pElem.scrollHeight)
+			if (pElem.offsetHeight <= pElem.scrollHeight)
 				break;
 			pElem = pElem.parentElement;
 		}
+		if (!pElem)
+			return;
 		let parentRect = pElem.getBoundingClientRect();
 		if (elRect.top < parentRect.top)
 			el.scrollIntoView(true);
@@ -99,7 +101,7 @@
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181120-7363
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -152,6 +154,7 @@ app.modules['std:utils'] = function () {
 			equal: dateEqual,
 			isZero: dateIsZero,
 			formatDate: formatDate,
+			format: formatDate,
 			add: dateAdd,
 			diff: dateDiff,
 			create: dateCreate,
@@ -1143,7 +1146,7 @@ app.modules['std:modelInfo'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180903-7300
+// 20181125-7372
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1240,6 +1243,11 @@ app.modules['std:http'] = function () {
 		return new Promise(function (resolve, reject) {
 			doRequest('GET', url)
 				.then(function (html) {
+					if (html.startsWith('<!DOCTYPE')) {
+						// full page - may be login?
+						window.location.assign('/');
+						return;
+					}
 					let dp = new DOMParser();
 					let rdoc = dp.parseFromString(html, 'text/html');
 					// first element from fragment body
@@ -1312,7 +1320,7 @@ app.modules['std:http'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180227-7121
+// 20181121-7364
 /* platform/routex.js */
 
 (function () {
@@ -1378,7 +1386,8 @@ app.modules['std:http'] = function () {
 			navigate: function (state, to) { // to: {url, query, title}
 				let root = window.$$rootUrl;
 				let oldUrl = root + state.route + urlTools.makeQueryString(state.query);
-				state.route = to.url;
+				state.route = to.url.toLowerCase();
+				//console.dir(state.route);
 				state.query = Object.assign({}, to.query);
 				let newUrl = root + state.route + urlTools.makeQueryString(to.query);
 				let h = window.history;
@@ -1719,7 +1728,7 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181125-7372
 // services/datamodel.js
 
 (function () {
@@ -1999,6 +2008,18 @@ app.modules['std:validators'] = function () {
 			return !this.$valid;
 		});
 
+		elem.$errors = function (prop) {
+			if (!this) return null;
+			let root = this._root_;
+			if (!root) return null;
+			if (!root._validate_)
+				return null;
+			let path = `${this._path_}.${prop}`; 
+			let arr = root._validate_(this, path, this[prop]);
+			if (arr && arr.length === 0) return null;
+			return arr;
+		};
+		
 		if (elem._meta_.$group === true) {
 			defPropertyGet(elem, "$groupName", function () {
 				if (!utils.isDefined(this.$level))
@@ -3460,7 +3481,8 @@ app.modules['std:routing'] = function () {
 		props: {
 			src: String,
 			cssClass: String,
-			needReload: Boolean
+			needReload: Boolean,
+			done: Function
 		},
 		data() {
 			return {
@@ -3472,6 +3494,8 @@ app.modules['std:routing'] = function () {
 		methods: {
 			loaded(ok) {
 				this.loading = false;
+				if (this.done)
+					this.done();
 			},
 			requery() {
 				if (this.currentUrl) {
@@ -3584,7 +3608,7 @@ app.modules['std:routing'] = function () {
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181103-7342
+// 20181125-7372
 // components/control.js
 
 (function () {
@@ -3686,7 +3710,8 @@ app.modules['std:routing'] = function () {
 				if (!err) return false;
 				if (out) {
 					out.warn = err.every(r => r.severity === 'warning');
-					out.info = err.every(r => r.info === 'info');
+					out.info = err.every(r => r.severity === 'info');
+					out.all = err.length;
 				}
 				return err.length > 0;
 			},
@@ -3695,7 +3720,14 @@ app.modules['std:routing'] = function () {
 			},
 			cssClass() {
 				// method! no cached!!!
-				let cls = 'control-group' + (this.invalid() ? ' invalid' : ' valid');
+				let out = {};
+				let inv = this.invalid(out);
+				let cls = 'control-group' + (inv ? ' invalid' : ' valid');
+				//console.dir(out);
+				if (inv && out.warn)
+					cls += ' val-warning';
+				else if (inv && out.info)
+					cls += ' val-info';
 				if (this.required) cls += ' required';
 				if (this.disabled) cls += ' disabled';
 				return cls;
@@ -7025,7 +7057,7 @@ TODO:
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181103-7342
+// 20181122-7367
 // components/modal.js
 
 
@@ -7042,8 +7074,8 @@ TODO:
 	const utils = require('std:utils');
 
 	const modalTemplate = `
-<div class="modal-window" @keydown.tab="tabPress">
-	<include v-if="isInclude" class="modal-body" :src="dialog.url"></include>
+<div class="modal-window" @keydown.tab="tabPress" :class="mwClass">
+	<include v-if="isInclude" class="modal-body" :src="dialog.url" :done="loaded"></include>
 	<div v-else class="modal-body">
 		<div class="modal-header" v-drag-window><span v-text="title"></span><button ref='btnclose' class="btnclose" @click.prevent="modalClose(false)">&#x2715;</button></div>
 		<div :class="bodyClass">
@@ -7065,16 +7097,20 @@ TODO:
 	const setWidthComponent = {
 		inserted(el, binding) {
 			// TODO: width or cssClass???
-			//alert('set width-created:' + binding.value);
-			// alert(binding.value.cssClass);
 			let mw = el.closest('.modal-window');
 			if (mw) {
 				if (binding.value.width)
 					mw.style.width = binding.value.width;
-				if (binding.value.cssClass)
-					mw.classList.add(binding.value.cssClass);
+				let cssClass = binding.value.cssClass;
+				switch (cssClass) {
+					case 'modal-large':
+						mw.style.width = '800px'; // from less
+						break;
+					case 'modal-small':
+						mw.style.width = '300px'; // from less
+						break;
+				}
 			}
-			//alert(el.closest('.modal-window'));
 		}
 	};
 
@@ -7144,6 +7180,7 @@ TODO:
 		data() {
 			// always need a new instance of function (modal stack)
 			return {
+				modalCreated: false,
 				keyUpHandler: function () {
 					// escape
 					if (event.which === 27) {
@@ -7157,6 +7194,9 @@ TODO:
 		methods: {
 			modalClose(result) {
 				eventBus.$emit('modalClose', result);
+			},
+			loaded() {
+				// include loading is complete
 			},
 			messageText() {
 				return utils.text.sanitize(this.dialog.message);
@@ -7207,6 +7247,9 @@ TODO:
 			isInclude: function () {
 				return !!this.dialog.url;
 			},
+			mwClass() {
+				return this.modalCreated ? 'loaded' : null;
+			},
 			hasIcon() {
 				return !!this.dialog.style;
 			},
@@ -7236,7 +7279,11 @@ TODO:
 				if (this.dialog.buttons)
 					return this.dialog.buttons;
 				else if (this.dialog.style === 'alert')
-					return [{ text: okText, result: false, tabindex:1 }];
+					return [{ text: okText, result: false, tabindex: 1 }];
+				else if (this.dialog.style === 'alert-ok') {
+					this.dialog.style = 'alert';
+					return [{ text: okText, result: true, tabindex: 1 }];
+				}
 				else if (this.dialog.style === 'info')
 					return [{ text: okText, result: false, tabindex:1 }];
 				return [
@@ -7251,6 +7298,9 @@ TODO:
 				document.activeElement.blur();
 		},
 		mounted() {
+			setTimeout(() => {
+				this.modalCreated = true;
+			}, 50); // same as shell
 		},
 		destroyed() {
 			document.removeEventListener('keyup', this.keyUpHandler);
@@ -7262,7 +7312,7 @@ TODO:
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
 
-/* 20181013-7317 */
+/* 20181126-7373 */
 /*components/wizard.js*/
 
 (function () {
@@ -7450,7 +7500,7 @@ TODO:
 					return false;
 				}
 				for (let c of this.controls) {
-					if (c.invalid() || c.pending()) {
+					if (c.invalid() /*|| c.pending() blinking? */) {
 						this.wasInvalid = true;
 						return true;
 					}
@@ -8066,7 +8116,7 @@ Vue.component('a2-panel', {
 	const newButtonTemplate =
 `<div class="dropdown dir-down a2-new-btn" v-dropdown v-if="isVisible">
 	<button class="btn btn-icon" :class="btnClass" toggle aria-label="New"><i class="ico" :class="iconClass"></i></button>
-	<div class="dropdown-menu menu down-right">
+	<div class="dropdown-menu menu down-left">
 		<div class="super-menu" :class="cssClass">
 			<div v-for="(m, mx) in topMenu" :key="mx" class="menu-group">
 				<div class="group-title" v-text="m.Name"></div>
@@ -8991,7 +9041,7 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181127-7375
 // controllers/base.js
 
 (function () {
@@ -9138,7 +9188,7 @@ Vue.directive('resize', {
 					this.$confirm(confirm).then(() => root._exec_(cmd, arg.$selected));
 			},
 			$canExecute(cmd, arg, opts) {
-				if (this.$isLoading) return false;
+				//if (this.$isLoading) return false; // do not check here. avoid blinking
 				if (this.$isReadOnly(opts))
 					return false;
 				let root = this.$data;
@@ -9617,7 +9667,11 @@ Vue.directive('resize', {
 							let arr = arg.$parent;
 							return __runDialog(url, arg, query, (result) => { arr.$append(result); });
 						default: // simple show dialog
-							return __runDialog(url, arg, query, () => { });
+							return __runDialog(url, arg, query, (result) => {
+								if (opts && opts.reloadAfter) {
+									that.$reload();
+								}
+							});
 					}
 				}
 
@@ -10033,7 +10087,7 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20181116-7357*/
+/*20181126-7373*/
 /* controllers/shell.js */
 
 (function () {
@@ -10070,7 +10124,7 @@ Vue.directive('resize', {
 
 	function makeMenuUrl(menu, url, opts) {
 		opts = opts || {};
-		url = urlTools.combine(url);
+		url = urlTools.combine(url).toLowerCase();
 		let sUrl = url.split('/');
 		if (sUrl.length >= 4)
 			return url; // full qualified
@@ -10165,6 +10219,7 @@ Vue.directive('resize', {
 				return urlTools.helpHref('');
 			},
 			hasHelp() {
+				if (!this.menu) return false;
 				let am = this.menu.find(x => this.isActive(x));
 				return am && am.Help;
 			}
@@ -10313,6 +10368,8 @@ Vue.directive('resize', {
 			currentView() {
 				let root = window.$$rootUrl;
 				let url = store.getters.url;
+				if (url === '/')
+					return; // no views here
 				let len = store.getters.len;
 				if (len === 2 || len === 3)
 					url += '/index/0';
@@ -10342,6 +10399,7 @@ Vue.directive('resize', {
 		}
 	};
 
+	// 
 	const a2MainView = {
 		store,
 		template: `
@@ -10351,7 +10409,7 @@ Vue.directive('resize', {
 	<a2-content-view></a2-content-view>
 	<div class="load-indicator" v-show="pendingRequest"></div>
 	<div class="modal-stack" v-if="hasModals">
-		<div class="modal-wrapper" v-for="dlg in modals">
+		<div class="modal-wrapper" v-for="dlg in modals" :class="{show: dlg.wrap}">
 			<a2-modal :dialog="dlg"></a2-modal>
 		</div>
 	</div>
@@ -10404,30 +10462,18 @@ Vue.directive('resize', {
 				let clpscls = this.isSideBarCompact ? 'side-bar-compact-' : 'side-bar-';
 				return clpscls + (this.sideBarCollapsed ? 'collapsed' : 'expanded');
 			},
-			pendingRequest() { return this.requestsCount > 0; },
+			pendingRequest() { return !this.hasModals && this.requestsCount > 0; },
 			hasModals() { return this.modals.length > 0; }
 		},
-		created() {
-			if (!this.menu) {
-				alert('access denied');
-				//window.location.assign('/account/login');
-				return;
+		methods: {
+			setupWrapper(dlg) {
+				setTimeout(() => {
+					dlg.wrap = true;
+					//console.dir("wrap:" + dlg.wrap);
+				}, 50); // same as modal
 			}
-			this.sideBarCollapsed = this.sideBarInitialCollapsed;
-			let opts = { title: null };
-			let newUrl = makeMenuUrl(this.menu, urlTools.normalizeRoot(window.location.pathname), opts);
-			newUrl = newUrl + window.location.search;
-			this.$store.commit('setstate', { url: newUrl, title: opts.title });
-
-			let firstUrl = {
-				url: '',
-				title: ''
-			};
-
-			firstUrl.url = makeMenuUrl(this.menu, '/', opts);
-			firstUrl.title = opts.title;
-			urlTools.firstUrl = firstUrl;
-
+		},
+		created() {
 			let me = this;
 
 			eventBus.$on('beginRequest', function () {
@@ -10449,23 +10495,25 @@ Vue.directive('resize', {
 				if (raw)
 					url = urlTools.combine(root, modal, id);
 				url = store.replaceUrlQuery(url, prms.query);
-				let dlg = { title: "dialog", url: url, prms: prms.data };
+				let dlg = { title: "dialog", url: url, prms: prms.data, wrap:false };
 				dlg.promise = new Promise(function (resolve, reject) {
 					dlg.resolve = resolve;
 				});
 				prms.promise = dlg.promise;
 				me.modals.push(dlg);
+				me.setupWrapper(dlg);
 			});
 
 			eventBus.$on('modaldirect', function (modal, prms) {
 				let root = window.$$rootUrl;
 				let url = urlTools.combine(root, '/_dialog', modal);
-				let dlg = { title: "dialog", url: url, prms: prms.data };
+				let dlg = { title: "dialog", url: url, prms: prms.data, wrap:false };
 				dlg.promise = new Promise(function (resolve, reject) {
 					dlg.resolve = resolve;
 				});
 				prms.promise = dlg.promise;
 				me.modals.push(dlg);
+				me.setupWrapper(dlg);
 			});
 
 			eventBus.$on('modalClose', function (result) {
@@ -10483,13 +10531,44 @@ Vue.directive('resize', {
 
 			eventBus.$on('confirm', function (prms) {
 				let dlg = prms.data;
+				dlg.wrap = false;
 				dlg.promise = new Promise(function (resolve) {
 					dlg.resolve = resolve;
 				});
 				prms.promise = dlg.promise;
 				me.modals.push(dlg);
+				me.setupWrapper(dlg);
 			});
 
+			if (!this.menu) {
+				let dlgData = {
+					promise: null, data: {
+						message: locale.$AccessDenied, title: locale.$Error, style: 'alert-ok'
+					}
+				};
+				eventBus.$emit('confirm', dlgData);
+				dlgData.promise.then(function () {
+					let root = window.$$rootUrl;
+					let url = urlTools.combine(root, '/account/login');
+					window.location.assign(url);
+				});
+				return;
+			}
+
+			this.sideBarCollapsed = this.sideBarInitialCollapsed;
+			let opts = { title: null };
+			let newUrl = makeMenuUrl(this.menu, urlTools.normalizeRoot(window.location.pathname), opts);
+			newUrl = newUrl + window.location.search;
+			this.$store.commit('setstate', { url: newUrl, title: opts.title });
+
+			let firstUrl = {
+				url: '',
+				title: ''
+			};
+
+			firstUrl.url = makeMenuUrl(this.menu, '/', opts);
+			firstUrl.title = opts.title;
+			urlTools.firstUrl = firstUrl;
 		}
 	};
 
@@ -10509,7 +10588,7 @@ Vue.directive('resize', {
 			};
 		},
 		computed: {
-			processing() { return this.requestsCount > 0; },
+			processing() { return !this.hasModals && this.requestsCount > 0; },
 			modelStack() {
 				return this.__dataStack__;
 			}

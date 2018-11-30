@@ -14,5 +14,3 @@ async function countryChange(agent) {
 	// находим нужную страну в общем списке стран и присваиваем ей полученный список городов
 	root.Coutries.find(c => c.Code === agent.Country.Code).Cities = result.Cities;
 }
-
-// Остальные вложенные так-же

@@ -49,7 +49,7 @@
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180623-7233
+// 20181120-7363
 // platform/polyfills.js
 
 
@@ -70,10 +70,12 @@
 		let elRect = el.getBoundingClientRect();
 		let pElem = el.parentElement;
 		while (pElem) {
-			if (pElem.offsetHeight < pElem.scrollHeight)
+			if (pElem.offsetHeight <= pElem.scrollHeight)
 				break;
 			pElem = pElem.parentElement;
 		}
+		if (!pElem)
+			return;
 		let parentRect = pElem.getBoundingClientRect();
 		if (elRect.top < parentRect.top)
 			el.scrollIntoView(true);
@@ -99,7 +101,7 @@
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181120-7363
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -152,6 +154,7 @@ app.modules['std:utils'] = function () {
 			equal: dateEqual,
 			isZero: dateIsZero,
 			formatDate: formatDate,
+			format: formatDate,
 			add: dateAdd,
 			diff: dateDiff,
 			create: dateCreate,
@@ -1143,7 +1146,7 @@ app.modules['std:modelInfo'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20180903-7300
+// 20181125-7372
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1240,6 +1243,11 @@ app.modules['std:http'] = function () {
 		return new Promise(function (resolve, reject) {
 			doRequest('GET', url)
 				.then(function (html) {
+					if (html.startsWith('<!DOCTYPE')) {
+						// full page - may be login?
+						window.location.assign('/');
+						return;
+					}
 					let dp = new DOMParser();
 					let rdoc = dp.parseFromString(html, 'text/html');
 					// first element from fragment body
@@ -2015,7 +2023,7 @@ Vue.component('a2-pager', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181125-7372
 // services/datamodel.js
 
 (function () {
@@ -2295,6 +2303,18 @@ Vue.component('a2-pager', {
 			return !this.$valid;
 		});
 
+		elem.$errors = function (prop) {
+			if (!this) return null;
+			let root = this._root_;
+			if (!root) return null;
+			if (!root._validate_)
+				return null;
+			let path = `${this._path_}.${prop}`; 
+			let arr = root._validate_(this, path, this[prop]);
+			if (arr && arr.length === 0) return null;
+			return arr;
+		};
+		
 		if (elem._meta_.$group === true) {
 			defPropertyGet(elem, "$groupName", function () {
 				if (!utils.isDefined(this.$level))
@@ -3262,7 +3282,8 @@ Vue.component('a2-pager', {
 		props: {
 			src: String,
 			cssClass: String,
-			needReload: Boolean
+			needReload: Boolean,
+			done: Function
 		},
 		data() {
 			return {
@@ -3274,6 +3295,8 @@ Vue.component('a2-pager', {
 		methods: {
 			loaded(ok) {
 				this.loading = false;
+				if (this.done)
+					this.done();
 			},
 			requery() {
 				if (this.currentUrl) {
@@ -3386,7 +3409,7 @@ Vue.component('a2-pager', {
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181103-7342
+// 20181122-7367
 // components/modal.js
 
 
@@ -3403,8 +3426,8 @@ Vue.component('a2-pager', {
 	const utils = require('std:utils');
 
 	const modalTemplate = `
-<div class="modal-window" @keydown.tab="tabPress">
-	<include v-if="isInclude" class="modal-body" :src="dialog.url"></include>
+<div class="modal-window" @keydown.tab="tabPress" :class="mwClass">
+	<include v-if="isInclude" class="modal-body" :src="dialog.url" :done="loaded"></include>
 	<div v-else class="modal-body">
 		<div class="modal-header" v-drag-window><span v-text="title"></span><button ref='btnclose' class="btnclose" @click.prevent="modalClose(false)">&#x2715;</button></div>
 		<div :class="bodyClass">
@@ -3426,16 +3449,20 @@ Vue.component('a2-pager', {
 	const setWidthComponent = {
 		inserted(el, binding) {
 			// TODO: width or cssClass???
-			//alert('set width-created:' + binding.value);
-			// alert(binding.value.cssClass);
 			let mw = el.closest('.modal-window');
 			if (mw) {
 				if (binding.value.width)
 					mw.style.width = binding.value.width;
-				if (binding.value.cssClass)
-					mw.classList.add(binding.value.cssClass);
+				let cssClass = binding.value.cssClass;
+				switch (cssClass) {
+					case 'modal-large':
+						mw.style.width = '800px'; // from less
+						break;
+					case 'modal-small':
+						mw.style.width = '300px'; // from less
+						break;
+				}
 			}
-			//alert(el.closest('.modal-window'));
 		}
 	};
 
@@ -3505,6 +3532,7 @@ Vue.component('a2-pager', {
 		data() {
 			// always need a new instance of function (modal stack)
 			return {
+				modalCreated: false,
 				keyUpHandler: function () {
 					// escape
 					if (event.which === 27) {
@@ -3518,6 +3546,9 @@ Vue.component('a2-pager', {
 		methods: {
 			modalClose(result) {
 				eventBus.$emit('modalClose', result);
+			},
+			loaded() {
+				// include loading is complete
 			},
 			messageText() {
 				return utils.text.sanitize(this.dialog.message);
@@ -3568,6 +3599,9 @@ Vue.component('a2-pager', {
 			isInclude: function () {
 				return !!this.dialog.url;
 			},
+			mwClass() {
+				return this.modalCreated ? 'loaded' : null;
+			},
 			hasIcon() {
 				return !!this.dialog.style;
 			},
@@ -3597,7 +3631,11 @@ Vue.component('a2-pager', {
 				if (this.dialog.buttons)
 					return this.dialog.buttons;
 				else if (this.dialog.style === 'alert')
-					return [{ text: okText, result: false, tabindex:1 }];
+					return [{ text: okText, result: false, tabindex: 1 }];
+				else if (this.dialog.style === 'alert-ok') {
+					this.dialog.style = 'alert';
+					return [{ text: okText, result: true, tabindex: 1 }];
+				}
 				else if (this.dialog.style === 'info')
 					return [{ text: okText, result: false, tabindex:1 }];
 				return [
@@ -3612,6 +3650,9 @@ Vue.component('a2-pager', {
 				document.activeElement.blur();
 		},
 		mounted() {
+			setTimeout(() => {
+				this.modalCreated = true;
+			}, 50); // same as shell
 		},
 		destroyed() {
 			document.removeEventListener('keyup', this.keyUpHandler);

@@ -64,7 +64,9 @@ namespace A2v10RuntimeNet
 		{
 			String[] app =
 			{
+				Resources.Application,
 				Resources.App_context,
+				Resources.Solution
 			};
 			ParseLibraryElements(app);
 		}
@@ -132,7 +134,7 @@ namespace A2v10RuntimeNet
 					profiler as IDataProfiler,
 					host as IDataConfiguration,
 					localizer as IDataLocalizer);
-				IRenderer renderer = new XamlRenderer(profiler);
+				IRenderer renderer = new XamlRenderer(profiler, host);
 				IWorkflowEngine wfEngine = new WorkflowEngine(host, dbContext);
 				service.RegisterService<IProfiler>(profiler);
 				service.RegisterService<IApplicationHost>(host);

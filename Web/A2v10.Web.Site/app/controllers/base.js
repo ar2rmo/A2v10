@@ -1,6 +1,6 @@
 ﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181117-7359
+// 20181127-7375
 // controllers/base.js
 
 (function () {
@@ -147,7 +147,7 @@
 					this.$confirm(confirm).then(() => root._exec_(cmd, arg.$selected));
 			},
 			$canExecute(cmd, arg, opts) {
-				if (this.$isLoading) return false;
+				//if (this.$isLoading) return false; // do not check here. avoid blinking
 				if (this.$isReadOnly(opts))
 					return false;
 				let root = this.$data;
@@ -626,7 +626,11 @@
 							let arr = arg.$parent;
 							return __runDialog(url, arg, query, (result) => { arr.$append(result); });
 						default: // simple show dialog
-							return __runDialog(url, arg, query, () => { });
+							return __runDialog(url, arg, query, (result) => {
+								if (opts && opts.reloadAfter) {
+									that.$reload();
+								}
+							});
 					}
 				}
 
