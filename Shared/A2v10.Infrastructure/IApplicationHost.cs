@@ -15,6 +15,8 @@ namespace A2v10.Infrastructure
 		String SupportEmail { get; }
 		String Theme { get; }
 		String HelpUrl { get; }
+		String HostingPath { get; }
+
 		Boolean IsDebugConfiguration { get; }
 		Boolean IsRegistrationEnabled { get; }
 
@@ -29,7 +31,8 @@ namespace A2v10.Infrastructure
 
 		String MakeFullPath(Boolean bAdmin, String path, String fileName);
 		String MakeRelativePath(String path, String fileName);
-		Task<String> ReadTextFile(Boolean bAdmin, String path, String fileName);
+		Task<String> ReadTextFileAsync(Boolean bAdmin, String path, String fileName);
+		String ReadTextFile(Boolean bAdmin, String path, String fileName);
 
 		String AppVersion { get; }
 		String AppBuild { get; }

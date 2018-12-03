@@ -16,7 +16,9 @@
 
 	app.modules['std:platform'] = {
 		set: set,
-		defer: defer
+		defer: defer,
+		File: File, /*file ctor*/
+		performance: performance
 	};
 
 	app.modules['std:eventBus'] = new Vue({});

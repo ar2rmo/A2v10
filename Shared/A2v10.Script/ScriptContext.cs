@@ -22,6 +22,61 @@ namespace A2v10.Script
 			CreateContext();
 		}
 
+		public void LoadLibrary(String script)
+		{
+			try
+			{
+				JavaScriptValue jsLib = JavaScriptContext.ParseScriptLibrary(script);
+				if (jsLib.ValueType == JavaScriptValueType.Function)
+					jsLib.CallFunction(JavaScriptValue.Undefined);
+			}
+			catch (JavaScriptScriptException ex)
+			{
+				var msg = ex.Error.GetProperty(JavaScriptPropertyId.FromString("message"));
+				throw new JSRuntimeException(msg.ToString());
+			}
+			catch (Exception)
+			{
+				throw;
+			}
+		}
+
+		Object JavaScriptValueToObject(JavaScriptValue val)
+		{
+			switch (val.ValueType)
+			{
+				case JavaScriptValueType.String:
+					return val.ToString();
+				case JavaScriptValueType.Null:
+				case JavaScriptValueType.Undefined :
+					return null;
+			}
+			throw new InvalidCastException($"JavaScriptValueToObject. Unknown value type: {val.ValueType}");
+		}
+
+		public Object RunScript(String script)
+		{
+			try
+			{
+				JavaScriptValue jsScript = JavaScriptContext.ParseScript(script);
+				if (jsScript.ValueType == JavaScriptValueType.Function)
+				{
+					var jsResult = jsScript.CallFunction(JavaScriptValue.Undefined);
+					return JavaScriptValueToObject(jsResult);
+				}
+				return null;
+			}
+			catch (JavaScriptScriptException ex)
+			{
+				var msg = ex.Error.GetProperty(JavaScriptPropertyId.FromString("message"));
+				throw new JSRuntimeException(msg.ToString());
+			} 
+			catch (Exception)
+			{
+				throw;
+			}
+		}
+
 		public Boolean IsValid { get { return _runtime.IsValid; } }
 		#endregion
 

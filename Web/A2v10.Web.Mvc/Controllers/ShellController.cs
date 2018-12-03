@@ -97,7 +97,7 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 			//else if (pathInfo.StartsWith("_model/"))
 			//{
-				//await RenderModel(pathInfo.Substring(7));
+			//await RenderModel(pathInfo.Substring(7));
 			//}
 			else if (pathInfo.StartsWith("_dialog/"))
 			{
@@ -144,6 +144,8 @@ namespace A2v10.Web.Mvc.Controllers
 			{
 				StaticImage(pathInfo.Substring(14).Replace('-', '.'));
 			}
+			else if (pathInfo.StartsWith("_server"))
+				await RunServer(pathInfo.Substring(8));
 			else
 			{
 				Index(); // root element (always)
@@ -245,6 +247,18 @@ namespace A2v10.Web.Mvc.Controllers
 				}
 			}
 			catch (Exception ex)
+			{
+				WriteExceptionStatus(ex);
+			}
+		}
+
+		async Task RunServer(String pathInfo)
+		{
+			try
+			{
+				var baseUrl = Request.QueryString["baseUrl"];
+				await _baseController.Server(pathInfo, baseUrl, UserId, Response);
+			} catch (Exception ex)
 			{
 				WriteExceptionStatus(ex);
 			}
@@ -471,7 +485,7 @@ namespace A2v10.Web.Mvc.Controllers
 				var rval = new ExpandoObject();
 				rval.Set("status", "OK");
 				rval.Set("ids", list);
-				String result = JsonConvert.SerializeObject(rval, BaseController.StandardSerializerSettings);
+				String result = JsonConvert.SerializeObject(rval, JsonHelpers.StandardSerializerSettings);
 				Response.Write(result);
 			}
 			catch (Exception ex)
