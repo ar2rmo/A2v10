@@ -110,7 +110,7 @@ app.modules['std:locale'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180227-7121*/
+/*20181204-7382*/
 /* platform/webvue.js */
 
 (function () {
@@ -1740,7 +1740,7 @@ app.modules['std:validators'] = function () {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181201-7379
+// 20181211-7384
 // services/datamodel.js
 
 (function () {
@@ -1875,10 +1875,12 @@ app.modules['std:validators'] = function () {
 				if (val === this._src_[prop])
 					return;
 				let oldVal = this._src_[prop];
-				let changingEvent = (this._path_ || 'Root') + '.' + prop + '.changing';
-				let ret = this._root_.$emit(changingEvent, this, val, oldVal, prop);
-				if (ret === false)
-					return;
+				if (!this._lockEvents_) {
+					let changingEvent = (this._path_ || 'Root') + '.' + prop + '.changing';
+					let ret = this._root_.$emit(changingEvent, this, val, oldVal, prop);
+					if (ret === false)
+						return;
+				}
 				if (this._src_[prop] && this._src_[prop].$set) {
 					// object
 					this._src_[prop].$set(val);
@@ -2241,7 +2243,7 @@ app.modules['std:validators'] = function () {
 
 		defPropertyGet(arr, "$isEmpty", function () {
 			return !this.length;
-		});
+		});		
 
 		defPropertyGet(arr, "$checked", function () {
 			return this.filter((el) => el.$checked);
@@ -2294,10 +2296,10 @@ app.modules['std:validators'] = function () {
 			function append(src, select) {
 				let addingEvent = that._path_ + '[].adding';
 				let newElem = that.$new(src);
-				// TODO: emit adding and check result
+				// emit adding and check result
 				let er = that._root_.$emit(addingEvent, that/*array*/, newElem/*elem*/);
 				if (er === false)
-					return; // disabled
+					return null; // disabled
 				let len = that.length;
 				let ne = null;
 				switch (to) {
@@ -2346,9 +2348,28 @@ app.modules['std:validators'] = function () {
 
 		arr.$empty = function () {
 			if (this.$root.isReadOnly)
-				return;
+				return this;
 			this.splice(0, this.length);
 			if ('$RowCount' in this) this.$RowCount = 0;
+			return this;
+		};
+
+		arr.$renumberRows = function () {
+			if (!this.length) return this;
+			let item = this[0];
+			// renumber rows
+			if ('$rowNo' in item._meta_) {
+				let rowNoProp = item._meta_.$rowNo;
+				for (let i = 0; i < this.length; i++) {
+					this[i][rowNoProp] = i + 1; // 1-based
+				}
+			}
+			return this;
+		};
+
+		arr.$sort = function (compare) {
+			this.sort(compare);
+			this.$renumberRows();
 			return this;
 		};
 
@@ -2357,35 +2378,31 @@ app.modules['std:validators'] = function () {
 			if (!sel) return; // already null
 			sel.$selected = false;
 			emitSelect(this, null);
+			return this;
 		};
 
 		arr.$remove = function (item) {
 			if (this.$root.isReadOnly)
-				return;
+				return this;
 			if (!item)
-				return;
+				return this;
 			let index = this.indexOf(item);
 			if (index === -1)
-				return;
+				return this;
 			this.splice(index, 1);
 			if ('$RowCount' in this) this.$RowCount -= 1;
 			// EVENT
 			let eventName = this._path_ + '[].remove';
 			this._root_.$setDirty(true);
 			this._root_.$emit(eventName, this /*array*/, item /*elem*/, index);
-			if (!this.length) return;
+			if (!this.length) return this;
 			if (index >= this.length)
 				index -= 1;
-			// renumber rows
-			if ('$rowNo' in item._meta_) {
-				let rowNoProp = item._meta_.$rowNo;
-				for (let i = 0; i < this.length; i++) {
-					this[i][rowNoProp] = i + 1; // 1-based
-				}
-			}
+			this.$renumberRows();
 			if (this.length > index) {
 				this[index].$select();
 			}
+			return this;
 		};
 
 		arr.$copy = function (src) {
@@ -2398,6 +2415,14 @@ app.modules['std:validators'] = function () {
 				}
 			}
 			return this;
+		};
+
+		arr.__fireChange__ = function (opts) {
+			let root = this.$root;
+			let itm = this;
+			if (opts === 'selected')
+				itm = this.$selected;
+			root.$emit(this._path_ + '[].change', this, itm);
 		};
 	}
 
@@ -8115,7 +8140,7 @@ Vue.component('a2-panel', {
 })();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20181112-7353*/
+/*20181211-7384*/
 /*components/newbutton.js*/
 
 (function () {
@@ -8133,7 +8158,7 @@ Vue.component('a2-panel', {
 				<div class="group-title" v-text="m.Name"></div>
 				<template v-for="(itm, ix) in m.Menu">
 					<div class="divider" v-if=isDivider(itm)></div>
-					<a v-else @click.prevent='doCommand(itm.Url, itm.Description)' 
+					<a v-else @click.prevent='doCommand(itm.Url, itm.Params)' 
 						class="dropdown-item" tabindex="-1"><i class="ico" :class="'ico-' + itm.Icon"></i><span v-text="itm.Name"></span></a>
 				</template>
 			</div>
@@ -8164,7 +8189,7 @@ Vue.component('a2-panel', {
 				return this.btnStyle ? 'btn-' + this.btnStyle : '';
 			},
 			columns() {
-				let descr = this.menu ? this.menu[0].Description : '';
+				let descr = this.menu ? this.menu[0].Params : '';
 				if (!descr) return 1;
 				try {
 					return +JSON.parse(descr).columns || 1;
@@ -8885,7 +8910,7 @@ Vue.directive('settabindex', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20181112-7253*/
+/*20181211-7384*/
 /* directives/resize.js */
 
 Vue.directive('resize', {
@@ -8903,7 +8928,7 @@ Vue.directive('resize', {
 		if (!el._parts) return;
 		let p = el._parts;
 		if (p.init) return;
-		if (!p.grid.clientWidth) return; // yet not inserted
+		//if (!p.grid.clientWidth) return; // yet not inserted
 		p.init = true;
 
 		p.handle = findHandle(p.grid);
@@ -8930,7 +8955,7 @@ Vue.directive('resize', {
 			temp.style.width = w;
 			temp.style.position = 'absolute';
 			temp.style.visibility = 'hidden';
-			grid.appendChild(temp);
+			document.body.appendChild(temp);
 			let cw = temp.clientWidth;
 			temp.remove();
 			if (!cw)
@@ -9052,7 +9077,7 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181127-7375
+// 20181211-7384
 // controllers/base.js
 
 (function () {
@@ -9663,7 +9688,13 @@ Vue.directive('resize', {
 							});
 						case 'edit-selected':
 							if (argIsNotAnArray()) return;
-							return __runDialog(url, arg.$selected, query, (result) => { arg.$selected.$merge(result); });
+							return __runDialog(url, arg.$selected, query, (result) => {
+								arg.$selected.$merge(result);
+								arg.__fireChange__('selected');
+								if (opts && opts.reloadAfter) {
+									that.$reload();
+								}
+							});
 						case 'edit':
 							if (argIsNotAnObject()) return;
 							return __runDialog(url, arg, query, (result) => {
@@ -10098,7 +10129,7 @@ Vue.directive('resize', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20181126-7373*/
+/*20181211-7384*/
 /* controllers/shell.js */
 
 (function () {
@@ -10261,6 +10292,14 @@ Vue.directive('resize', {
 			isActive(item) {
 				return this.seg1 === item.Url;
 			},
+			isGroup(item) {
+				if (!item.Params) return false;
+				try {
+					return JSON.parse(item.Params).group || false;
+				} catch (err) {
+					return false;
+				}
+			},
 			navigate(item) {
 				if (this.isActive(item))
 					return;
@@ -10307,7 +10346,7 @@ Vue.directive('resize', {
 <div class='side-bar-compact' :class="cssClass">
 	<a href role="button" aria-label="Expand/Collapse Side bar" class="collapse-button" @click.prevent="toggle"></a>
 	<ul class='side-menu'>
-		<li v-for='(itm, itmIx) in sideMenu' :class="{active: isActive(itm)}" :key="itmIx">
+		<li v-for='(itm, itmIx) in sideMenu' :class="{active: isActive(itm), group: isGroup(itm)}" :key="itmIx">
 			<a :href="itemHref(itm)" :title="itm.Name" @click.prevent='navigate(itm)'><i :class="'ico ico-' + itm.Icon"></i> <span v-text='itm.Name'></span></a>
 		</li>
 	</ul>
@@ -10456,6 +10495,9 @@ Vue.directive('resize', {
 				let sb = localStorage.getItem('sideBarCollapsed');
 				if (sb === 'true')
 					return true;
+				// auto collapse for tablet
+				if (screen && screen.width < 992)
+					return true;
 				return false;
 			},
 			sideBarComponent() {
@@ -10567,6 +10609,7 @@ Vue.directive('resize', {
 			}
 
 			this.sideBarCollapsed = this.sideBarInitialCollapsed;
+
 			let opts = { title: null };
 			let newUrl = makeMenuUrl(this.menu, urlTools.normalizeRoot(window.location.pathname), opts);
 			newUrl = newUrl + window.location.search;

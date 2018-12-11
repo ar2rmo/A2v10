@@ -101,7 +101,7 @@
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-/*20180227-7121*/
+/*20181204-7382*/
 /* platform/webvue.js */
 
 (function () {
@@ -2026,7 +2026,7 @@ Vue.component('a2-pager', {
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
-// 20181201-7379
+// 20181211-7384
 // services/datamodel.js
 
 (function () {
@@ -2161,10 +2161,12 @@ Vue.component('a2-pager', {
 				if (val === this._src_[prop])
 					return;
 				let oldVal = this._src_[prop];
-				let changingEvent = (this._path_ || 'Root') + '.' + prop + '.changing';
-				let ret = this._root_.$emit(changingEvent, this, val, oldVal, prop);
-				if (ret === false)
-					return;
+				if (!this._lockEvents_) {
+					let changingEvent = (this._path_ || 'Root') + '.' + prop + '.changing';
+					let ret = this._root_.$emit(changingEvent, this, val, oldVal, prop);
+					if (ret === false)
+						return;
+				}
 				if (this._src_[prop] && this._src_[prop].$set) {
 					// object
 					this._src_[prop].$set(val);
@@ -2527,7 +2529,7 @@ Vue.component('a2-pager', {
 
 		defPropertyGet(arr, "$isEmpty", function () {
 			return !this.length;
-		});
+		});		
 
 		defPropertyGet(arr, "$checked", function () {
 			return this.filter((el) => el.$checked);
@@ -2580,10 +2582,10 @@ Vue.component('a2-pager', {
 			function append(src, select) {
 				let addingEvent = that._path_ + '[].adding';
 				let newElem = that.$new(src);
-				// TODO: emit adding and check result
+				// emit adding and check result
 				let er = that._root_.$emit(addingEvent, that/*array*/, newElem/*elem*/);
 				if (er === false)
-					return; // disabled
+					return null; // disabled
 				let len = that.length;
 				let ne = null;
 				switch (to) {
@@ -2632,9 +2634,28 @@ Vue.component('a2-pager', {
 
 		arr.$empty = function () {
 			if (this.$root.isReadOnly)
-				return;
+				return this;
 			this.splice(0, this.length);
 			if ('$RowCount' in this) this.$RowCount = 0;
+			return this;
+		};
+
+		arr.$renumberRows = function () {
+			if (!this.length) return this;
+			let item = this[0];
+			// renumber rows
+			if ('$rowNo' in item._meta_) {
+				let rowNoProp = item._meta_.$rowNo;
+				for (let i = 0; i < this.length; i++) {
+					this[i][rowNoProp] = i + 1; // 1-based
+				}
+			}
+			return this;
+		};
+
+		arr.$sort = function (compare) {
+			this.sort(compare);
+			this.$renumberRows();
 			return this;
 		};
 
@@ -2643,35 +2664,31 @@ Vue.component('a2-pager', {
 			if (!sel) return; // already null
 			sel.$selected = false;
 			emitSelect(this, null);
+			return this;
 		};
 
 		arr.$remove = function (item) {
 			if (this.$root.isReadOnly)
-				return;
+				return this;
 			if (!item)
-				return;
+				return this;
 			let index = this.indexOf(item);
 			if (index === -1)
-				return;
+				return this;
 			this.splice(index, 1);
 			if ('$RowCount' in this) this.$RowCount -= 1;
 			// EVENT
 			let eventName = this._path_ + '[].remove';
 			this._root_.$setDirty(true);
 			this._root_.$emit(eventName, this /*array*/, item /*elem*/, index);
-			if (!this.length) return;
+			if (!this.length) return this;
 			if (index >= this.length)
 				index -= 1;
-			// renumber rows
-			if ('$rowNo' in item._meta_) {
-				let rowNoProp = item._meta_.$rowNo;
-				for (let i = 0; i < this.length; i++) {
-					this[i][rowNoProp] = i + 1; // 1-based
-				}
-			}
+			this.$renumberRows();
 			if (this.length > index) {
 				this[index].$select();
 			}
+			return this;
 		};
 
 		arr.$copy = function (src) {
@@ -2684,6 +2701,14 @@ Vue.component('a2-pager', {
 				}
 			}
 			return this;
+		};
+
+		arr.__fireChange__ = function (opts) {
+			let root = this.$root;
+			let itm = this;
+			if (opts === 'selected')
+				itm = this.$selected;
+			root.$emit(this._path_ + '[].change', this, itm);
 		};
 	}
 
