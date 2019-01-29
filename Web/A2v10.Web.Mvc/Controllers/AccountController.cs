@@ -25,6 +25,7 @@ using A2v10.Web.Mvc.Models;
 using A2v10.Data.Interfaces;
 using A2v10.Web.Mvc.Filters;
 using A2v10.Web.Identity;
+using System.Configuration;
 
 namespace A2v10.Web.Mvc.Controllers
 {
@@ -79,9 +80,9 @@ namespace A2v10.Web.Mvc.Controllers
 				String regMode = _host.IsRegistrationEnabled.ToString().ToLowerInvariant();
 
 				StringBuilder script = new StringBuilder(rsrcScript);
-				script.Replace("$(Utils)", ResourceHelper.pageUtils);
-				script.Replace("$(Locale)", ResourceHelper.locale);
-				script.Replace("$(Mask)", ResourceHelper.mask);
+				script.Replace("$(Utils)", ResourceHelper.PageUtils);
+				script.Replace("$(Locale)", ResourceHelper.Locale);
+				script.Replace("$(Mask)", ResourceHelper.Mask);
 
 				script.Replace("$(PageData)", $"{{ version: '{_host.AppVersion}', title: '{appTitle?.AppTitle}', subtitle: '{appTitle?.AppSubTitle}', multiTenant: {mtMode}, registration: {regMode} }}");
 				script.Replace("$(AppLinks)", _localizer.Localize(null, _host.AppLinks()));
@@ -482,6 +483,7 @@ namespace A2v10.Web.Mvc.Controllers
 			}
 			catch (Exception /*ex*/)
 			{
+				// TODO: log error here!
 				SendPage(GetRedirectedPage("error", ResourceHelper.ErrorHtml), ResourceHelper.SimpleScript);
 			}
 		}
@@ -766,6 +768,27 @@ namespace A2v10.Web.Mvc.Controllers
 			if (body.IndexOf("{0}") == - 1)
 				throw new InvalidDataException($"Invalid email template for {code}");
 			return body;
+		}
+
+		// GET: /DemoMode
+		[AllowAnonymous]
+		public async Task<ActionResult> Demo()
+		{
+			String demo = ConfigurationManager.AppSettings["demo"];
+			if (demo == null)
+				return new HttpStatusCodeResult(404);
+			var lp = demo.Split(';');
+			if (lp.Length != 2)
+				return new HttpStatusCodeResult(404);
+			String userName = lp[0].Trim();
+			String password = lp[1].Trim();
+			var result = await SignInManager.PasswordSignInAsync(userName: userName, password: password, isPersistent: false, shouldLockout: false);
+			switch (result)
+			{
+				case SignInStatus.Success:
+					return Redirect("~/");
+			}
+			return new HttpStatusCodeResult(404);
 		}
 
 		#endregion

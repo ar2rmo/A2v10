@@ -80,9 +80,9 @@ app.modules['std:locale'] = function () {
 	};
 })();
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181203-7381
+// 20190108-7409
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -151,6 +151,10 @@ app.modules['std:utils'] = function () {
 			containsText: textContainsText,
 			sanitize,
 			splitPath
+		},
+		currency: {
+			round: currencyRound,
+			format: currencyFormat
 		},
 		func: {
 			curry,
@@ -296,6 +300,8 @@ app.modules['std:utils'] = function () {
 					return '';
 				return formatDate(obj) + ' ' + formatTime(obj);
 			case "Date":
+				if (isString(obj))
+					obj = string2Date(obj);
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
 					return obj;
@@ -399,18 +405,37 @@ app.modules['std:utils'] = function () {
 		return str;
 	}
 
+	function string2Date(str) {
+		try {
+			let dt = new Date(str);
+			dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
+			return dt;
+		} catch (err) {
+			return str;
+		}
+	}
+
 	function dateParse(str) {
 		str = str || '';
 		if (!str) return dateZero();
 		let today = dateToday();
-		let seg = str.split('.');
+		let seg = str.split(/[^\d]/);
 		if (seg.length === 1) {
 			seg.push('' + (today.getMonth() + 1));
 			seg.push('' + today.getFullYear());
 		} else if (seg.length === 2) {
 			seg.push('' + today.getFullYear());
 		}
-		let td = new Date(+seg[2], +seg[1] - 1, +seg[0], 0, 0, 0, 0);
+		let normalizeYear = function (y) {
+			y = '' + y;
+			switch (y.length) {
+				case 2: y = '20' + y; break;
+				case 4: break;
+				default: y = today.getFullYear(); break;
+			}
+			return +y;
+		};
+		let td = new Date(+normalizeYear(seg[2]), +((seg[1] ? seg[1] : 1) - 1), +seg[0], 0, 0, 0, 0);
 		if (isNaN(td.getDate()))
 			return dateZero();
 		td.setHours(0, -td.getTimezoneOffset(), 0, 0);
@@ -578,6 +603,20 @@ app.modules['std:utils'] = function () {
 		return (..._arg) => {
 			return fn(...args, ..._arg);
 		};
+	}
+
+	function currencyRound(n, digits) {
+		if (isNaN(n))
+			return Nan;
+		digits = digits || 2;
+		let m = false;
+		if (n < 0) {
+			n = -n;
+			m = true;
+		}
+		// toFixed = avoid js rounding error
+		let r = Number(Math.round(n.toFixed(12) + `e${digits}`) + `e-${digits}`);
+		return m ? -r : r;
 	}
 };
 
@@ -1024,9 +1063,9 @@ app.modules['std:validators'] = function () {
 
 
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+/*! Copyright © 2015-2019 Alex Kukhtin. All rights reserved.*/
 
-// 20181211-7384
+// 20190105-7402
 // services/datamodel.js
 
 (function () {
@@ -1280,6 +1319,9 @@ app.modules['std:validators'] = function () {
 		if (path && path.endsWith(']'))
 			elem.$selected = false;
 
+		if (elem._meta_.$items)
+			elem.$expanded = false; // tree elem
+
 		defPropertyGet(elem, '$valid', function () {
 			if (this._root_._needValidate_)
 				this._root_._validateAll_();
@@ -1529,7 +1571,7 @@ app.modules['std:validators'] = function () {
 
 		defPropertyGet(arr, "$isEmpty", function () {
 			return !this.length;
-		});		
+		});
 
 		defPropertyGet(arr, "$checked", function () {
 			return this.filter((el) => el.$checked);
@@ -1824,6 +1866,16 @@ app.modules['std:validators'] = function () {
 			if (sel) sel.$selected = false;
 			this.$selected = true;
 			emitSelect(arr, this);
+			if (this._meta_.$items) {
+				// expand all parent items
+				let p = this._parent_._parent_;
+				while (p) {
+					p.$expanded = true;
+					p = p._parent_._parent_;
+					if (!p || p === this.$root)
+						break;
+				}
+			}
 		};
 	}
 
@@ -2138,7 +2190,7 @@ app.modules['std:validators'] = function () {
 		return opts && opts.noDirty;
 	}
 
-	function merge(src, afterSave) {
+	function merge(src, afterSave, existsOnly) {
 		let oldId = this.$id__;
 		try {
 			if (src === null)
@@ -2174,6 +2226,8 @@ app.modules['std:validators'] = function () {
 					} else if (utils.isPrimitiveCtor(ctor)) {
 						platform.set(this, prop, src[prop]);
 					} else {
+						if (existsOnly && !(prop in src))
+							continue; // no item in src
 						let newsrc = new ctor(src[prop], prop, this);
 						platform.set(this, prop, newsrc);
 					}
@@ -2269,4 +2323,4 @@ app.modules['std:validators'] = function () {
 		console.dir(datamodel);
 	}
 
-})();
+});

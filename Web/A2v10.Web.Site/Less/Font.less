@@ -15,7 +15,7 @@
 	font-family: 'A2v10';
 	font-display: fallback;
 	src: url('/css/fonts/A2v10.eot');
-	src: url('/css/fonts/A2v10.eot?#iefix') format('eot'), url('/css/fonts/A2v10.woff') format('woff'), url('/css/fonts/A2v10.ttf') format('truetype'), url('/css/fonts/A2v10.svg#A2v10') format('svg');
+	src: url('/css/fonts/A2v10.eot?#iefix') format('eot'), url('/css/fonts/A2v10.woff?v=7406') format('woff'), url('/css/fonts/A2v10.ttf?v=7406') format('truetype'), url('/css/fonts/A2v10.svg#A2v10') format('svg');
 	font-weight: normal;
 	font-style: normal;
 }
@@ -415,6 +415,10 @@
 	content: "\e9e6";
 }
 
+.ico-report:before {
+	content: "\e9e9";
+}
+
 .ico-file-error:before {
 	content: "\e9de";
 }
@@ -526,6 +530,11 @@
 .ico-refresh:before {
 	content: "\ea00";
 	color: @icon-blue;
+}
+
+.ico-reload-no-color:before,
+.ico-refresh-no-color:before {
+	content: "\ea00";
 }
 
 .ico-error:before, .ico-alert:before {
@@ -884,4 +893,24 @@
 /* d,e reserved */
 .ico-currency-other:before {
 	content: "\e91f";
+}
+
+.ico-calc:before {
+	content: "\eac0";
+}
+
+.ico-account:before {
+	content: "\eac1";
+}
+
+.ico-account-folder:before {
+	content: "\eac2";
+}
+
+.ico-task-complete:before {
+	content: "\eac8";
+}
+
+.ico-warehouse:before {
+	content: "\eac9";
 }

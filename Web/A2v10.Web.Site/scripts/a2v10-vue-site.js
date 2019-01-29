@@ -79,7 +79,7 @@ app.modules['std:locale'] = function () {
 		let elRect = el.getBoundingClientRect();
 		let pElem = el.parentElement;
 		while (pElem) {
-			if (pElem.offsetHeight <= pElem.scrollHeight)
+			if (pElem.offsetHeight < pElem.scrollHeight)
 				break;
 			pElem = pElem.parentElement;
 		}
@@ -135,9 +135,9 @@ app.modules['std:locale'] = function () {
 
 })();
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181203-7381
+// 20190108-7409
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -206,6 +206,10 @@ app.modules['std:utils'] = function () {
 			containsText: textContainsText,
 			sanitize,
 			splitPath
+		},
+		currency: {
+			round: currencyRound,
+			format: currencyFormat
 		},
 		func: {
 			curry,
@@ -351,6 +355,8 @@ app.modules['std:utils'] = function () {
 					return '';
 				return formatDate(obj) + ' ' + formatTime(obj);
 			case "Date":
+				if (isString(obj))
+					obj = string2Date(obj);
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
 					return obj;
@@ -454,18 +460,37 @@ app.modules['std:utils'] = function () {
 		return str;
 	}
 
+	function string2Date(str) {
+		try {
+			let dt = new Date(str);
+			dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
+			return dt;
+		} catch (err) {
+			return str;
+		}
+	}
+
 	function dateParse(str) {
 		str = str || '';
 		if (!str) return dateZero();
 		let today = dateToday();
-		let seg = str.split('.');
+		let seg = str.split(/[^\d]/);
 		if (seg.length === 1) {
 			seg.push('' + (today.getMonth() + 1));
 			seg.push('' + today.getFullYear());
 		} else if (seg.length === 2) {
 			seg.push('' + today.getFullYear());
 		}
-		let td = new Date(+seg[2], +seg[1] - 1, +seg[0], 0, 0, 0, 0);
+		let normalizeYear = function (y) {
+			y = '' + y;
+			switch (y.length) {
+				case 2: y = '20' + y; break;
+				case 4: break;
+				default: y = today.getFullYear(); break;
+			}
+			return +y;
+		};
+		let td = new Date(+normalizeYear(seg[2]), +((seg[1] ? seg[1] : 1) - 1), +seg[0], 0, 0, 0, 0);
 		if (isNaN(td.getDate()))
 			return dateZero();
 		td.setHours(0, -td.getTimezoneOffset(), 0, 0);
@@ -633,6 +658,20 @@ app.modules['std:utils'] = function () {
 		return (..._arg) => {
 			return fn(...args, ..._arg);
 		};
+	}
+
+	function currencyRound(n, digits) {
+		if (isNaN(n))
+			return Nan;
+		digits = digits || 2;
+		let m = false;
+		if (n < 0) {
+			n = -n;
+			m = true;
+		}
+		// toFixed = avoid js rounding error
+		let r = Number(Math.round(n.toFixed(12) + `e${digits}`) + `e-${digits}`);
+		return m ? -r : r;
 	}
 };
 
@@ -1512,9 +1551,64 @@ app.modules['std:mask'] = function () {
 	}
 };
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181125-7372
+// 20190117-7417
+/* services/http.js */
+
+app.modules['std:html'] = function () {
+
+
+	return {
+		getColumnsWidth,
+		getRowHeight,
+		downloadBlob
+	};
+
+	function getColumnsWidth(elem) {
+		let cols = elem.getElementsByTagName('col');
+		let cells = elem.querySelectorAll('tbody.col-shadow > tr > td');
+		let len = Math.min(cols.length, cells.length);
+		for (let i = 0; i < len; i++) {
+			let w = cells[i].offsetWidth;
+			cols[i].setAttribute('data-col-width', w);
+		}
+	}
+
+	function getRowHeight(elem) {
+		let rows = elem.getElementsByTagName('tr');
+		for (let r = 0; r < rows.length; r++) {
+			let h = rows[r].offsetHeight - 12; /* padding !!!*/
+			rows[r].setAttribute('data-row-height', h);
+		}
+	}
+
+	function downloadBlob(blob, fileName, format) {
+		let objUrl = URL.createObjectURL(blob);
+		let link = document.createElement('a');
+		link.style = "display:none";
+		document.body.appendChild(link); // FF!
+		let downloadFile = fileName || 'file';
+		format = (format || '').toLowerCase();
+		if (format === 'excel')
+			downloadFile += '.xlsx';
+		else if (format === "pdf")
+			downloadFile += ".pdf";
+		link.download = downloadFile;
+		link.href = objUrl;
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(objUrl);
+	}
+};
+
+
+
+
+
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+
+// 20190114-7411
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1531,6 +1625,15 @@ app.modules['std:http'] = function () {
 		upload: upload,
 		localpost
 	};
+
+	function blob2String(blob, callback) {
+		const fr = new FileReader();
+		fr.addEventListener('loadend', (e) => {
+			const text = fr.result;
+			callback(text);
+		});
+		fr.readAsText(blob);
+	}
 
 	function doRequest(method, url, data, raw) {
 		return new Promise(function (resolve, reject) {
@@ -1550,8 +1653,12 @@ app.modules['std:http'] = function () {
 					resolve(xhrResult);
 				}
 				else if (xhr.status === 255) {
-					if (raw)
-						reject(xhr.statusText); // response is blob!
+					if (raw) {
+						if (xhr.response instanceof Blob)
+							blob2String(xhr.response, (msg) => reject('server error: ' + msg));
+						else
+							reject(xhr.statusText); // response is blob!
+					}
 					else
 						reject(xhr.responseText || xhr.statusText);
 				}
@@ -1879,9 +1986,9 @@ app.modules['std:validators'] = function () {
 
 
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+/*! Copyright © 2015-2019 Alex Kukhtin. All rights reserved.*/
 
-// 20181211-7384
+// 20190105-7402
 // services/datamodel.js
 
 (function () {
@@ -2135,6 +2242,9 @@ app.modules['std:validators'] = function () {
 		if (path && path.endsWith(']'))
 			elem.$selected = false;
 
+		if (elem._meta_.$items)
+			elem.$expanded = false; // tree elem
+
 		defPropertyGet(elem, '$valid', function () {
 			if (this._root_._needValidate_)
 				this._root_._validateAll_();
@@ -2384,7 +2494,7 @@ app.modules['std:validators'] = function () {
 
 		defPropertyGet(arr, "$isEmpty", function () {
 			return !this.length;
-		});		
+		});
 
 		defPropertyGet(arr, "$checked", function () {
 			return this.filter((el) => el.$checked);
@@ -2679,6 +2789,16 @@ app.modules['std:validators'] = function () {
 			if (sel) sel.$selected = false;
 			this.$selected = true;
 			emitSelect(arr, this);
+			if (this._meta_.$items) {
+				// expand all parent items
+				let p = this._parent_._parent_;
+				while (p) {
+					p.$expanded = true;
+					p = p._parent_._parent_;
+					if (!p || p === this.$root)
+						break;
+				}
+			}
 		};
 	}
 
@@ -2993,7 +3113,7 @@ app.modules['std:validators'] = function () {
 		return opts && opts.noDirty;
 	}
 
-	function merge(src, afterSave) {
+	function merge(src, afterSave, existsOnly) {
 		let oldId = this.$id__;
 		try {
 			if (src === null)
@@ -3029,6 +3149,8 @@ app.modules['std:validators'] = function () {
 					} else if (utils.isPrimitiveCtor(ctor)) {
 						platform.set(this, prop, src[prop]);
 					} else {
+						if (existsOnly && !(prop in src))
+							continue; // no item in src
 						let newsrc = new ctor(src[prop], prop, this);
 						platform.set(this, prop, newsrc);
 					}
@@ -3135,6 +3257,104 @@ app.modules['std:validators'] = function () {
 })();
 
 
+
+
+// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+
+/*20171029-7060*/
+/* services/popup.js */
+
+app.modules['std:popup'] = function () {
+
+	const __dropDowns__ = [];
+	let __started = false;
+
+	const __error = 'Perhaps you forgot to create a _close function for popup element';
+
+
+	return {
+		startService: startService,
+		registerPopup: registerPopup,
+		unregisterPopup: unregisterPopup,
+		closeAll: closeAllPopups,
+		closest: closest,
+		closeInside: closeInside
+	};
+
+	function registerPopup(el) {
+		__dropDowns__.push(el);
+	}
+
+	function unregisterPopup(el) {
+		let ix = __dropDowns__.indexOf(el);
+		if (ix !== -1)
+			__dropDowns__.splice(ix, 1);
+		delete el._close;
+	}
+
+	function startService() {
+		if (__started)
+			return;
+
+		__started = true;
+
+		document.body.addEventListener('click', closePopups);
+		document.body.addEventListener('contextmenu', closePopups);
+		document.body.addEventListener('keydown', closeOnEsc);
+	}
+
+
+	function closest(node, css) {
+		if (node) return node.closest(css);
+		return null;
+	}
+
+	function closeAllPopups() {
+		__dropDowns__.forEach((el) => {
+			if (el._close)
+				el._close(document);
+		});
+	}
+
+	function closeInside(el) {
+		if (!el) return;
+		// inside el only
+		let ch = el.querySelectorAll('.popover-wrapper');
+		for (let i = 0; i < ch.length; i++) {
+			let chel = ch[i];
+			if (chel._close) {
+				chel._close();
+			}
+		}
+	}
+
+	function closePopups(ev) {
+		if (__dropDowns__.length === 0)
+			return;
+		for (let i = 0; i < __dropDowns__.length; i++) {
+			let el = __dropDowns__[i];
+			if (closest(ev.target, '.dropdown-item') ||
+				ev.target.hasAttribute('close-dropdown') ||
+				closest(ev.target, '[dropdown-top]') !== el) {
+				if (!el._close) {
+					throw new Error(__error);
+				}
+				el._close(ev.target);
+			}
+		}
+	}
+
+	// close on esc
+	function closeOnEsc(ev) {
+		if (ev.which !== 27) return;
+		for (let i = 0; i < __dropDowns__.length; i++) {
+			let el = __dropDowns__[i];
+			if (!el._close)
+				throw new Error(__error);
+			el._close(ev.target);
+		}
+	}
+};
 
 
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
@@ -3772,9 +3992,9 @@ Vue.component('a2-pager', {
 });
 
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181211-7384
+// 20190114-7411
 // controllers/base.js
 
 (function () {
@@ -3791,6 +4011,7 @@ Vue.component('a2-pager', {
 	const mask = require('std:mask');
 	const modelInfo = require('std:modelInfo');
 	const platform = require('std:platform');
+	const htmlTools = require('std:html', true /*no error*/);
 
 	const store = component('std:store');
 	const documentTitle = component("std:doctitle", true /*no error*/);
@@ -3946,7 +4167,7 @@ Vue.component('a2-pager', {
 					let jsonData = utils.toJson({ baseUrl: urlToSave, data: self.$data });
 					let wasNew = self.$baseUrl.indexOf('/new') !== -1;
 					dataservice.post(url, jsonData).then(function (data) {
-						self.$data.$merge(data, true);
+						self.$data.$merge(data, true, true /*only exists*/);
 						self.$data.$emit('Model.saved', self.$data);
 						self.$data.$setDirty(false);
 						// data is a full model. Resolve requires only single element.
@@ -4135,6 +4356,7 @@ Vue.component('a2-pager', {
 			},
 			$navigate(url, data, newWindow, update, opts) {
 				if (this.$isReadOnly(opts)) return;
+				eventBus.$emit('closeAllPopups');
 				let urlToNavigate = urltools.createUrlForNavigate(url, data);
 				if (newWindow === true) {
 					let nwin = window.open(urlToNavigate, "_blank");
@@ -4343,6 +4565,7 @@ Vue.component('a2-pager', {
 				if (this.$isReadOnly(opts))
 					return;
 				const that = this;
+				eventBus.$emit('closeAllPopups');
 				function argIsNotAnArray() {
 					if (!utils.isArray(arg)) {
 						console.error(`$dialog.${command}. The argument is not an array`);
@@ -4434,6 +4657,30 @@ Vue.component('a2-pager', {
 				let url = self.$baseUrl;
 				url = url.replace('/_page/', '/_export/');
 				window.location = root + url;
+			},
+
+			$exportTo(format, fileName) {
+				const root = window.$$rootUrl;
+				let elem = this.$el.getElementsByClassName('sheet-page');
+				if (!elem.length) {
+					console.dir('element not found (.sheet-page)');
+					return;
+				}
+				let table = elem[0];
+				if (htmlTools) {
+					htmlTools.getColumnsWidth(table);
+					htmlTools.getRowHeight(table);
+				}
+				let html = table.innerHTML;
+				let data = { format, html, fileName };
+				const routing = require('std:routing');
+				let url = `${root}/${routing.dataUrl()}/exportTo`;
+				dataservice.post(url, utils.toJson(data), true).then(function (blob) {
+					if (htmlTools)
+						htmlTools.downloadBlob(blob, fileName, format);
+				}).catch(function (error) {
+					alert(error);
+				});
 			},
 
 			$report(rep, arg, opts) {
@@ -4659,7 +4906,8 @@ Vue.component('a2-pager', {
 							if (rcName in data) {
 								arr.$RowCount = data[rcName];
 							}
-							modelInfo.reconcile(data.$ModelInfo[propName]);
+							if (data.$ModelInfo)
+								modelInfo.reconcile(data.$ModelInfo[propName]);
 							arr._root_._setModelInfo_(arr, data);
 						}
 						resolve(arr);

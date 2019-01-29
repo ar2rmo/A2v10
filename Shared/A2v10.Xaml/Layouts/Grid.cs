@@ -5,11 +5,20 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.Text;
-
+using System.Text.RegularExpressions;
 using A2v10.Infrastructure;
 
 namespace A2v10.Xaml
 {
+	public enum AutoFlowMode
+	{
+		Default,
+		Row,
+		Column,
+		RowDense,
+		ColumnDense 
+	}
+
 	public class Grid : Container
 	{
 
@@ -23,7 +32,7 @@ namespace A2v10.Xaml
 		[ThreadStatic]
 		static IDictionary<Object, Int32> _attachedRowSpan;
 		[ThreadStatic]
-		static IDictionary<Object, VerticalAlign> _attachedVAlign;
+		static IDictionary<Object, AlignItem> _attachedVAlign;
 
 
 		public static void SetCol(Object obj, Int32 col)
@@ -74,14 +83,14 @@ namespace A2v10.Xaml
 			return AttachedHelpers.GetAttached(_attachedRowSpan, obj);
 		}
 
-		public static void SetVAlign(Object obj, VerticalAlign vAlign)
+		public static void SetVAlign(Object obj, AlignItem vAlign)
 		{
 			if (_attachedVAlign == null)
-				_attachedVAlign = new Dictionary<Object, VerticalAlign>();
+				_attachedVAlign = new Dictionary<Object, AlignItem>();
 			AttachedHelpers.SetAttached(_attachedVAlign, obj, vAlign);
 		}
 
-		public static VerticalAlign? GetVAlign(Object obj)
+		public static AlignItem? GetVAlign(Object obj)
 		{
 			return AttachedHelpers.GetAttached(_attachedVAlign, obj);
 		}
@@ -98,11 +107,10 @@ namespace A2v10.Xaml
 
 
 		public Length Height { get; set; }
-
 		public BackgroundStyle Background { get; set; }
-
 		public ShadowStyle DropShadow { get; set; }
-
+		public AutoFlowMode AutoFlow { get; set; }
+		public AlignItem AlignItems { get; set; }
 
 		RowDefinitions _rows;
 		ColumnDefinitions _columns;
@@ -148,12 +156,25 @@ namespace A2v10.Xaml
 				grid.MergeStyle("grid-template-rows", _rows.ToAttribute());
 			if (_columns != null)
 				grid.MergeStyle("grid-template-columns", _columns.ToAttribute());
-			if (Background != BackgroundStyle.None)
+			if (Background != BackgroundStyle.Default)
 				grid.AddCssClass("background-" + Background.ToString().ToKebabCase());
 			if (DropShadow != ShadowStyle.None)
 			{
 				grid.AddCssClass("drop-shadow");
 				grid.AddCssClass(DropShadow.ToString().ToLowerInvariant());
+			}
+
+			if (AutoFlow != AutoFlowMode.Default)
+				grid.MergeStyle("grid-auto-flow", AutoFlow.ToString().ToKebabCase(delim:" "));
+
+			if (AlignItems != AlignItem.Default)
+			{
+				String aiStyle = AlignItems.ToString().ToLowerInvariant();
+				if (AlignItems == AlignItem.Top)
+					aiStyle = "start";
+				if (AlignItems == AlignItem.Bottom)
+					aiStyle = "end";
+				grid.MergeStyle("align-items", aiStyle);
 			}
 
 			grid.RenderStart(context);
@@ -235,13 +256,30 @@ namespace A2v10.Xaml
 		public static ColumnDefinitions FromString(String val)
 		{
 			var coll = new ColumnDefinitions();
-			foreach (var row in val.Split(','))
+			if (val.StartsWith("Repeat"))
 			{
-				var cd = new ColumnDefinition
+				var regex = new Regex(@"^Repeat\((.+)\)$");
+				var match = regex.Match(val.Trim());
+				if (match.Groups.Count < 2)
+					throw new XamlException($"Invalid repeat value '{val}'");
+
+				var w = GridLength.FromString(match.Groups[1].Value.Trim());
+				var cd = new ColumnDefinition()
 				{
-					Width = GridLength.FromString(row.Trim())
+					Width = new GridLength($"repeat(auto-fit, {w})")
 				};
 				coll.Add(cd);
+			}
+			else
+			{
+				foreach (var row in val.Split(','))
+				{
+					var cd = new ColumnDefinition()
+					{
+						Width = GridLength.FromString(row.Trim())
+					};
+					coll.Add(cd);
+				}
 			}
 			return coll;
 		}

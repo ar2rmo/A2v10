@@ -17,7 +17,7 @@ using A2v10.Data.Interfaces;
 
 namespace A2v10.Workflow
 {
-	public class AppWorkflow
+	public class AppWorkflow : IDisposable
 	{
 		private WorkflowApplication _application;
 		private static TimeSpan _wfTimeSpan = TimeSpan.FromSeconds(30);
@@ -31,7 +31,20 @@ namespace A2v10.Workflow
 
 		IDbContext _dbContext;
 
-		public static async Task<WorkflowResult> StartWorkflow(IApplicationHost host, IDbContext dbContext, StartWorkflowInfo info)
+		public void Dispose()
+		{
+			Dispose(true);
+			GC.SuppressFinalize(this);
+		}
+
+		protected virtual void Dispose(Boolean disposing)
+		{
+			var ee = _endEvent;
+			if (ee != null)
+				ee.Dispose();
+		}
+
+		public static async Task<WorkflowResult> StartWorkflow(IApplicationHost host, IDbContext dbContext, IMessaging messaging, StartWorkflowInfo info)
 		{
 			AppWorkflow aw = null;
 			var profiler = host.Profiler;
@@ -59,6 +72,8 @@ namespace A2v10.Workflow
 				aw = Create(dbContext, root, args, def.Identity);
 				aw._application.Extensions.Add(result);
 				aw._application.Extensions.Add(dbContext);
+				aw._application.Extensions.Add(messaging);
+				aw._application.Extensions.Add(host);
 				process.DbContext = dbContext;
 				process.WorkflowId = aw._application.Id;
 				await process.Start(dbContext);
@@ -82,7 +97,39 @@ namespace A2v10.Workflow
 			}
 		}
 
-		public static async Task<WorkflowResult> ResumeWorkflow(IApplicationHost host, IDbContext dbContext, ResumeWorkflowInfo info)
+		public static void ResumeWorkflowTimer(IApplicationHost host, IDbContext dbContext, IMessaging messaging, Int64 processId)
+		{
+			AppWorkflow aw = null;
+			var result = new WorkflowResult
+			{
+				InboxIds = new List<Int64>()
+			};
+			try
+			{
+				var pi = ProcessInfo.Load(dbContext, processId, 0);
+				var def = WorkflowDefinition.Load(pi);
+				Activity root = def.LoadFromDefinition();
+				aw = Create(dbContext, root, null, def.Identity);
+				aw._application.Extensions.Add(dbContext);
+				aw._application.Extensions.Add(messaging);
+				aw._application.Extensions.Add(host);
+				aw._application.Extensions.Add(result);
+				WorkflowApplicationInstance instance = WorkflowApplication.GetInstance(pi.WorkflowId, aw._application.InstanceStore);
+				aw._application.Load(instance, _wfTimeSpan);
+				aw._application.Run(_wfTimeSpan);
+			}
+			catch (Exception ex)
+			{
+				if (!CatchWorkflow(aw, ex))
+					throw;
+			}
+			finally
+			{
+				ProcessFinally(aw);
+			}
+		}
+
+		public static async Task<WorkflowResult> ResumeWorkflow(IApplicationHost host, IDbContext dbContext, IMessaging messaging, ResumeWorkflowInfo info)
 		{
 			AppWorkflow aw = null;
 			var profiler = host.Profiler;
@@ -101,6 +148,8 @@ namespace A2v10.Workflow
 					aw = Create(dbContext, root, null, def.Identity);
 					aw._application.Extensions.Add(result);
 					aw._application.Extensions.Add(dbContext);
+					aw._application.Extensions.Add(messaging);
+					aw._application.Extensions.Add(host);
 					WorkflowApplicationInstance instance = WorkflowApplication.GetInstance(inbox.WorkflowId, aw._application.InstanceStore);
 					aw._application.Load(instance, _wfTimeSpan);
 				}
@@ -136,6 +185,11 @@ namespace A2v10.Workflow
 				ProcessFinally(aw);
 			}
 			return result;
+		}
+
+		public static void AutoStart(Int64 processId, ILogger logger)
+		{
+			throw new NotImplementedException();
 		}
 
 		internal void Track(TrackingRecord record)
@@ -196,6 +250,8 @@ namespace A2v10.Workflow
 			if (aw._application.InstanceStore != null)
 				aw._application.InstanceStore.DefaultInstanceOwner = null;
 			aw.WriteTrackingRecords();
+			aw.Dispose();
+			aw = null;
 			//TODO:if (profiler != null)
 			//profiler.EndWorkflow(aw._token);
 		}

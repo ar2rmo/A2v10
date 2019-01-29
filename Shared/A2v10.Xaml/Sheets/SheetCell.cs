@@ -9,7 +9,11 @@ namespace A2v10.Xaml
 	{
 		public Int32? ColSpan { get; set; }
 		public Int32? RowSpan { get; set; }
-		public TextAlign Align { get; set; }
+		public TextAlign? Align { get; set; }
+		public Boolean? Bold { get; set; }
+		public Boolean? Italic { get; set; }
+		public VerticalAlign VAlign { get; set; }
+		public Boolean Underline { get; set; }
 
 		public Boolean GroupIndent { get; set; } // ???
 
@@ -21,16 +25,33 @@ namespace A2v10.Xaml
 			MergeAttributes(td, context);
 			td.MergeAttribute("colspan", ColSpan);
 			td.MergeAttribute("rowspan", RowSpan);
-			if (Align != TextAlign.Left)
+			if (Align != null)
 				td.AddCssClass("text-" + Align.ToString().ToLowerInvariant());
+			if (VAlign != VerticalAlign.Default)
+				td.AddCssClass($"valign-{VAlign.ToString().ToLowerInvariant()}");
 			if (GroupIndent && IsInTreeSection)
 			{
 				td.MergeAttribute(":class", "row.indentCssClass()");
 			}
+			if (Underline)
+				td.AddCssClass("underline");
 			MergeContent(td, context);
+			td.AddCssClassBoolNo(Bold, "bold");
+			td.AddCssClassBoolNo(Italic, "italic");
 			td.RenderStart(context);
 			RenderContent(context);
 			td.RenderEnd(context);
+		}
+
+		internal override void MergeContent(TagBuilder tag, RenderContext context)
+		{
+			var contBind = GetBinding(nameof(Content));
+			if (contBind != null)
+			{
+				tag.MergeAttribute("v-text", contBind.GetPathFormat(context));
+				if (contBind.DataType != DataType.String)
+					tag.MergeAttribute("data-type", contBind.DataType.ToString().ToLowerInvariant());
+			}
 		}
 
 		Boolean IsInTreeSection

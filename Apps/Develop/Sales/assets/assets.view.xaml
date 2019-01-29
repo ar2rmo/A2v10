@@ -1,0 +1,201 @@
+<!-- assets dashboard -->
+<Page xmlns="clr-namespace:A2v10.Xaml;assembly=A2v10.Xaml" 
+	xmlns:d="clr-namespace:A2v10.Xaml.Drawing;assembly=A2v10.Xaml" 
+	Background="WhiteSmoke" Margin="-10" Absolute="-6,0,0,-6">
+	<Grid AutoFlow="RowDense" Columns="Repeat(MinMax(230.34px;1*))" AlignItems="Stretch">
+		<Panel Grid.ColSpan="4" Header="Необоротні активи" Background="LightYellow"
+			 DropShadow="Shadow1">
+			<d:Diagram Size="920,370" ViewBox="-10,-10,910,360">
+				<d:Group DropShadow="True">
+					<d:ActionButton Size="120,40" Pos="0,0" Icon="FileContent" Content="Придбання (рахунок)" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='invoiceIn'}"/>
+					<d:Path Points="60,40;60,57" MarkerEnd="Arrow"/>
+					<d:ActionButton Size="120,40" Pos="0,60" Icon="FileContent" Content="Прибуткова накладна" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='waybillIn'}"/>
+					<d:Path Points="60,100;60,117" MarkerEnd="Arrow"/>
+					<d:ActionButton Size="120,40" Pos="130,60" Icon="FileContent" Content="Будівництво" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='build'}"/>
+					<d:Path Points="190,100;190,117" MarkerEnd="Arrow"/>
+					<d:Path Points="250,150;267,150" MarkerEnd="Arrow" />
+					<d:ActionButton Size="120,40" Pos="270,130" Icon="FileContent" Content="Введення в експлуатацію" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='explIn'}"/>
+					<d:Path Points="390,150;407,150" MarkerEnd="Arrow" />
+					<!--В експлуатації-->
+					<d:ActionButton Size="120,40" Pos="0,200" Icon="FileContent" Content="Продаж (рахунок)" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='invoiceOut'}"/>
+					<d:Path Points="60,240;60,257" MarkerEnd="Arrow"/>
+					<d:Path Points="140,220;123,220" MarkerEnd="Arrow" />
+					<d:ActionButton Size="120,40" Pos="0,260" Icon="FileContent" Content="Видаткова накладна" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='waybillOut'}"/>
+					<d:Card Size="250,60" Pos="140, 200" Style="Red" Icon="FileLink" Header="Необоронті активи для продажу" Text="0.00"></d:Card>
+
+					<d:ActionButton Size="120,40" Pos="410,200" Icon="FileContent" Content="Виведення для продажу" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='waybillOut'}"/>
+					<d:Path Points="470,180;470,197" MarkerEnd="Arrow"/>
+					<d:Path Points="410,220;393,220" MarkerEnd="Arrow" />
+
+					<d:ActionButton Size="120,40" Pos="480,250" Icon="FileContent" Content="Безоплана передача" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='freeOut'}"/>
+					<d:Path Points="540,180;540,247" MarkerEnd="Arrow"/>
+
+					<d:ActionButton Size="120,40" Pos="550,300" Icon="FileContent" Content="Ліквідація" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='liquid'}"/>
+					<d:Path Points="610,180;610,297" MarkerEnd="Arrow"/>
+
+					<d:ActionButton Size="120,40" Pos="370,60" Icon="FileContent" Content="Інвентарізація" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='invent'}"/>
+					<d:Path Points="440,103;440,117" MarkerEnd="Arrow" MarkerStart="Arrow"/>
+					<d:ActionButton Size="120,40" Pos="440,0" Icon="FileContent" Content="Консервація" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='conserv'}"/>
+					<d:Path Points="500,43;500,117" MarkerEnd="Arrow" MarkerStart="Arrow"/>
+					<d:ActionButton Size="120,40" Pos="510,60" Icon="FileContent" Content="Ремонт або відновлення" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='conserv'}"/>
+					<d:Path Points="570,103;570,117" MarkerEnd="Arrow" MarkerStart="Arrow"/>
+					<d:ActionButton Size="120,40" Pos="580,0" Icon="FileContent" Content="Переміщення" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='move'}"/>
+					<d:Path Points="640,43;640,117" MarkerEnd="Arrow" MarkerStart="Arrow"/>
+
+					<d:ActionButton Size="120,40" Pos="680,130" Icon="FileContent" Content="Нарахувати амортизацію" 
+							Command="{BindCmd Execute, CommandName='openDocument', Argument='amo'}"/>
+					<d:Path Points="660,150;677,150" MarkerEnd="Arrow" />
+					<d:Path Points="740,170;740,197" MarkerEnd="Arrow"/>
+
+					<d:Card Size="250,60" Pos="640, 200" Style="Magenta" Icon="FileLink" Header="Знос (амортизація)" Text="145 000.00"></d:Card>
+					<d:Card Size="250,60" Pos="410, 120" Style="Green" Icon="FileLink" Header="В експлуатації" Text="350 000.00">
+						<d:Card.Hint>
+							<Popover Placement="TopRight" Width="250">
+								<Html>
+									<![CDATA[
+								Необоротні активи в експлуатації.
+								<br />
+								Зберігаються на рахунках <b>10</b> класу.
+								]]>
+								</Html>
+							</Popover>
+						</d:Card.Hint>
+					</d:Card>
+					<d:Card Size="250,60" Pos="0, 120" Style="Blue" Icon="FileLink" Header="Капітальні інвестіції" 
+							Text="25 000.00">
+						<d:Card.Hint>
+							<Popover Placement="TopRight" Width="270">
+								<Html>
+									<![CDATA[
+								Необоротні активи, які придбано та ще не ввведено в експлуатацію.
+								<br />
+								Зберігаються на рахунках <b>15</b> класу.
+								]]>
+								</Html>
+							</Popover>
+						</d:Card.Hint>
+					</d:Card>
+				</d:Group>
+				<d:Group>
+				</d:Group>
+				<d:Card Icon="GearOutline" Size="100,20" Pos="800,20">
+					<d:Card.Text>
+						<Hyperlink Content="Hyperlink">
+							<Hyperlink.DropDown>
+								<DropDownMenu Direction="DownLeft" Wrap="NoWrap" Padding="12px">
+									<StackPanel Orientation="Vertical">
+										<CheckBox Label="Реализация"/>
+										<CheckBox Label="Строительство" />
+										<CheckBox Label="Check 3" />
+									</StackPanel>
+									<StackPanel Orientation="Horizontal">
+										<Button Style="Green" Size="Mini">Застосувати</Button>
+										<Button Style="Danger" Size="Mini">Скасувати</Button>
+									</StackPanel>
+								</DropDownMenu>
+							</Hyperlink.DropDown>
+						</Hyperlink>
+					</d:Card.Text>
+				</d:Card>
+			</d:Diagram>
+		</Panel>
+		<FlexPanel Grid.ColSpan="2" DropShadow="Shadow1" Header="Бухгалтерський облік НМА">
+			<Sheet Striped="True" Wrap="NoWrap">
+				<SheetSection>
+					<SheetRow Style="LightHeader">
+						<SheetCell>Рахунок</SheetCell>
+						<SheetCell Align="Right">Дебет</SheetCell>
+						<SheetCell Align="Right">Кредит</SheetCell>
+					</SheetRow>
+				</SheetSection>
+				<SheetSection>
+					<SheetRow>
+						<SheetCell>
+							<Popover Text="10. Необоротні активи" Placement="BottomLeft" Width="200">На дебеті 
+							цього рахунку щось таке є.</Popover>
+						</SheetCell>
+						<SheetCell Bold="True" Align="Right">25 000.00</SheetCell>
+						<SheetCell Bold="True" Align="Right"/>
+					</SheetRow>
+					<SheetRow>
+						<SheetCell>
+							<Popover Text="13. Знос (амортизація)"></Popover>
+						</SheetCell>
+						<SheetCell />
+						<SheetCell Align="Right">10 000.00</SheetCell>
+					</SheetRow>
+					<SheetRow>
+						<SheetCell>
+							<Popover Text="15. Капітальні інвестиції"></Popover>
+						</SheetCell>
+						<SheetCell />
+						<SheetCell Align="Right">25 000.00</SheetCell>
+					</SheetRow>
+				</SheetSection>
+			</Sheet>
+			<Separator />
+			<FlexList Orientation="Horizontal" BorderStyle="Top">
+				<Hyperlink Icon="Table" Size="Normal">Оборотна відомість</Hyperlink>
+				<Hyperlink Icon="Table" Size="Normal">Відомість по МВО</Hyperlink>
+				<Hyperlink Icon="Table" Size="Normal">I ще один звіт</Hyperlink>
+			</FlexList>
+		</FlexPanel>
+		<Panel Header="Задачі" Padding="6" DropShadow="Shadow1" Grid.ColSpan="2">
+			<PropertyGrid Wrap="NoWrap" GridLines="Horizontal">
+				<PropertyGridItem Name="На складі">2233</PropertyGridItem>
+				<PropertyGridItem Name="В експлуатації">2233</PropertyGridItem>
+				<PropertyGridItem Name="Початкова вартість">2233</PropertyGridItem>
+				<PropertyGridItem Name="Накопичений знос">2233</PropertyGridItem>
+				<PropertyGridItem Name="Залишкова вартість">2233</PropertyGridItem>
+			</PropertyGrid>
+			<StackPanel Orientation="Vertical">
+				<Text>Останнє нарахування амортизації за
+					<Span Bold="True">грудень 2018</Span> .
+				</Text>
+				<Hyperlink Icon="Calendar">Нарахувати амортизацію за cічень 2019</Hyperlink>
+				<Text>Ніяких дій не потрібно.</Text>
+			</StackPanel>
+		</Panel>
+		<Panel Header="Діаграма" DropShadow="Shadow1" Grid.ColSpan="3" >
+			<TabPanel>
+				<Tab Header="По типах НМА">
+					<Graphics Delegate="diagramByType"></Graphics>
+				</Tab>
+				<Tab Header="По відповідальних особах">
+					<StackPanel Orientation="Horizontal">
+
+						<StateCard Header="Необоротні активи" Icon="Wrench" Text="123 444.44" Style="Cyan"/>
+
+						<StateCard Header="Залишкова вартість" Icon="Wrench" Text="123.44" Style="Green">
+							<StateCard.Footer>
+								<Text>
+									<Span Bold="True">+234</Span> за грудень місяць
+								</Text>
+							</StateCard.Footer>
+						</StateCard>
+						<StateCard Header="Накопичений знос" Icon="ArrowRight" Text="123.44" Style="Yellow">
+							<StateCard.Footer>
+								<Text>
+									<Span Bold="True">+234</Span> за грудень місяць
+								</Text>
+							</StateCard.Footer>
+						</StateCard>
+					</StackPanel>
+				</Tab>
+			</TabPanel>
+		</Panel>
+	</Grid>
+</Page>

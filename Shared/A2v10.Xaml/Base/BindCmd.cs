@@ -46,7 +46,8 @@ namespace A2v10.Xaml
 		Download,
 		Attachment,
 		Help,
-		EUSign
+		EUSign,
+		ExportTo
 	}
 
 	public enum DialogAction
@@ -58,6 +59,11 @@ namespace A2v10.Xaml
 		Browse,
 		Append, // create in dialog and append to array,
 		Copy
+	}
+
+	public enum ExportToFormat
+	{
+		Excel
 	}
 
 	public class BindCmd : BindBase
@@ -87,6 +93,9 @@ namespace A2v10.Xaml
 
 		public String Data { get; set; }
 
+		public ExportToFormat Format { get; set; }
+		public String FileName { get; set; }
+
 		public BindCmd()
 		{
 
@@ -109,15 +118,29 @@ namespace A2v10.Xaml
 				case CommandType.Help:
 					return $"$helpHref({CommandUrl(context)})";
 				case CommandType.NavigateExternal:
-					return $"{CommandUrl(context, decorate:false, skipCheck:true)}";
+					return $"{CommandUrl(context, decorate: false, skipCheck: true)}";
 			}
 			return null;
 		}
 
 		internal String NewWindowJS => NewWindow.ToString().ToLowerInvariant();
 
+		Boolean IsIndirectSupported
+		{
+			get
+			{
+				return Command == CommandType.Open || Command == CommandType.Remove ||
+					Command == CommandType.Execute || Command == CommandType.Dialog;
+			}
+		}
+
 		internal String GetCommand(RenderContext context, Boolean indirect = false, String argument = null)
 		{
+			if (indirect)
+			{
+				if (!IsIndirectSupported)
+					throw new XamlException($"Command '{Command}' is not available in this context");
+			}
 			switch (Command)
 			{
 				case CommandType.Unknown:
@@ -236,6 +259,9 @@ namespace A2v10.Xaml
 				case CommandType.Export:
 					return $"$export()";
 
+				case CommandType.ExportTo:
+					return $"$exportTo('{Format}', {CommandFileName(context)})";
+
 				case CommandType.Dialog:
 					if (Action == DialogAction.Unknown)
 						throw new XamlException($"Action required for {Command} command");
@@ -322,6 +348,8 @@ namespace A2v10.Xaml
 		String CommandArgument(RenderContext context, Boolean nullable = false)
 		{
 			String arg = null;
+			if (Argument != null)
+				return $"'{Argument}'";
 			if (nullable)
 			{
 				var argBind = GetBinding(nameof(Argument));
@@ -386,6 +414,18 @@ namespace A2v10.Xaml
 					return arg;
 				throw new XamlException($"Argument bind required for {Command} command");
 			}
+		}
+
+		String CommandFileName(RenderContext context, Boolean decorate = false)
+		{
+			var fnBind = GetBinding(nameof(FileName));
+			if (fnBind != null)
+			{
+				if (decorate)
+					return $"'{{{fnBind.Path}}}'";
+				return fnBind.GetPath(context);
+			}
+			return $"'{context.Localize(FileName)}'";
 		}
 
 		String CommandUrl(RenderContext context, Boolean decorate = false, Boolean skipCheck = false)

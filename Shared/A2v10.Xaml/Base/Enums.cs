@@ -15,6 +15,7 @@ namespace A2v10.Xaml
 	{
 		Default = 0,
 		Gray,
+		LightGray,
 		Danger
 	}
 
@@ -33,6 +34,20 @@ namespace A2v10.Xaml
 		Bottom
 	}
 
+	public enum AlignItem
+	{
+		Default,
+		Start,
+		End,
+		Center,
+		Stretch,
+		Top,
+		Middle,
+		Bottom
+	}
+
+
+
 	public enum GridLinesVisibility
 	{
 		None,
@@ -45,6 +60,12 @@ namespace A2v10.Xaml
 	{
 		Vertical,
 		Horizontal
+	}
+
+	public enum PageOrientation
+	{
+		Portrait,
+		Landscape
 	}
 
 	public enum DataType
@@ -66,7 +87,8 @@ namespace A2v10.Xaml
 		Large = 1,
 		Medium = Default,
 		Small = 2,
-		Mini = 3
+		Mini = 3,
+		Normal = 4
 	};
 
 	public enum TextSize
@@ -110,7 +132,8 @@ namespace A2v10.Xaml
 		Cyan,
 		Danger,
 		Red,
-		Error
+		Error,
+		Gray
 	}
 
 	public enum DropDownDirection
@@ -124,10 +147,20 @@ namespace A2v10.Xaml
 
 	public enum BackgroundStyle
 	{
-		None,
+		Default,
 		LightGray,
 		WhiteSmoke,
-		White
+		White,
+		LightYellow
+	}
+
+	public enum ColumnBackgroundStyle {
+		None,
+		Yellow,
+		Green,
+		Red,
+		Blue,
+		Gray
 	}
 
 	public enum ShadowStyle
@@ -152,6 +185,8 @@ namespace A2v10.Xaml
 	{
 		NoIcon = 0,
 		Access,
+		Account,
+		AccountFolder,
 		Add,
 		AddressBook,
 		AddressCard,
@@ -173,6 +208,7 @@ namespace A2v10.Xaml
 		BankAccount,
 		BankUah,
 		BrandExcel,
+		Calc,
 		Calendar,
 		Call,
 		ChartArea,
@@ -303,8 +339,11 @@ namespace A2v10.Xaml
 		Query,
 		Queue,
 		Refresh,
+		RefreshNoColor,
 		Reload,
+		ReloadNoColor,
 		Rename,
+		Report,
 		Requery,
 		Save,
 		SaveClose,
@@ -332,6 +371,7 @@ namespace A2v10.Xaml
 		TagOutline,
 		TagRed,
 		TagYellow,
+		TaskComplete,
 		Trash,
 		TriangleLeft,
 		TriangleRight,
@@ -346,6 +386,7 @@ namespace A2v10.Xaml
 		Users,
 		Waiting,
 		WaitingOutline,
+		Warehouse,
 		Warning,
 		WarningOutline,
 		WarningYellow,

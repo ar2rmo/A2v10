@@ -6,16 +6,21 @@ namespace A2v10.Xaml
 {
 	public static class EnumExtensions
 	{
-		public static String AlignSelf(this VerticalAlign vAlign)
+		public static String AlignSelf(this AlignItem vAlign)
 		{
 			switch (vAlign)
 			{
-				case VerticalAlign.Top:
+				case AlignItem.Top:
+				case AlignItem.Start:
 					return "start";
-				case VerticalAlign.Middle:
+				case AlignItem.Middle:
+				case AlignItem.Center:
 					return "center";
-				case VerticalAlign.Bottom:
+				case AlignItem.Bottom:
+				case AlignItem.End:
 					return "end";
+				case AlignItem.Stretch:
+					return "stretch";
 				default:
 					return null;
 			}

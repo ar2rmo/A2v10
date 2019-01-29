@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181211-7384
+// 20190114-7411
 // controllers/base.js
 
 (function () {
@@ -17,6 +17,7 @@
 	const mask = require('std:mask');
 	const modelInfo = require('std:modelInfo');
 	const platform = require('std:platform');
+	const htmlTools = require('std:html', true /*no error*/);
 
 	const store = component('std:store');
 	const documentTitle = component("std:doctitle", true /*no error*/);
@@ -172,7 +173,7 @@
 					let jsonData = utils.toJson({ baseUrl: urlToSave, data: self.$data });
 					let wasNew = self.$baseUrl.indexOf('/new') !== -1;
 					dataservice.post(url, jsonData).then(function (data) {
-						self.$data.$merge(data, true);
+						self.$data.$merge(data, true, true /*only exists*/);
 						self.$data.$emit('Model.saved', self.$data);
 						self.$data.$setDirty(false);
 						// data is a full model. Resolve requires only single element.
@@ -361,6 +362,7 @@
 			},
 			$navigate(url, data, newWindow, update, opts) {
 				if (this.$isReadOnly(opts)) return;
+				eventBus.$emit('closeAllPopups');
 				let urlToNavigate = urltools.createUrlForNavigate(url, data);
 				if (newWindow === true) {
 					let nwin = window.open(urlToNavigate, "_blank");
@@ -569,6 +571,7 @@
 				if (this.$isReadOnly(opts))
 					return;
 				const that = this;
+				eventBus.$emit('closeAllPopups');
 				function argIsNotAnArray() {
 					if (!utils.isArray(arg)) {
 						console.error(`$dialog.${command}. The argument is not an array`);
@@ -660,6 +663,30 @@
 				let url = self.$baseUrl;
 				url = url.replace('/_page/', '/_export/');
 				window.location = root + url;
+			},
+
+			$exportTo(format, fileName) {
+				const root = window.$$rootUrl;
+				let elem = this.$el.getElementsByClassName('sheet-page');
+				if (!elem.length) {
+					console.dir('element not found (.sheet-page)');
+					return;
+				}
+				let table = elem[0];
+				if (htmlTools) {
+					htmlTools.getColumnsWidth(table);
+					htmlTools.getRowHeight(table);
+				}
+				let html = table.innerHTML;
+				let data = { format, html, fileName };
+				const routing = require('std:routing');
+				let url = `${root}/${routing.dataUrl()}/exportTo`;
+				dataservice.post(url, utils.toJson(data), true).then(function (blob) {
+					if (htmlTools)
+						htmlTools.downloadBlob(blob, fileName, format);
+				}).catch(function (error) {
+					alert(error);
+				});
 			},
 
 			$report(rep, arg, opts) {
@@ -885,7 +912,8 @@
 							if (rcName in data) {
 								arr.$RowCount = data[rcName];
 							}
-							modelInfo.reconcile(data.$ModelInfo[propName]);
+							if (data.$ModelInfo)
+								modelInfo.reconcile(data.$ModelInfo[propName]);
 							arr._root_._setModelInfo_(arr, data);
 						}
 						resolve(arr);

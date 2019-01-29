@@ -1,10 +1,10 @@
-/* 20181014-7049 */
+/* 20100114-7051 */
 /*
 ------------------------------------------------
-Copyright © 2008-2017 A. Kukhtin
+Copyright © 2008-2019 A. Kukhtin
 
-Last updated : 14 oct 2017 17:00
-module version : 7049
+Last updated : 14 jan 2019 20:05
+module version : 7051
 */
 
 /*
@@ -32,9 +32,9 @@ go
 ------------------------------------------------
 set nocount on;
 if not exists(select * from a2sys.Versions where Module = N'std:workflow')
-	insert into a2sys.Versions (Module, [Version]) values (N'std:workflow', 7049);
+	insert into a2sys.Versions (Module, [Version]) values (N'std:workflow', 7051);
 else
-	update a2sys.Versions set [Version] = 7049 where Module = N'std:workflow';
+	update a2sys.Versions set [Version] = 7051 where Module = N'std:workflow';
 go
 ------------------------------------------------
 if not exists(select * from INFORMATION_SCHEMA.SCHEMATA where SCHEMA_NAME=N'a2workflow')
@@ -107,6 +107,7 @@ begin
 		ForId2 bigint null,
 		[Text] nvarchar(255) null,
 		Expired datetime,
+		TargetId bigint null,
 		DateCreated datetime not null constraint DF_Inbox_UtcDateCreated default(getutcdate()),
 		DateRemoved datetime null,
 		UserRemoved bigint null
@@ -120,6 +121,12 @@ if exists(select * from sys.default_constraints where name=N'DF_Inbox_DateCreate
 begin
 	alter table a2workflow.Inbox drop constraint DF_Inbox_DateCreated;
 	alter table a2workflow.Inbox add constraint DF_Inbox_UtcDateCreated default(getutcdate()) for DateCreated with values;
+end
+go
+------------------------------------------------
+if not exists(select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA=N'a2workflow' and TABLE_NAME=N'Inbox' and COLUMN_NAME=N'TargetId')
+begin
+	alter table a2workflow.Inbox add TargetId bigint null;
 end
 go
 ------------------------------------------------
@@ -277,6 +284,7 @@ create procedure a2workflow.[Inbox.Create]
 @ForId2 bigint,
 @Text nvarchar(255),
 @Expired datetime = null,
+@TargetId bigint = null,
 @RetId bigint output
 as
 begin
@@ -286,9 +294,9 @@ begin
 
 	declare @outputTable table(Id bigint);
 	
-	insert into a2workflow.Inbox(ProcessId, Bookmark, [Action], [For], ForId, ForId2, [Text], Expired)
+	insert into a2workflow.Inbox(ProcessId, Bookmark, [Action], [For], ForId, ForId2, [Text], Expired, TargetId)
 		output inserted.Id into @outputTable(Id)
-	values (@ProcessId, @Bookmark, @Action, @For, @ForId, @ForId2, @Text, @Expired);
+	values (@ProcessId, @Bookmark, @Action, @For, @ForId, @ForId2, @Text, @Expired, @TargetId);
 
 	select top(1) @RetId = Id from @outputTable;
 end
@@ -324,6 +332,22 @@ begin
 	from a2workflow.Inbox i inner join a2workflow.Processes p on i.ProcessId = p.Id 
 	where i.Id = @Id and i.Void = 0;
 	-- TODO: can this user can load this inbox
+end
+go
+------------------------------------------------
+if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2workflow' and ROUTINE_NAME=N'ProcessInfo.Load')
+	drop procedure a2workflow.[ProcessInfo.Load]
+go
+------------------------------------------------
+create procedure a2workflow.[ProcessInfo.Load]
+@UserId bigint,
+@Id bigint
+as
+begin
+	set nocount on;
+	select p.Id, p.Kind, p.WorkflowId, p.[Definition]
+	from a2workflow.Processes p 
+	where p.Id = @Id;
 end
 go
 ------------------------------------------------
@@ -388,21 +412,22 @@ if exists (select * from INFORMATION_SCHEMA.ROUTINES where ROUTINE_SCHEMA=N'a2wo
 go
 ------------------------------------------------
 create procedure a2workflow.[Process.Pendings]
-@Count int
+@Count int = 10,
+@Parameter nvarchar(255) = null
 as
 begin
 	set nocount on;
 	with T(ProcessId, WorkflowId, PendingTimer, AutoStart)
 	as
 	(
-		select p.Id, p.WorkflowId, PendingTimer, 0
+		select p.Id, p.WorkflowId, PendingTimer, cast(0 as bit)
 			from [System.Activities.DurableInstancing].InstancesTable w with(nolock)
 				inner join a2workflow.Processes p with(nolock) on p.WorkflowId = w.Id
 			where ExecutionStatus = N'Idle' and PendingTimer <= sysutcdatetime() and p.WorkflowId is not null
 				and p.Kind is not null
 		union all
-		select p.Id, p.WorkflowId, sysutcdatetime(), 1
-			from a2workflow.Processes p with(nolock) where p.AutoStart=1 
+		select p.Id, p.WorkflowId, sysutcdatetime(), p.AutoStart
+			from a2workflow.Processes p with(nolock) where p.AutoStart = 1 
 			and p.WorkflowId is null and p.Kind is not null
 	)
 	select top(@Count) ProcessId, WorkflowId, AutoStart from T

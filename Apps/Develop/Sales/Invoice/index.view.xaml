@@ -6,7 +6,17 @@
 		<sys:String x:Key="OpenUrl">/Sales/Invoice/Edit</sys:String>
 	</Page.Resources>
 	<Page.Toolbar>
-		<Toolbar Style="Transparent">
+		<Block>
+		<StackPanel Orientation="Horizontal" Margin="5">
+			<Button Icon="Plus" Content="Створити новий елемент" Style="Orange" Command="{BindCmd Reload}">
+				<Button.DropDown>
+					<DropDownMenu Direction="DownRight" Separate="True">
+						<MenuItem Content="Drop down item with top and bottom and 1" Icon="Package"></MenuItem>
+					</DropDownMenu>
+				</Button.DropDown>
+			</Button>
+		</StackPanel>
+		<Toolbar Style="Default">
 			<Button Icon="Add" Tip="Создать счет" Command="{BindCmd Create, Url={StaticResource OpenUrl}, Argument={Bind Root.$ForCreate}}">@[Create]</Button>
 			<Button Icon="ArrowOpen" Command="{BindCmd OpenSelected, Url={StaticResource OpenUrl}, Argument={Bind Documents}, NewWindow=False}">Открыть</Button>
 			<Button Icon="EyeDisabled" Command="{BindCmd OpenSelected, Url='/Sales/Invoice/Empty', Argument={Bind Documents}, NewWindow=False}">Открыть</Button>
@@ -14,7 +24,7 @@
 			<Button Icon="Download" Content="Експорт" Command="{BindCmd Export}"/>
 			<Separator />
 			<Button Icon="Reload" Command="{BindCmd Reload}">@[Refresh]</Button>
-			<Button Icon="Menu">
+			<Button Icon="Plus" Command="{BindCmd Reload}" Content="Додати">
 				<Button.DropDown>
 					<DropDownMenu>
 						<MenuItem Content="Drop down item" Icon="Package"></MenuItem>
@@ -30,6 +40,7 @@
 			<PeriodPicker Value="{Bind Parent.Filter.Period}" Placement="BottomLeft" Toolbar.Align="Right" Style="Hyperlink" Size="Large" ShowAllData="False" Display="NameDate" Bold="True"/>
 			<Button Icon="Upload" Content="Upload" Command="{BindCmd Dialog, Action=Show, Url='/Sales/Invoice/UploadWizard'}"/>
 		</Toolbar>
+		</Block>
 	</Page.Toolbar>
 	<Page.CollectionView>
 		<CollectionView ItemsSource="{Bind Documents}" RunAt="ServerUrl">
@@ -69,7 +80,7 @@
 		<TagLabel Style="Magenta">Magenta</TagLabel>
 	</Block>
 	<DataGrid ItemsSource="{Bind Parent.ItemsSource}" Hover="True" HeadersVisibility="Column"
-				Striped="True" Sort="True" GridLines="Vertical" FixedHeader="True"
+				Striped="True" Sort="True" GridLines="Vertical" FixedHeader="False"
 				DoubleClick="{BindCmd OpenSelected, Url={StaticResource OpenUrl}, Argument={Bind Documents}}"
 				MarkerStyle="Both" Mark="{Bind $Mark}" GroupBy="Agent.Name">
 		<DataGridColumn Header="@[Code]" Content="{Bind Id}" Align="Right" Fit="True"  Command="{BindCmd Open, Url={StaticResource OpenUrl}}"  Icon="{Bind $Icon}" Wrap="NoWrap"/>
@@ -78,9 +89,11 @@
 		</DataGridColumn>
 		<DataGridColumn Header="@[Date]" Content="{Bind Date, DataType=Date}" Align="Center" Fit="True" Wrap="NoWrap"/>
 		<DataGridColumn Header="@[No]" Content="{Bind No}" Fit="True" Align="Right" Wrap="NoWrap"/>
-		<DataGridColumn Header="@[Purchaser]" Content="{Bind Agent.Name}" Width="100"/>
+		<DataGridColumn Header="@[Purchaser]" Icon="Rename"
+						Content="{Bind Agent.Name}" Width="100" Command="{BindCmd Dialog, Action=Browse, Url={StaticResource OpenUrl}}"/>
 		<DataGridColumn Header="@[Sum]" Content="{Bind Sum, DataType=Currency}" Align="Right" Fit="True" Wrap="NoWrap"/>
 		<DataGridColumn Header="@[Memo]" Content="{Bind Memo}" Width="150"/>
+		<DataGridColumn Icon="Bank" Command="{BindCmd Dialog, Action=Browse, Url='/aaa/aaa'}" Fit="True"/>
 		<DataGridColumn Fit="True">
 			<CommandBar Visibility="Active">
 				<Button Icon="ArrowOpen" Tip="Открыть"/>
@@ -94,6 +107,7 @@
         -->
 		<DataGrid.RowDetails>
 			<DataGridRowDetails Visible="{Bind $HasDetails}" Activate="Cell">
+				<Group>
 				<StackPanel Orientation="Horizontal">
 					<Label Margin="0,6,0,0">Отгрузки:</Label>
 					<StackPanel Orientation="Vertical">
@@ -104,7 +118,48 @@
 						</Repeater>
 					</StackPanel>
 				</StackPanel>
+				<PropertyGrid ItemsSource="{Bind $Shipment}">
+						<PropertyGridItem Name="Отгрузка:">
+							<Hyperlink Icon="FileLink" 
+								Command="{BindCmd Open, Url='/Sales/Waybill/Edit', Argument={Bind}}"
+								Content="{Bind $DocName}" />
+						</PropertyGridItem>
+				</PropertyGrid>
+				</Group>
 			</DataGridRowDetails>
 		</DataGrid.RowDetails>
 	</DataGrid>
+
+	<StackPanel Orientation="Horizontal" AlignItems="Center">
+		<Button>1</Button>
+		<Button>2</Button>
+		<Hyperlink Icon="Access">With caret
+			<Hyperlink.DropDown>
+				<DropDownMenu>
+					<MenuItem  Icon="TagBlue" Content="Tag blue"/>
+				</DropDownMenu>
+			</Hyperlink.DropDown>
+		</Hyperlink>
+		<Separator />
+		<Button>3</Button>
+	</StackPanel>
+
+	<List ItemsSource="{Bind Parent.ItemsSource}" GroupBy="Agent.Name" Mark="{Bind $Mark}" MarkerStyle="Row"
+		  Border="True" Margin="50" Padding="20" Style="Underlined" Compact="True">
+		<ListItem Header="{Bind Agent.Name}" Content="{Bind Date}"/>
+	</List>
+
+	<Grid Columns="1*, 1*, 1*" AlignItems="Top">
+		<FieldSet>
+			<Radio Label="Option 1" CheckedValue="1"/>
+			<Radio Label="Option 2" CheckedValue="2"/>
+			<Radio Label="Option 3" CheckedValue="3"/>
+		</FieldSet>
+		<FieldSet>
+			<Radio Label="Option 1" Style="CheckBox" CheckedValue="1"/>
+			<Radio Label="Option 2" Style="CheckBox" CheckedValue="2"/>
+			<Radio Label="Option 3" Style="CheckBox" CheckedValue="3"/>
+		</FieldSet>
+		<Text>CheckedValue: <Span>Option 1</Span></Text>
+	</Grid>
 </Page>

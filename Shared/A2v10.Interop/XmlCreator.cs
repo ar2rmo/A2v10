@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -89,23 +90,24 @@ namespace A2v10.Interop
 				Encoding = Encoding.GetEncoding(_encoding),
 				Indent = true
 			};
-			using (var ms = new MemoryStream())
+			var ms = new MemoryStream();
+			using (var writer = XmlWriter.Create(ms, settings))
 			{
-				using (var writer = XmlWriter.Create(ms, settings))
+				writer.WriteStartDocument();
+				foreach (XmlQualifiedName v in _schemaSet.GlobalElements.Names)
 				{
-					writer.WriteStartDocument();
-					foreach (XmlQualifiedName v in _schemaSet.GlobalElements.Names)
-					{
-						var elem = _schemaSet.GlobalElements[v] as XmlSchemaElement;
-						ProcessElement(writer, elem, 0, _dataModel.Root);
-					}
-					writer.WriteEndDocument();
+					var elem = _schemaSet.GlobalElements[v] as XmlSchemaElement;
+					ProcessElement(writer, elem, 0, _dataModel.Root);
 				}
-				if (Validate)
-					DoValidate(ms);
-				ms.Seek(0, SeekOrigin.Begin);
-				return ms.ToArray();
+				writer.WriteEndDocument();
+				writer.Flush();
 			}
+			if (Validate)
+				DoValidate(ms);
+			ms.Seek(0, SeekOrigin.Begin);
+			var arr = ms.ToArray();
+			ms.Close();
+			return arr;
 		}
 
 
@@ -289,6 +291,21 @@ namespace A2v10.Interop
 		{
 			foreach (var ch in choice.Items)
 			{
+				if (ch is XmlSchemaSequence ss)
+				{
+					foreach (var pp in ss.Items.OfType<XmlSchemaElement>())
+					{
+						var ppVal = model.Get<Object>(pp.Name);
+						var ppTypedVal = TypedValue(pp.SchemaTypeName.Name, ppVal, pp.IsNillable);
+						if (ppTypedVal != null)
+						{
+							writer.WriteStartElement(pp.Name);
+							writer.WriteString(ppTypedVal);
+							writer.WriteEndElement();
+						}
+					}
+					continue;
+				}
 				if (!(ch is XmlSchemaElement se))
 					continue;
 				var val = model.Get<Object>(se.Name);
@@ -318,14 +335,20 @@ namespace A2v10.Interop
 				case "DGdecimal2":
 				case "Decimal2Column":
 					var dVal2 = Convert.ToDecimal(val);
+					if (isNillable && dVal2 == 0)
+						return null;
 					return String.Format(CultureInfo.InvariantCulture, "{0:0.00}", dVal2); ;
 				case "DGdecimal2_P":
 				case "Decimal2Column_P":
 					var dVal2p = Convert.ToDecimal(val);
+					if (isNillable && dVal2p == 0)
+						return null;
 					return String.Format(CultureInfo.InvariantCulture, "{0:0.00}", dVal2p);
 				case "DGdecimal3":
 				case "Decimal3Column":
 					var dVal3 = Convert.ToDecimal(val);
+					if (isNillable && dVal3 == 0)
+						return null;
 					return String.Format(CultureInfo.InvariantCulture, "{0:0.000}", dVal3); ;
 				case "DGdecimal0":
 					var dVal0 = Convert.ToDecimal(val);

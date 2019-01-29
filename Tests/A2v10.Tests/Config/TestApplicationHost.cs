@@ -56,6 +56,8 @@ namespace A2v10.Tests.Config
 		}
 
 		public String AppDescription => ConfigurationManager.AppSettings["appDescription"];
+		public String AppHost => ConfigurationManager.AppSettings["appHost"];
+
 		public String SupportEmail => ConfigurationManager.AppSettings["supportEmail"];
 
 		public String HostingPath { get; set; }
@@ -106,8 +108,10 @@ namespace A2v10.Tests.Config
 			}
 		}
 
-		public String AppVersion => throw new NotImplementedException();
-		public String AppBuild => throw new NotImplementedException();
-		public String Copyright => throw new NotImplementedException();
+#pragma warning disable CA1065
+		public String AppVersion => throw new NotSupportedException();
+		public String AppBuild => throw new NotSupportedException();
+		public String Copyright => throw new NotSupportedException();
+#pragma warning restore CA1065
 	}
 }

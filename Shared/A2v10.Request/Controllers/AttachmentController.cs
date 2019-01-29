@@ -16,12 +16,22 @@ namespace A2v10.Request
 	{
 		BaseController _baseController = new BaseController();
 
-		public async Task Show(String Base, String id, HttpResponseBase Response, Action<ExpandoObject> setParams)
+		public Task Show(String Base, String id, HttpResponseBase Response, Action<ExpandoObject> setParams)
+		{
+			return ShowImpl(Base, id, Response, setParams, "Load");
+		}
+
+		public Task ShowPrev(String Base, String id, HttpResponseBase Response, Action<ExpandoObject> setParams)
+		{
+			return ShowImpl(Base, id, Response, setParams, "LoadPrev");
+		}
+
+		public async Task ShowImpl(String Base, String id, HttpResponseBase Response, Action<ExpandoObject> setParams, String suffix)
 		{
 			try
 			{
 				var url = $"/_attachment{Base}/{id}";
-				var ai = await _baseController.DownloadAttachment(url, setParams);
+				var ai = await _baseController.DownloadAttachment(url, setParams, suffix);
 				if (ai == null)
 					throw new RequestModelException($"Attachment not found. (Id:{id})");
 				Response.ContentType = ai.Mime;
@@ -33,12 +43,22 @@ namespace A2v10.Request
 			}
 		}
 
-		public async Task Download(String Base, String id, Boolean raw, HttpResponseBase Response, Action<ExpandoObject> setParams)
+		public Task Download(String Base, String id, Boolean raw, HttpResponseBase Response, Action<ExpandoObject> setParams)
 		{
+			return DownloadImpl(Base, id, raw, Response, setParams, "Load");
+		}
+
+		public Task DownloadPrev(String Base, String id, Boolean raw, HttpResponseBase Response, Action<ExpandoObject> setParams)
+		{
+			return DownloadImpl(Base, id, raw, Response, setParams, "LoadPrev");
+		}
+
+		async Task DownloadImpl(String Base, String id, Boolean raw, HttpResponseBase Response, Action<ExpandoObject> setParams, String suffix)
+		{ 
 			try
 			{
 				var url = $"/_attachment{Base}/{id}";
-				var ai = await _baseController.DownloadAttachment(url, setParams);
+				var ai = await _baseController.DownloadAttachment(url, setParams, suffix);
 				if (ai == null)
 					throw new RequestModelException($"Attachment not found. (Id:{id})");
 
@@ -58,7 +78,8 @@ namespace A2v10.Request
 					};
 					Response.Headers.Add("Content-Disposition", cdh.ToString());
 				}
-				Response.BinaryWrite(ai.Stream);
+				if (ai.Stream != null)
+					Response.BinaryWrite(ai.Stream);
 			}
 			catch (Exception ex)
 			{
@@ -113,6 +134,7 @@ namespace A2v10.Request
 				prms.Set("Serial", Request.Form["serial"]);
 				prms.Set("Subject", Request.Form["subjCN"]);
 				prms.Set("Kind", Request.Form["kind"]);
+				prms.Set("Title", Request.Form["title"]);
 
 				var ri = await _baseController.SaveSignature(url, prms);
 

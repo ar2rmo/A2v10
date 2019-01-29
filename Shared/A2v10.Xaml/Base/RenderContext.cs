@@ -14,9 +14,9 @@ namespace A2v10.Xaml
 		private Int32? _col;
 		private Int32? _rowSpan;
 		private Int32? _colSpan;
-		private VerticalAlign? _vAlign;
+		private AlignItem? _vAlign;
 
-		public GridRowCol(Int32? row, Int32? col, Int32? rowSpan, Int32? colSpan, VerticalAlign? vAlign)
+		public GridRowCol(Int32? row, Int32? col, Int32? rowSpan, Int32? colSpan, AlignItem? vAlign)
 		{
 			_row = row;
 			_col = col;
@@ -28,27 +28,30 @@ namespace A2v10.Xaml
 		public IList<StringKeyValuePair> GetGridAttributes()
 		{
 			var rv = new List<StringKeyValuePair>();
-			String row = String.Empty;
-			String col = String.Empty;
+			String row = null;
+			String col = null;
 			if (_row != null && _row.Value != 0)
 				row = _row.Value.ToString();
 			if (_rowSpan != null && _rowSpan.Value != 0)
 			{
-				if (String.IsNullOrEmpty(row))
-					row = "1";
-				row += " / span " + _rowSpan.Value.ToString();
+				if (row == null)
+					row = $"span {_rowSpan.Value}";
+				else
+					row += $" / span {_rowSpan.Value}";
 			}
-			if (!String.IsNullOrEmpty(row))
+			if (row != null)
 				rv.Add(new StringKeyValuePair() { Key = "grid-row", Value = row });
+
 			if (_col != null && _col.Value != 0)
 				col = _col.Value.ToString();
 			if (_colSpan != null && _colSpan.Value != 0)
 			{
-				if (String.IsNullOrEmpty(col))
-					col = "1";
-				col += " / span " + _colSpan.Value.ToString();
+				if (col == null)
+					col = $"span {_colSpan.Value}";
+				else
+					col += $"/ span {_colSpan.Value}";
 			}
-			if (!String.IsNullOrEmpty(col))
+			if (col != null)
 				rv.Add(new StringKeyValuePair() { Key = "grid-column", Value = col });
 
 			if (_vAlign != null)
@@ -61,7 +64,7 @@ namespace A2v10.Xaml
 		}
 	}
 
-	public class GridContext : IDisposable
+	public sealed class GridContext : IDisposable
 	{
 		RenderContext _renderContext;
 
@@ -123,6 +126,14 @@ namespace A2v10.Xaml
 
 		readonly private String _currentLocale;
 
+		[ThreadStatic]
+		public static String _partialDataContext;
+
+		public static void SetPartialContext(String ctx)
+		{
+			_partialDataContext = ctx;
+		}
+
 		public RenderContext(UIElementBase root, RenderInfo ri)
 		{
 			Writer = ri.Writer;
@@ -163,7 +174,7 @@ namespace A2v10.Xaml
 			Writer.Write("&#xa;");
 		}
 
-		public GridContext GridContext(Int32? row, Int32? col, Int32? rowSpan, Int32? colSpan, VerticalAlign? vAlign)
+		public GridContext GridContext(Int32? row, Int32? col, Int32? rowSpan, Int32? colSpan, AlignItem? vAlign)
 		{
 			var rowCol = new GridRowCol(row, col, rowSpan, colSpan, vAlign);
 			return new GridContext(this, rowCol);
@@ -203,15 +214,16 @@ namespace A2v10.Xaml
 			if (path == null)
 				path = String.Empty;
 			if (path.StartsWith("!"))
-				return "!" + GetNormalizedPathInt(path.Substring(1));
-			return GetNormalizedPathInt(path);
+				return "!" + GetNormalizedPathInternal(path.Substring(1));
+			return GetNormalizedPathInternal(path);
 		}
 
-		private String GetNormalizedPathInt(String path)
+		private String GetNormalizedPathInternal(String path)
 		{
 			if (path == null)
 				throw new ArgumentNullException(nameof(path));
 			const String rootKey = "Root.";
+			const String contextKey = "Context.";
 			if (_stackScope.Count == 0)
 			{
 				if (path == "Root")
@@ -222,6 +234,12 @@ namespace A2v10.Xaml
 				return path;
 			if (path.StartsWith(rootKey))
 				return "$data." + path.Substring(rootKey.Length);
+			else if (path.StartsWith(contextKey))
+			{
+				if (_partialDataContext == null)
+					throw new XamlException($"There is no context for '{Path}' path");
+				return path.Replace(contextKey, _partialDataContext);
+			}
 			ScopeElem scope = _stackScope.Peek();
 			String result = scope.Scope;
 			if (!String.IsNullOrEmpty(path))

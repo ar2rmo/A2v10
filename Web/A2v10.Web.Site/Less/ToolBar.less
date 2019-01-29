@@ -1,7 +1,5 @@
 ﻿
 
-@tb-control-height: 1.77rem;
-
 .toolbar {
 	display: flex;
 	flex-wrap: wrap;
@@ -11,18 +9,19 @@
 	overflow: visible;
 	background-color: @toolbar-bg-color;
 	color: @toolbar-txt-color;
+	//min-height:34px;
 
 	.checkbox {
 		margin: 0 6px;
 	}
 
 	&.no-wrap {
-		flex-wrap:nowrap;
+		flex-wrap: nowrap;
 	}
 
 	> .control-group.first-elem {
 		label {
-			margin-left:6px;
+			margin-left: 6px;
 		}
 	}
 
@@ -34,15 +33,30 @@
 			color: @link-color;
 		}
 
-		.divider {
+		> .divider {
+			flex-grow:0;
 			border-right-color: lighten(@toolbar-bg-color, 6%);
 			background-color: lighten(@toolbar-bg-color, 12%);
 		}
 	}
 
-	> .btn, 
+	> .btn,
 	> .dropdown > .btn {
 		padding: 4px 6px 5px 6px;
+	}
+
+	> .dropdown > .btn-caret {
+		border-left-color: darken(@toolbar-bg-color, 6%);
+	}
+
+	.btn-caret {
+		background-color: transparent;
+
+		&:hover {
+			background-color: @hover-bg-color;
+			border-color: @tb-hover-brd-color;
+			outline: none;
+		}
 	}
 
 	.btn-tb {
@@ -90,6 +104,7 @@
 	}
 
 	> .divider {
+		flex-grow:0;
 		display: inline-block;
 		width: 2px;
 		border-right: 1px solid lighten(@toolbar-bg-color, 5%);
@@ -111,14 +126,6 @@
 			font-size: 100%;
 			white-space: nowrap;
 		}
-
-		.input-group > a {
-			line-height: @tb-control-height;
-		}
-
-		select, input {
-			height: @tb-control-height;
-		}
 	}
 
 	.control-group + .control-group {
@@ -132,10 +139,17 @@
 	color: @icon-color;
 }
 
-.dropdown.show > .btn {
-	background-color: @dropdown-bg-color;
-	border-color: @dropdown-brd-color;
-	color: @toolbar-txt-color;
+.dropdown.show:not(.separate) {
+	> .btn {
+		background-color: @dropdown-bg-color;
+		border-color: @dropdown-brd-color;
+		color: @toolbar-txt-color;
+	}
+
+	> .btn-caret {
+		border-left-style: none;
+		padding-left:7px;
+	}
 }
 
 .commandbar {

@@ -1,0 +1,97 @@
+<Page xmlns="clr-namespace:A2v10.Xaml;assembly=A2v10.Xaml" Title="Реестр счетов">
+	<Page.Toolbar>
+		<Toolbar>
+			<PeriodPicker Value="{Bind Query.Period}" Label="Период" Width="15rem"/>
+			<Selector Value="{Bind Query.Agent}" DisplayProperty="Name" Delegate="fetchCustomers">
+				<Selector.AddOns>
+					<Hyperlink Icon="Search" Command="{BindCmd Dialog, Action=Browse, Url='/Agent/browseCustomer', Argument={Bind Query.Agent}}"/>
+				</Selector.AddOns>
+			</Selector>
+			<Button Content="Построить" Icon="ArrowRight" Command="{BindCmd Reload}"/>
+			<Button Content="Закрыть" Icon="Close" Command="{BindCmd Close}" Toolbar.Align="Right"/>
+		</Toolbar>
+	</Page.Toolbar>
+	<Page.Taskpad>
+		<Taskpad Overflow="True" Background="WhiteSmoke" Collapsible="False">
+			<PeriodPicker Value="{Bind Query.Period}" Label="Период" Width="20rem" Placement="BottomRight">
+				<PeriodPicker.Hint>
+					<Popover Placement="BottomRight" Width="15rem">Выберите период, за который будет строиться отчет</Popover>
+				</PeriodPicker.Hint>
+			</PeriodPicker>
+			<Selector Value="{Bind Query.Agent}" DisplayProperty="Name" Delegate="fetchCustomers" Label="Контрагент"
+					  Hint="Выберите контрагента, для которого будет строиться отчет">
+				<Selector.AddOns>
+					<Hyperlink Icon="Search" Command="{BindCmd Dialog, Action=Browse, Url='/Agent/browseCustomer', Argument={Bind Query.Agent}}"/>
+				</Selector.AddOns>
+			</Selector>
+			<Grid Padding="10,0" AutoFlow="Column">
+				<Button Content="Построить" Icon="ArrowRight" Command="{BindCmd Reload}"/>
+				<Button Content="Экспорт в Excel" Icon="ExportExcel" Style="Info"
+						Command="{BindCmd ExportTo, Format=Excel, FileName={Bind Query.Agent.Name}}"/>
+				<Button Icon="HelpBlue" Command="{BindCmd Help, Url='/an_account_plan/index'}">Help</Button>
+			</Grid>
+		</Taskpad>
+	</Page.Taskpad>
+	<SheetPage Orientation="Landscape">
+		<Sheet GridLines="Both" Columns="Fit,60,Fit+A,Fit+B,300" Striped="True">
+			<SheetSection ItemsSource="{Bind ReportData}">
+				<SheetRow>
+					<SheetCell Content="{Bind Id, DataType=String}" Align="Center" />
+					<SheetCell Content="{Bind Date, DataType=DateTime}" Align="Center"/>
+					<SheetCell Content="{Bind No, DataType=Number}" Align="Right"/>
+					<SheetCell Content="{Bind Sum, DataType=Currency}" Align="Right"/>
+					<SheetCell Content="{Bind Memo}"/>
+				</SheetRow>
+			</SheetSection>
+			<Sheet.Header>
+				<SheetRow Style="Title">
+					<SheetCell ColSpan="5" Align="Center">Заголовок отчета</SheetCell>
+				</SheetRow>
+				<SheetRow Style="LastParameter">
+					<SheetCell ColSpan="5">
+						<Text>Параметр отчета:
+							<Span Bold="True" Content="{Bind Query.Agent.Name}"/>
+						</Text></SheetCell>
+				</SheetRow>
+				<SheetRow Style="Header" Align="Center">
+					<SheetCell ColSpan="3" Bold="True">Информация</SheetCell>
+					<SheetCell RowSpan="2" VAlign="Bottom">Сума</SheetCell>
+					<SheetCell RowSpan="2" VAlign="Top">Примечание</SheetCell>
+				</SheetRow>
+				<SheetRow Style="Header" Align="Center">
+					<SheetCell>Id</SheetCell>
+					<SheetCell>Дата</SheetCell>
+					<SheetCell>Номер</SheetCell>
+				</SheetRow>
+				<SheetRow Style="Total">
+					<SheetCell ColSpan="3"/>
+					<SheetCell>234.55</SheetCell>
+					<SheetCell/>
+				</SheetRow>
+			</Sheet.Header>
+			<Sheet.Footer>
+				<SheetRow Style="Footer">
+					<SheetCell ColSpan="5" Bold="True">Длинный текст для футера</SheetCell>
+				</SheetRow>
+				<SheetRow Style="NoBorder">
+					<SheetCell>&#160;</SheetCell>
+				</SheetRow>
+				<SheetRow Style="NoBorder">
+					<SheetCell />
+					<SheetCell Underline="True"/>
+					<SheetCell ColSpan="2"/>
+					<SheetCell Underline="True"/>
+				</SheetRow>
+				<SheetRow Style="NoBorder">
+					<SheetCell ColSpan="2">Очень очень длинный текст с переносами строк, который должен увеличить высоту строки в Excel</SheetCell>
+				</SheetRow>
+				<SheetRow Style="NoBorder">
+					<SheetCell ColSpan="3">
+						<Popover Text="text">I am the popover for element</Popover>
+					</SheetCell>
+				</SheetRow>
+			</Sheet.Footer>
+		</Sheet>
+	</SheetPage>
+	<Code Content="{Bind Query}" Multiline="True" If="False"></Code>
+</Page>

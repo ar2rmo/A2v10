@@ -1,5 +1,7 @@
 ﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
 
+@panel-header-line-height:2rem;
+
 .stack-panel {
 	display: flex;
 	flex-direction: column;
@@ -9,9 +11,7 @@
 
 	&.horizontal {
 		flex-direction: row;
-		.divider {
-			flex-grow: 2;
-		}
+		align-items:baseline;
 
 		.control-group {
 			margin: 0;
@@ -37,7 +37,7 @@
 
 .panel {
 	margin-bottom: 12px;
-	background-color:white;
+	background-color: white;
 
 	.panel-header {
 		padding: 4px 6px;
@@ -45,7 +45,7 @@
 		display: flex;
 		justify-content: space-between;
 		cursor: pointer;
-		line-height: 1.5rem;
+		line-height: @panel-header-line-height;
 
 		.ico {
 			//font-size: 1.2rem;
@@ -54,23 +54,11 @@
 
 		.panel-collapse-handle {
 			font-size: 110%;
-			padding-top: 2px;
+			line-height: @panel-header-line-height;
 			margin: 0;
 
 			&:before {
 				content: "\e9a2"; // chevron-up
-			}
-		}
-	}
-
-	.panel-content {
-		> .prop-grid {
-			tr:first-child > td {
-				border-top-style: none;
-			}
-
-			tr:last-child > td {
-				border-bottom-style: none;
 			}
 		}
 	}
@@ -155,8 +143,9 @@
 .field-set {
 	// flex does not work for <fieldset>
 	margin: 0;
-	padding: .4rem .6rem, .6rem .6rem;
+	padding: .4rem .6rem .6rem .6rem;
 	border: 1px solid @default-brd-color;
+	text-align:left;
 
 	legend {
 		font-size: 0.95rem;
@@ -232,15 +221,19 @@
 }
 
 .background-light-gray {
-	background-color: @light-gray-bg-color;
+	background-color: @light-gray-bg-color!important;
 }
 
 .background-white-smoke {
-	background-color: @whitesmoke-gray-bg-color;
+	background-color: @whitesmoke-gray-bg-color!important;
+}
+
+.background-light-yellow {
+	background-color:ivory!important;
 }
 
 .background-white {
-	background-color: white;
+	background-color: white!important;
 }
 
 iframe.a2-iframe {
@@ -284,5 +277,67 @@ iframe.eusign-iframe {
 	iframe {
 		border: none;
 		background-color: white;
+	}
+}
+
+@card-padding:1.25rem;
+@flex-padding:1.25rem;
+
+.card {
+	background-color: white;
+	display: flex;
+	flex-flow: column nowrap;
+
+	.card-header {
+		padding: @card-padding/2 @card-padding;
+		border-bottom: 1px solid #ddd;
+		font-weight: 500;
+		color: #9ab3e0;
+		font-size: 14px;
+	}
+
+	.card-body {
+		padding: @card-padding;
+	}
+
+	.card-footer {
+		padding: @card-padding/2 @card-padding;
+		border-top: 1px solid #ddd;
+	}
+
+	&.compact {
+		.card-header {
+			padding: @card-padding / 3 @card-padding / 2;
+			font-size: @font-size;
+		}
+	}
+}
+
+.flex-list {
+	display: flex;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+
+	.flex-list-item {
+		display: block;
+	}
+
+	&.horizontal {
+		flex-flow: row wrap;
+
+		.flex-list-item {
+			margin-right: @flex-padding;
+		}
+
+		.flex-list-item:last-child {
+			margin-right:0;
+		}
+	}
+
+	&.border-top {
+		padding-top: @flex-padding;
+		margin-top: @flex-padding;
+		border-top: 1px solid #ddd;
 	}
 }

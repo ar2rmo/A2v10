@@ -1,4 +1,4 @@
-﻿// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
 using A2v10.Infrastructure;
 using System;
@@ -11,6 +11,8 @@ namespace A2v10.Xaml
 		public Length Width { get; set; }
 		public BackgroundStyle Background { get; set; }
 		public Boolean? Collapsible { get; set; }
+		public String Title { get; set; }
+		public Boolean Overflow { get; set; }
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
@@ -19,8 +21,10 @@ namespace A2v10.Xaml
 			var tag = new TagBuilder("a2-taskpad", null, IsInGrid);
 			onRender?.Invoke(tag);
 			MergeAttributes(tag, context);
+			MergeBindingAttributeString(tag, context, "title", nameof(Title), Title);
+			tag.AddCssClassBool(Overflow, "overflow");
 
-			if (Background != BackgroundStyle.None)
+			if (Background != BackgroundStyle.Default)
 				tag.AddCssClass("background-" + Background.ToString().ToKebabCase());
 
 			tag.AddCssClassBoolNo(Collapsible, "collapsible");

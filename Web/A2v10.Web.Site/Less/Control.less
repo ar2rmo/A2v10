@@ -220,7 +220,6 @@
 		align-items: baseline;
 		background-color: @control-bg-color;
 		position: relative;
-		padding: 1px 0;
 		width: auto;
 		position: relative;
 
@@ -238,10 +237,10 @@
 
 		.select-wrapper {
 			position: absolute;
-			left: 1px;
-			top: 1px;
-			right: 1px;
-			bottom: 1px;
+			left: 0;
+			top: 0;
+			right: 0;
+			bottom: 0;
 			display: flex;
 			padding: 0 5px;
 
@@ -265,8 +264,9 @@
 
 			> span {
 				padding: 0 5px;
-				line-height: @control-height;
-				display: block;
+				line-height: 1.4rem;
+				display: inline-grid;
+				align-items:center;
 				width: 100%;
 				min-height: @control-height;
 			}
@@ -484,6 +484,10 @@
 
 .large {
 	font-size: 1.15rem;
+}
+
+.normal {
+	font-size: 1rem;
 }
 
 .a2-hyperlink.small {

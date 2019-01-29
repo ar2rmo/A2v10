@@ -10,7 +10,8 @@ namespace A2v10.Xaml
 	{
 		List,
 		TwoColumnsGrid,
-		ThreeColumnsGrid
+		ThreeColumnsGrid,
+		Underlined
 	}
 
 
@@ -23,12 +24,16 @@ namespace A2v10.Xaml
 		public Boolean Striped { get; set; }
 		public Boolean? Select { get; set; }
 		public Object Mark { get; set; }
+		public RowMarkerStyle MarkerStyle { get; set; }
 		public Boolean Border { get; set; }
+		public Boolean Flush { get; set; }
+		public Boolean Compact { get; set; }
 
 		public Length Height { get; set; }
 		public BackgroundStyle Background { get; set; }
 
 		public ListStyle Style { get; set; }
+		public String GroupBy { get; set; }
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
@@ -39,12 +44,17 @@ namespace A2v10.Xaml
 			var isBind = GetBinding(nameof(ItemsSource));
 			ul.AddCssClassBool(Striped, "striped");
 			ul.AddCssClassBool(Border, "border");
+			ul.AddCssClassBool(Flush, "flush");
+			ul.AddCssClassBool(Compact, "compact");
+			ul.MergeAttribute("group-by", GroupBy);
+			if (MarkerStyle != RowMarkerStyle.None)
+				ul.MergeAttribute("mark-style", MarkerStyle.ToString().ToKebabCase());
 			if (Select != null)
 				ul.MergeAttribute(":selectable", Select.Value.ToString().ToLowerInvariant());
 			ul.AddCssClass(Style.ToString().ToKebabCase());
 			//ul.MergeAttribute(":command", "()=> $navigate()");
 
-			if (Background != BackgroundStyle.None)
+			if (Background != BackgroundStyle.Default)
 				ul.AddCssClass("background-" + Background.ToString().ToKebabCase());
 
 			var mbind = GetBinding(nameof(Mark));

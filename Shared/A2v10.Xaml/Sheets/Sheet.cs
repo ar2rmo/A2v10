@@ -60,6 +60,8 @@ namespace A2v10.Xaml
 		public GridLinesVisibility GridLines { get; set; }
 		public Boolean Hover { get; set; }
 		public Boolean Striped { get; set; }
+		public Boolean? Border { get; set; }
+		public Length Width { get; set; }
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
@@ -72,17 +74,46 @@ namespace A2v10.Xaml
 				sheet.AddCssClass($"grid-{GridLines.ToString().ToLowerInvariant()}");
 			sheet.AddCssClassBool(Hover, "hover");
 			sheet.AddCssClassBool(Striped, "striped");
+			sheet.AddCssClassBoolNo(Border, "border");
+			if (Width != null)
+				sheet.MergeStyle("width", Width.Value);
 			sheet.RenderStart(context);
 			RenderColumns(context);
 			RenderHeader(context);
+			RenderColumnsShadow(context);
 			RenderBody(context);
 			RenderFooter(context);
 			sheet.RenderEnd(context);
 		}
 
+		void RenderColumnsShadow(RenderContext context)
+		{
+			// for export to excel column widths
+			if (_columns == null)
+				return;
+			var cs = new TagBuilder("template");
+			cs.MergeAttribute("slot", "col-shadow");
+			cs.RenderStart(context);
+			var tb = new TagBuilder("tbody", "col-shadow");
+			tb.RenderStart(context);
+			var tr = new TagBuilder("tr");
+			tr.RenderStart(context);
+			foreach (var c in _columns)
+				context.Writer.Write("<td></td>");
+			tr.RenderEnd(context);
+			tb.RenderEnd(context);
+			cs.RenderEnd(context);
+		}
+
 		void RenderColumns(RenderContext context)
 		{
-			_columns?.Render(context);
+			if (_columns == null)
+				return;
+			var cols = new TagBuilder("template");
+			cols.MergeAttribute("slot", "columns");
+			cols.RenderStart(context);
+			_columns.Render(context);
+			cols.RenderEnd(context);
 		}
 
 		void RenderHeader(RenderContext context)

@@ -76,6 +76,7 @@
     <Compile Include="Base\XamlElement.cs" />
     <Compile Include="Base\XamlException.cs" />
     <Compile Include="Components\CollectionView.cs" />
+    <Compile Include="Components\Switch.cs" />
     <Compile Include="Components\Validator.cs" />
     <Compile Include="Controls\Alert.cs" />
     <Compile Include="Controls\Button.cs" />
@@ -92,6 +93,29 @@
     <Compile Include="Controls\DatePicker.cs" />
     <Compile Include="Controls\PeriodPicker.cs" />
     <Compile Include="Controls\StateCard.cs" />
+    <Compile Include="Drawing\ActionButton.cs" />
+    <Compile Include="Drawing\Card.cs" />
+    <Compile Include="Drawing\Diagram.cs" />
+    <Compile Include="Drawing\DrawingElement.cs" />
+    <Compile Include="Drawing\DrawingElementCollection.cs" />
+    <Compile Include="Drawing\Extensions.cs" />
+    <Compile Include="Drawing\Interfaces.cs" />
+    <Compile Include="Drawing\Enums.cs" />
+    <Compile Include="Drawing\Group.cs" />
+    <Compile Include="Drawing\Line.cs" />
+    <Compile Include="Drawing\Path.cs" />
+    <Compile Include="Drawing\Size.cs" />
+    <Compile Include="Drawing\Point.cs" />
+    <Compile Include="Drawing\Rectangle.cs" />
+    <Compile Include="Layouts\Flex.cs" />
+    <Compile Include="Layouts\FlexList.cs" />
+    <Compile Include="Layouts\Card.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Sheets\SheetPage.cs" />
     <Compile Include="Text\StaticImage.cs" />
     <Compile Include="Controls\TableMarkerCell.cs" />
     <Compile Include="Controls\Attachments.cs" />
@@ -181,6 +205,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Drawing\Resources\svgdefs.html" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

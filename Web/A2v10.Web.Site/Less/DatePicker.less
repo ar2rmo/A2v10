@@ -115,6 +115,17 @@
 }
 
 
+.date-picker {
+	&.open {
+		.input-group {
+			input, a {
+				background-color: white;
+				z-index: @popup-index + 1;
+			}
+		}
+	}
+}
+
 
 .period-picker {
 	cursor: pointer;
@@ -126,6 +137,11 @@
 		width: 100%;
 		min-height: @control-height;
 		white-space: nowrap;
+	}
+
+	&.open .period-text {
+		z-index: @popup-index + 1;
+		background-color: white;
 	}
 
 	.caret {
@@ -160,9 +176,9 @@
 	.period-pane {
 		display: grid;
 		grid-gap: @elem-margin;
-		font-size:1rem;
-		font-weight:normal;
-		font-style:normal;
+		font-size: 1rem;
+		font-weight: normal;
+		font-style: normal;
 	}
 
 	@keyframes blink {
@@ -207,8 +223,8 @@
 				min-height: auto;
 				border-bottom: 1px dotted @link-color;
 				color: @link-color;
-				padding:0;
-				line-height:normal;
+				padding: 0;
+				line-height: normal;
 			}
 
 			.caret {

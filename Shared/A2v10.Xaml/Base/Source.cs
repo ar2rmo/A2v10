@@ -11,6 +11,8 @@ namespace A2v10.Xaml
 	public class Source : MarkupExtension
 	{
 		public String Path { get; set; }
+		public String Context { get; set; }
+
 		public Source()
 		{
 
@@ -46,7 +48,8 @@ namespace A2v10.Xaml
 			{
 				String basePath = System.IO.Path.GetDirectoryName(baseUri.PathAndQuery);
 				String targetDir = System.IO.Path.GetFullPath(System.IO.Path.Combine(basePath, path));
-				if (System.IO.Path.GetExtension(targetDir).ToLowerInvariant() == ".js")
+				String ext = System.IO.Path.GetExtension(targetDir).ToLowerInvariant();
+				if (ext == ".js" || ext == ".html")
 				{
 					if (File.Exists(targetDir))
 						return File.ReadAllText(targetDir);
@@ -57,7 +60,17 @@ namespace A2v10.Xaml
 				{
 					String trgPath = System.IO.Path.ChangeExtension(targetDir, "xaml");
 					if (File.Exists(trgPath))
-						return XamlServices.Load(trgPath);
+					{
+						try
+						{
+							RenderContext.SetPartialContext(Context);
+							return XamlServices.Load(trgPath);
+						}
+						finally
+						{
+							RenderContext.SetPartialContext(null);
+						}
+					}
 					else
 						throw new XamlException($"File not found {path}");
 				}

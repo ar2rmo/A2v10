@@ -21,13 +21,16 @@ namespace A2v10.Tests.Config
 
 			ServiceLocator.Start = (IServiceLocator service) =>
 			{
-				var profiler = new TestProfiler();
-				var host = new TestApplicationHost(profiler);
-				host.HostingPath = Path.GetFullPath("../../../../Web/A2v10.Web.Site");
+				var profiler = new NullProfiler();
+				var host = new TestApplicationHost(profiler)
+				{
+					HostingPath = Path.GetFullPath("../../../../Web/A2v10.Web.Site")
+				};
 
-				var localizer = new TestLocalizer();
+				var localizer = new NullLocalizer();
 				var dbContext = new SqlDbContext(profiler, host, localizer);
-				var workflowEngine = new WorkflowEngine(host, dbContext);
+				var messaging = new NullMessaging();
+				var workflowEngine = new WorkflowEngine(host, dbContext, messaging);
 				var renderer = new XamlRenderer(profiler, host);
 				var scripter = new VueDataScripter(host, localizer);
 
@@ -38,6 +41,7 @@ namespace A2v10.Tests.Config
 				service.RegisterService<IRenderer>(renderer);
 				service.RegisterService<ILocalizer>(localizer);
 				service.RegisterService<IDataScripter>(scripter);
+				service.RegisterService<IMessaging>(messaging);
 				_currentService = service;
 			};
 

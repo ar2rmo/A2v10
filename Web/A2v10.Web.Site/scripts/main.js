@@ -79,7 +79,7 @@ app.modules['std:locale'] = function () {
 		let elRect = el.getBoundingClientRect();
 		let pElem = el.parentElement;
 		while (pElem) {
-			if (pElem.offsetHeight <= pElem.scrollHeight)
+			if (pElem.offsetHeight < pElem.scrollHeight)
 				break;
 			pElem = pElem.parentElement;
 		}
@@ -135,9 +135,9 @@ app.modules['std:locale'] = function () {
 
 })();
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181203-7381
+// 20190108-7409
 // services/utils.js
 
 app.modules['std:utils'] = function () {
@@ -206,6 +206,10 @@ app.modules['std:utils'] = function () {
 			containsText: textContainsText,
 			sanitize,
 			splitPath
+		},
+		currency: {
+			round: currencyRound,
+			format: currencyFormat
 		},
 		func: {
 			curry,
@@ -351,6 +355,8 @@ app.modules['std:utils'] = function () {
 					return '';
 				return formatDate(obj) + ' ' + formatTime(obj);
 			case "Date":
+				if (isString(obj))
+					obj = string2Date(obj);
 				if (!isDate(obj)) {
 					console.error(`Invalid Date for utils.format (${obj})`);
 					return obj;
@@ -454,18 +460,37 @@ app.modules['std:utils'] = function () {
 		return str;
 	}
 
+	function string2Date(str) {
+		try {
+			let dt = new Date(str);
+			dt.setHours(0, -dt.getTimezoneOffset(), 0, 0);
+			return dt;
+		} catch (err) {
+			return str;
+		}
+	}
+
 	function dateParse(str) {
 		str = str || '';
 		if (!str) return dateZero();
 		let today = dateToday();
-		let seg = str.split('.');
+		let seg = str.split(/[^\d]/);
 		if (seg.length === 1) {
 			seg.push('' + (today.getMonth() + 1));
 			seg.push('' + today.getFullYear());
 		} else if (seg.length === 2) {
 			seg.push('' + today.getFullYear());
 		}
-		let td = new Date(+seg[2], +seg[1] - 1, +seg[0], 0, 0, 0, 0);
+		let normalizeYear = function (y) {
+			y = '' + y;
+			switch (y.length) {
+				case 2: y = '20' + y; break;
+				case 4: break;
+				default: y = today.getFullYear(); break;
+			}
+			return +y;
+		};
+		let td = new Date(+normalizeYear(seg[2]), +((seg[1] ? seg[1] : 1) - 1), +seg[0], 0, 0, 0, 0);
 		if (isNaN(td.getDate()))
 			return dateZero();
 		td.setHours(0, -td.getTimezoneOffset(), 0, 0);
@@ -633,6 +658,20 @@ app.modules['std:utils'] = function () {
 		return (..._arg) => {
 			return fn(...args, ..._arg);
 		};
+	}
+
+	function currencyRound(n, digits) {
+		if (isNaN(n))
+			return Nan;
+		digits = digits || 2;
+		let m = false;
+		if (n < 0) {
+			n = -n;
+			m = true;
+		}
+		// toFixed = avoid js rounding error
+		let r = Number(Math.round(n.toFixed(12) + `e${digits}`) + `e-${digits}`);
+		return m ? -r : r;
 	}
 };
 
@@ -1156,9 +1195,9 @@ app.modules['std:modelInfo'] = function () {
 };
 
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181125-7372
+// 20190114-7411
 /* services/http.js */
 
 app.modules['std:http'] = function () {
@@ -1175,6 +1214,15 @@ app.modules['std:http'] = function () {
 		upload: upload,
 		localpost
 	};
+
+	function blob2String(blob, callback) {
+		const fr = new FileReader();
+		fr.addEventListener('loadend', (e) => {
+			const text = fr.result;
+			callback(text);
+		});
+		fr.readAsText(blob);
+	}
 
 	function doRequest(method, url, data, raw) {
 		return new Promise(function (resolve, reject) {
@@ -1194,8 +1242,12 @@ app.modules['std:http'] = function () {
 					resolve(xhrResult);
 				}
 				else if (xhr.status === 255) {
-					if (raw)
-						reject(xhr.statusText); // response is blob!
+					if (raw) {
+						if (xhr.response instanceof Blob)
+							blob2String(xhr.response, (msg) => reject('server error: ' + msg));
+						else
+							reject(xhr.statusText); // response is blob!
+					}
 					else
 						reject(xhr.responseText || xhr.statusText);
 				}
@@ -1738,9 +1790,9 @@ app.modules['std:validators'] = function () {
 
 
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+/*! Copyright © 2015-2019 Alex Kukhtin. All rights reserved.*/
 
-// 20181211-7384
+// 20190105-7402
 // services/datamodel.js
 
 (function () {
@@ -1994,6 +2046,9 @@ app.modules['std:validators'] = function () {
 		if (path && path.endsWith(']'))
 			elem.$selected = false;
 
+		if (elem._meta_.$items)
+			elem.$expanded = false; // tree elem
+
 		defPropertyGet(elem, '$valid', function () {
 			if (this._root_._needValidate_)
 				this._root_._validateAll_();
@@ -2243,7 +2298,7 @@ app.modules['std:validators'] = function () {
 
 		defPropertyGet(arr, "$isEmpty", function () {
 			return !this.length;
-		});		
+		});
 
 		defPropertyGet(arr, "$checked", function () {
 			return this.filter((el) => el.$checked);
@@ -2538,6 +2593,16 @@ app.modules['std:validators'] = function () {
 			if (sel) sel.$selected = false;
 			this.$selected = true;
 			emitSelect(arr, this);
+			if (this._meta_.$items) {
+				// expand all parent items
+				let p = this._parent_._parent_;
+				while (p) {
+					p.$expanded = true;
+					p = p._parent_._parent_;
+					if (!p || p === this.$root)
+						break;
+				}
+			}
 		};
 	}
 
@@ -2852,7 +2917,7 @@ app.modules['std:validators'] = function () {
 		return opts && opts.noDirty;
 	}
 
-	function merge(src, afterSave) {
+	function merge(src, afterSave, existsOnly) {
 		let oldId = this.$id__;
 		try {
 			if (src === null)
@@ -2888,6 +2953,8 @@ app.modules['std:validators'] = function () {
 					} else if (utils.isPrimitiveCtor(ctor)) {
 						platform.set(this, prop, src[prop]);
 					} else {
+						if (existsOnly && !(prop in src))
+							continue; // no item in src
 						let newsrc = new ctor(src[prop], prop, this);
 						platform.set(this, prop, newsrc);
 					}
@@ -3473,6 +3540,61 @@ app.modules['std:tools'] = function () {
 		return dlgData.promise;
 	}
 };
+
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+
+// 20190117-7417
+/* services/http.js */
+
+app.modules['std:html'] = function () {
+
+
+	return {
+		getColumnsWidth,
+		getRowHeight,
+		downloadBlob
+	};
+
+	function getColumnsWidth(elem) {
+		let cols = elem.getElementsByTagName('col');
+		let cells = elem.querySelectorAll('tbody.col-shadow > tr > td');
+		let len = Math.min(cols.length, cells.length);
+		for (let i = 0; i < len; i++) {
+			let w = cells[i].offsetWidth;
+			cols[i].setAttribute('data-col-width', w);
+		}
+	}
+
+	function getRowHeight(elem) {
+		let rows = elem.getElementsByTagName('tr');
+		for (let r = 0; r < rows.length; r++) {
+			let h = rows[r].offsetHeight - 12; /* padding !!!*/
+			rows[r].setAttribute('data-row-height', h);
+		}
+	}
+
+	function downloadBlob(blob, fileName, format) {
+		let objUrl = URL.createObjectURL(blob);
+		let link = document.createElement('a');
+		link.style = "display:none";
+		document.body.appendChild(link); // FF!
+		let downloadFile = fileName || 'file';
+		format = (format || '').toLowerCase();
+		if (format === 'excel')
+			downloadFile += '.xlsx';
+		else if (format === "pdf")
+			downloadFile += ".pdf";
+		link.download = downloadFile;
+		link.href = objUrl;
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(objUrl);
+	}
+};
+
+
+
+
 
 // Copyright © 2018 Alex Kukhtin. All rights reserved.
 
@@ -4399,9 +4521,9 @@ Vue.component('validator-control', {
 	});
 })();
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181022-7325
+// 20190112-7411
 // components/periodpicker.js
 
 
@@ -4421,8 +4543,8 @@ Vue.component('validator-control', {
 	Vue.component('a2-period-picker', {
 		extends: baseControl,
 		template: `
-<div class="control-group period-picker" @click.stop.prevent="toggle($event)">
-	<label v-if="hasLabel" v-text="label" />
+<div class="control-group period-picker" @click.stop.prevent="toggle($event)" :class="{open: isOpen}">
+	<label v-if="hasLabel"><span v-text="label"/><slot name="hint"/></label>
 	<div class="input-group">
 		<span class="period-text" v-text="text" :class="inputClass" :tabindex="tabIndex"/>
 		<span class="caret"/>
@@ -4861,9 +4983,9 @@ Vue.component('validator-control', {
 		}
 	});
 })();
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181019-7323
+// 20190109-7408
 // components/datagrid.js*/
 
 (function () {
@@ -5190,10 +5312,11 @@ Vue.component('validator-control', {
 					computed: {
 						hasIcon() { return col.icon || col.bindIcon; },
 						iconClass() {
+							let icoSingle = !col.content ? ' ico-single' : '';
 							if (col.bindIcon)
-								return 'ico-' + utils.eval(row, col.bindIcon);
+								return 'ico-' + utils.eval(row, col.bindIcon) + icoSingle;
 							else if (col.icon)
-								return 'ico-' + col.icon;
+								return 'ico-' + col.icon + icoSingle;
 							return null;
 						}
 					},
@@ -5487,6 +5610,7 @@ Vue.component('validator-control', {
 				}
 				else if (utils.isObjectExact(grBy))
 					grBy = [grBy];
+				if (!this.$items) return null;
 				for (let itm of this.$items) {
 					let root = grmap;
 					for (let gr of grBy) {
@@ -5864,9 +5988,9 @@ Vue.component('popover', {
 	}
 });
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-/*20180225-7119*/
+/*20190105-7402*/
 // components/treeview.js
 
 
@@ -5878,6 +6002,7 @@ Vue.component('popover', {
 
 	const utils = require('std:utils');
 	const eventBus = require('std:eventBus');
+	const platform = require('std:platform');
 
     /**
      * .stop for toggle is required!
@@ -5910,11 +6035,6 @@ Vue.component('popover', {
 			isActive: Function,
 			getHref: Function
 		},
-		data() {
-			return {
-				open: !this.options.isDynamic
-			};
-		},
 		methods: {
 			isFolderSelect(item) {
 				let fs = this.options.folderSelect;
@@ -5942,16 +6062,19 @@ Vue.component('popover', {
 				eventBus.$emit('closeAllPopups');
 				if (!this.isFolder)
 					return;
-				this.open = !this.open;
-				if (this.options.isDynamic) {
+				this.expandItem(!this.item.$expanded);
+				if (this.options.isDynamic && this.expand) {
 					this.expand(this.item, this.options.subitems);
 				}
 			},
-			openElem() {
+			expandItem(val) {
+				platform.set(this.item, '$expanded', val);
+			},
+			openElem: function() {
 				if (!this.isFolder)
 					return;
-				this.open = true;
-				if (this.isDynamic)
+				this.expandItem(true);
+				if (this.isDynamic && this.expand)
 					this.expand(this.item, this.options.subitems);
 			}
 		},
@@ -5959,14 +6082,16 @@ Vue.component('popover', {
 			isFolder: function () {
 				if (this.options.isDynamic && utils.isDefined(this.item.$hasChildren) && this.item.$hasChildren)
 					return true;
+				if (utils.isDefined(this.options.isFolder))
+					return this.item[this.options.isFolder];
 				let ch = this.item[this.options.subitems];
 				return ch && ch.length;
 			},
 			isExpanded: function () {
-				return this.isFolder && this.open;
+				return this.isFolder && this.item.$expanded;
 			},
 			isCollapsed: function () {
-				return this.isFolder && !this.open;
+				return this.isFolder && !this.item.$expanded;
 			},
 			title() {
 				var t = this.item[this.options.title];
@@ -5996,17 +6121,20 @@ Vue.component('popover', {
 			}
 		},
 		watch: {
-			isFolder(newVal) {
-				// TODO: auto expand???
+			isItemSelected(newVal) {
+				//console.dir('isItemSelected:' + newVal);
+				if (newVal && this.$el.scrollIntoViewCheck)
+					this.$el.scrollIntoViewCheck();
 			}
 		},
 		updated(x) {
 			// close expanded when reloaded
-			if (this.options.isDynamic && this.open) {
+			if (this.options.isDynamic && this.item.$expanded) {
 				if (this.item.$hasChildren) {
 					let arr = this.item[this.options.subitems];
-					if (!arr.$loaded)
-						this.open = false;
+					if (!arr.$loaded) {
+						this.expandItem(false);
+					}
 				}
 			}
 		}
@@ -6595,9 +6723,9 @@ TODO:
 	});
 
 })();
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20180428-7171
+// 20190122-7421
 // components/upload.js
 
 
@@ -6721,15 +6849,18 @@ TODO:
 			}
 		},
 		methods: {
+			fireChange() {
+			},
 			clear() {
 				if (!this.item) return;
 				this.item[this.prop] = null;
+				this.fireChange();
 				this.$refs.file.value = '';
 			},
 			uploadChange(ev) {
 				let files = ev.target.files;
 				this.item[this.prop] = files[0];
-				console.dir(this.item[this.prop]);
+				this.fireChange();
 			}
 		}
 	});
@@ -6929,8 +7060,12 @@ TODO:
 			},
 			$removeTab(tab) {
 				let ix = this.tabs.indexOf(tab);
-				if (ix !== -1)
-					this.tabs.splice(ix, 1);
+				if (ix === -1) return;
+				this.tabs.splice(ix, 1);
+				if (this.tabs.indexOf(this.activeTab) === -1) {
+					if (this.tabs.length > 0)
+						this.select(this.tabs[0]);
+				}
 			}
 		},
 		mounted() {
@@ -6943,9 +7078,9 @@ TODO:
 	});
 
 })();
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181116-7357
+// 20190118-7419
 // components/list.js
 
 /* TODO:
@@ -6955,15 +7090,17 @@ TODO:
 
 	const utils = require('std:utils');
 	const eventBus = require('std:eventBus');
+	const locale = window.$$locale;
 
 	Vue.component("a2-list", {
 		template:
 			`<ul class="a2-list" v-lazy="itemsSource">
 	<template v-if="itemsSource">
-		<li class="a2-list-item" tabindex="1" :class="cssClass(listItem)" v-for="(listItem, listItemIndex) in itemsSource" :key="listItemIndex" 
+		<li class="a2-list-item" tabindex="1" :class="cssClass(listItem)" v-for="(listItem, listItemIndex) in source" :key="listItemIndex" 
 				@click.prevent="select(listItem)" @keydown="keyDown" 
 				ref="li">
-			<slot name="items" :item="listItem" />
+			<span v-if="listItem.__group" v-text="listItem.__group"></span>
+			<slot name="items" :item="listItem" v-if="!listItem.__group"/>
 		</li>
 	</template>
 	<template v-else>
@@ -6974,10 +7111,12 @@ TODO:
 			itemsSource: Array,
 			autoSelect: String,
 			mark: String,
+			markStyle: String,
 			command: Function,
 			selectable: {
 				type: Boolean, default: true
-			}
+			},
+			groupBy: String
 		},
 		computed: {
 			selectedSource() {
@@ -6987,16 +7126,51 @@ TODO:
 				if (src.$origin)
 					src = src.$origin;
 				return src.$selected;
+			},
+			source() {
+				if (!this.groupBy)
+					return this.itemsSource;
+				let grmap = {};
+				for (let itm of this.itemsSource) {
+					let key = utils.eval(itm, this.groupBy);
+					if (utils.isDate(key))
+						key = utils.format(key, "Date");
+					if (!utils.isDefined(key)) key = '';
+					if (key === '') key = locale.$Unknown || "Unknown";
+					if (!(key in grmap)) {
+						grmap[key] = {
+							group: key,
+							items: []
+						};
+					}
+					grmap[key].items.push(itm);
+				}
+				let rarr = [];
+				for (let key in grmap) {
+					let me = grmap[key];
+					rarr.push(Object.assign({}, me, { __group: me.group, __count: me.items.length }));
+					for (var e of me.items) {
+						rarr.push(e);
+					}
+				}
+				//console.dir(rarr);
+				return rarr;
 			}
 		},
 		methods: {
 			cssClass(item) {
-				let cls = item.$selected ? 'active' : '';
-				if (this.mark) {
-					let clsmrk = utils.eval(item, this.mark);
-					if (clsmrk) cls += ' ' + clsmrk;
-				}
-				return cls;
+				let getMark = el => {
+					if (!this.mark) return '';
+					let cls = utils.eval(el, this.mark);
+					if (this.markStyle === 'row')
+						cls += ' no-marker';
+					else if (this.markStyle === 'marker')
+						cls += ' no-background';
+					return cls;
+				};
+				if (this.groupBy && item.__group)
+					return 'group' + (this.mark ? ' mark' : '');
+				return (item.$selected ? 'active ' : ' ') + getMark(item);
 			},
 			select(item) {
 				if (!this.selectable) return;
@@ -7085,8 +7259,9 @@ TODO:
 			let src = this.itemsSource;
 			if (!src) return;
 			let ix = src.$selectedIndex;
-			if (ix !== -1 && this.$refs.li)
-				this.$refs.li[ix].scrollIntoViewCheck();
+			let li = this.$refs.li;
+			if (ix !== -1 && li && ix < li.length)
+				li[ix].scrollIntoViewCheck();
 		}
 	});
 })();
@@ -7363,7 +7538,7 @@ TODO:
 `;
 
 	const wizardPanelTemplate = `
-<div class="wizard-panel">
+<div class="wizard-panel" :style="panelStyle">
 	<ul class="wizard-header">
 		<li v-for="(p, px) in pages" :class="pageClass(p)" @click.prevent="selectPage(p)">
 			<a><span class="wizard-header-title" v-text="p.header"/><span class="wizard-header-descr" v-text="p.descr"></span><i v-if="p.errorIcon" class="ico ico-error-outline"></i></a>
@@ -7388,7 +7563,8 @@ TODO:
 		template: wizardPanelTemplate,
 		props: {
 			finish: Function,
-			helpLink: String
+			helpLink: String,
+			minHeight: String
 		},
 		data() {
 			return {
@@ -7410,6 +7586,11 @@ TODO:
 			},
 			backDisabled() {
 				return this.activePage === this.pages[0];
+			},
+			panelStyle() {
+				if (this.minHeight)
+					return { 'min-height': this.minHeight };
+				return undefined;
 			}
 		},
 		methods: {
@@ -7917,14 +8098,14 @@ TODO:
 		}
 	});
 })();
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20180524-7195
+// 20190109-7408
 // components/taskpad.js
 
 Vue.component("a2-taskpad", {
 	template:
-`<div :class="cssClass">
+		`<div :class="cssClass">
 	<a class="ico taskpad-collapse-handle" @click.stop="toggle"></a>
 	<div v-if="expanded" class="taskpad-body">
 		<slot>
@@ -7935,11 +8116,14 @@ Vue.component("a2-taskpad", {
 	</div>
 </div>
 `,
+	props: {
+		title: String
+	},
 	data() {
-        return {
-            expanded: true,
-            __savedCols: ''
-        };
+		return {
+			expanded: true,
+			__savedCols: ''
+		};
 	},
 	computed: {
 		cssClass() {
@@ -7948,7 +8132,7 @@ Vue.component("a2-taskpad", {
 			return cls;
 		},
 		tasksText() {
-			return window.$$locale.$Tasks;
+			return this.title || window.$$locale.$Tasks;
 		}
 	},
 	methods: {
@@ -8034,18 +8218,20 @@ Vue.component('a2-panel', {
 		}
 	}
 });
-// Copyright © 2015-2017 Alex Kukhtin. All rights reserved.
+/*! Copyright © 2015-2018 Alex Kukhtin. All rights reserved.*/
 
-// 20180821-7280
+// 20190104-7400
 // components/sheet.js
 
 (function () {
 
 	const sheetTemplate = `
 <table class="sheet">
+	<slot name="columns"></slot>
 	<thead>
 		<slot name="header"></slot>
 	</thead>
+	<slot name="col-shadow"></slot>
 	<slot name="body"></slot>
 	<tfoot>
 		<slot name="footer"></slot>
@@ -8908,6 +9094,32 @@ Vue.directive('settabindex', {
 })();
 
 
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
+
+/*20190114-7412/
+/* directives/pageorient.js */
+
+
+(function () {
+
+	const pageStyle = Symbol();
+
+	Vue.directive('page-orientation', {
+		bind(el, binding) {
+			let style = document.createElement('style');
+			style.innerHTML = `@page {size: A4 ${binding.value}; margin:1cm;}`;
+			document.head.appendChild(style);
+			el[pageStyle] = style;
+		},
+
+		unbind(el) {
+			let style = el[pageStyle];
+			if (style) {
+				document.head.removeChild(style);
+			}
+		}
+	});
+})();
 // Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
 
 /*20181211-7384*/
@@ -9075,9 +9287,9 @@ Vue.directive('resize', {
 });
 
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181211-7384
+// 20190114-7411
 // controllers/base.js
 
 (function () {
@@ -9094,6 +9306,7 @@ Vue.directive('resize', {
 	const mask = require('std:mask');
 	const modelInfo = require('std:modelInfo');
 	const platform = require('std:platform');
+	const htmlTools = require('std:html', true /*no error*/);
 
 	const store = component('std:store');
 	const documentTitle = component("std:doctitle", true /*no error*/);
@@ -9249,7 +9462,7 @@ Vue.directive('resize', {
 					let jsonData = utils.toJson({ baseUrl: urlToSave, data: self.$data });
 					let wasNew = self.$baseUrl.indexOf('/new') !== -1;
 					dataservice.post(url, jsonData).then(function (data) {
-						self.$data.$merge(data, true);
+						self.$data.$merge(data, true, true /*only exists*/);
 						self.$data.$emit('Model.saved', self.$data);
 						self.$data.$setDirty(false);
 						// data is a full model. Resolve requires only single element.
@@ -9438,6 +9651,7 @@ Vue.directive('resize', {
 			},
 			$navigate(url, data, newWindow, update, opts) {
 				if (this.$isReadOnly(opts)) return;
+				eventBus.$emit('closeAllPopups');
 				let urlToNavigate = urltools.createUrlForNavigate(url, data);
 				if (newWindow === true) {
 					let nwin = window.open(urlToNavigate, "_blank");
@@ -9646,6 +9860,7 @@ Vue.directive('resize', {
 				if (this.$isReadOnly(opts))
 					return;
 				const that = this;
+				eventBus.$emit('closeAllPopups');
 				function argIsNotAnArray() {
 					if (!utils.isArray(arg)) {
 						console.error(`$dialog.${command}. The argument is not an array`);
@@ -9737,6 +9952,30 @@ Vue.directive('resize', {
 				let url = self.$baseUrl;
 				url = url.replace('/_page/', '/_export/');
 				window.location = root + url;
+			},
+
+			$exportTo(format, fileName) {
+				const root = window.$$rootUrl;
+				let elem = this.$el.getElementsByClassName('sheet-page');
+				if (!elem.length) {
+					console.dir('element not found (.sheet-page)');
+					return;
+				}
+				let table = elem[0];
+				if (htmlTools) {
+					htmlTools.getColumnsWidth(table);
+					htmlTools.getRowHeight(table);
+				}
+				let html = table.innerHTML;
+				let data = { format, html, fileName };
+				const routing = require('std:routing');
+				let url = `${root}/${routing.dataUrl()}/exportTo`;
+				dataservice.post(url, utils.toJson(data), true).then(function (blob) {
+					if (htmlTools)
+						htmlTools.downloadBlob(blob, fileName, format);
+				}).catch(function (error) {
+					alert(error);
+				});
 			},
 
 			$report(rep, arg, opts) {
@@ -9962,7 +10201,8 @@ Vue.directive('resize', {
 							if (rcName in data) {
 								arr.$RowCount = data[rcName];
 							}
-							modelInfo.reconcile(data.$ModelInfo[propName]);
+							if (data.$ModelInfo)
+								modelInfo.reconcile(data.$ModelInfo[propName]);
 							arr._root_._setModelInfo_(arr, data);
 						}
 						resolve(arr);
@@ -10127,9 +10367,9 @@ Vue.directive('resize', {
 	app.components['baseController'] = base;
 })();
 
-// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-/*20181211-7384*/
+/*20180109-7408*/
 /* controllers/shell.js */
 
 (function () {
@@ -10143,6 +10383,7 @@ Vue.directive('resize', {
 	const log = require('std:log');
 	const utils = require('std:utils');
 	const locale = window.$$locale;
+	const platform = require('std:platform');
 
 	const UNKNOWN_TITLE = 'unknown title';
 
@@ -10157,8 +10398,10 @@ Vue.directive('resize', {
 				if (parentMenu)
 					parentMenu.Url = itm.Url;
 				let found = findMenu(itm.Menu, func);
-				if (found)
+				if (found) {
+					platform.set(itm, '$expanded', true);
 					return found;
+				}
 			}
 		}
 		return null;
@@ -10369,7 +10612,7 @@ Vue.directive('resize', {
 	<div class="side-bar-body" v-if="bodyIsVisible">
 		<tree-view :items="sideMenu" :is-active="isActive" :click="navigate" :get-href="itemHref"
 			:options="{folderSelect: folderSelect, label: 'Name', title: 'Description',
-			subitems: 'Menu',
+			subitems: 'Menu', expandAll:true,
 			icon:'Icon', wrapLabel: true, hasIcon: true}">
 		</tree-view>
 	</div>
@@ -10623,6 +10866,17 @@ Vue.directive('resize', {
 			firstUrl.url = makeMenuUrl(this.menu, '/', opts);
 			firstUrl.title = opts.title;
 			urlTools.firstUrl = firstUrl;
+
+			function expand(elems) {
+				if (!elems) return;
+				for (let el of elems) {
+					if ('Menu' in el) {
+						platform.set(el, "$expanded", true);
+						expand(el.Menu);
+					}
+				}
+			}
+			expand(this.menu);
 		}
 	};
 

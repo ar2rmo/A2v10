@@ -52,7 +52,7 @@
 		<Header Grid.ColSpan="4" Badge="{Bind Document.Id}">Счет покупателю</Header>
 		<DatePicker Grid.Row="2" Label="Дата" Value="{Bind Document.Date}"/>
 		<TextBox Grid.Row="2" Label="Номер" Value="{Bind Document.No}" Align="Right"/>
-		<Static Grid.Row="2" Grid.Col="3" Label="Код" Value="{Bind Document.Id}" Align="Right"/>
+		<Static Grid.Row="2" Grid.Col="3" Label="Код" Value="{Bind Document.Id}" Align="Right" />
 		<!--
 		-->
 		<Selector Grid.Row="3" Grid.ColSpan="3" Placeholder="Выберите покупателя"
@@ -108,10 +108,17 @@
 						</TextBox.AddOns>
 					</TextBox>
 					<TableCell Content="{Bind Entity.Unit.Short}" Align="Center"/>
-					<TextBox Value="{Bind Qty, DataType=Number}" Align="Right"/>
+					<TextBox Value="{Bind Qty, DataType=Number}" Align="Right">
+						<TextBox.AddOns>
+							<Popover Icon="History">
+								I am the popover
+							</Popover>
+						</TextBox.AddOns>
+					</TextBox>
 					<TextBox Value="{Bind Price, DataType=Currency}" Align="Right"/>
 					<TextBox Value="{Bind Sum, DataType=Currency}" Align="Right"/>
 					<Hyperlink Size="Small" Icon="Delete" Command="{BindCmd Remove, Argument={Bind}, Confirm='Действительно удалить строку?'}"/>
+					<Label Content="{Bind $RoundSum}"></Label>
 				</TableRow>
 			</Table>
 		</Block>

@@ -29,6 +29,8 @@ namespace A2v10.Xaml
 		{
 		}
 
+		internal Boolean IsContentIsIFrame => Children?.Count == 1 && Children[0] is IFrame;
+
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
 			var dialog = new TagBuilder("div", "modal");
@@ -46,9 +48,10 @@ namespace A2v10.Xaml
 			var content = new TagBuilder("div", "modal-content");
 			OnCreateContent(content);
 			if (Height != null)
-				content.MergeStyle("height", Height.Value);
+				content.MergeStyle("min-height", Height.Value);
 			if (Padding != null)
 				Padding.MergeStyles("padding", content);
+			content.AddCssClassBool(IsContentIsIFrame, "content-iframe"); // bug fix (3px height)
 			content.RenderStart(context);
 			RenderChildren(context);
 			content.RenderEnd(context);
@@ -58,6 +61,13 @@ namespace A2v10.Xaml
 			dialog.RenderEnd(context);
 		}
 
+
+		internal override void RenderChildren(RenderContext context, Action<TagBuilder> onRenderStatic = null)
+		{
+			// static without wrapper
+			foreach (var c in Children)
+				c.RenderElement(context);
+		}
 
 
 		void SetSize(TagBuilder dialog)

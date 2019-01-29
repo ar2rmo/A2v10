@@ -79,13 +79,16 @@
     <Content Include="app\components\iframetarget.js" />
     <Content Include="app\bootstrap\pager.js" />
     <Content Include="app\controllers\iframe.js" />
+    <Content Include="app\directives\pageorient.js" />
     <Content Include="app\server\app.js" />
     <Content Include="app\server\locale.js" />
     <Content Include="app\server\platform.js" />
     <Content Include="app\server\validate.js" />
     <Content Include="app\services\eusign.js" />
+    <Content Include="app\services\html.js" />
     <Content Include="app\services\locale.js" />
     <Content Include="app\services\routing.js" />
+    <Content Include="app\services\templates.js" />
     <Content Include="app\site\collectionview.js" />
     <Content Include="app\site\controller.js" />
     <Content Include="app\site\store.js" />
@@ -153,6 +156,7 @@
     <Content Include="App_application\Shared\_SimpleLayout.cshtml">
       <LastGenOutput>_ViewStart.generated.cs</LastGenOutput>
     </Content>
+    <Content Include="Less\Diagram.less" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
@@ -237,6 +241,7 @@
     <Content Include="scripts\main.js" />
     <Content Include="scripts\server\library.js" />
     <Content Include="scripts\server\validate.js" />
+    <Content Include="TestPages\diagram.html" />
     <Content Include="TestPages\validators.html" />
     <Content Include="TestPages\standalonemodel.html" />
     <Content Include="TestPages\Test.xml" />
@@ -278,6 +283,7 @@
     <Content Include="TestPages\serverScripts.html" />
     <Content Include="TestPages\xstore.html" />
     <Content Include="TestPages\xstore.js" />
+    <Content Include="tests\cytools.js" />
     <Content Include="tests\modelvalidators.js" />
     <Content Include="tests\platform.js" />
     <Content Include="tests\datamodel.js" />

@@ -18,8 +18,8 @@ namespace A2v10.Infrastructure
 	public class LogEntry
 	{
 		public LogSeverity Severity { get; }
-
 		public String Message { get; }
+		public Int64 Id { get; set; }
 
 		public Char SeverityChar => (Char) Severity;
 
@@ -37,13 +37,26 @@ namespace A2v10.Infrastructure
 		void LogSecurity(LogEntry enry);
 		void LogMessaging(LogEntry enry);
 		void LogApi(LogEntry entry);
+		void LogBackground(LogEntry entry);
 	}
 
 	public static class LoggerExtensions
 	{
-		public static void LogMessaging(this ILogger logger, String message)
+		public static void LogMessaging(this ILogger logger, String message, Int64 Id = 0)
 		{
-			logger.LogMessaging(new LogEntry(LogSeverity.Information, message));
+			logger.LogMessaging(new LogEntry(LogSeverity.Information, message) { Id = Id });
+		}
+
+		public static void LogMessagingError(this ILogger logger, String message, Int64 Id = 0)
+		{
+			logger.LogMessaging(new LogEntry(LogSeverity.Error, message) { Id = Id });
+		}
+
+		public static void LogMessagingException(this ILogger logger, Exception ex, Int64 Id = 0)
+		{
+			if (ex.InnerException != null)
+				ex = ex.InnerException;
+			logger.LogMessaging(new LogEntry(LogSeverity.Information, ex.Message) { Id = Id });
 		}
 
 		public static void LogApi(this ILogger logger, String message)
@@ -54,6 +67,16 @@ namespace A2v10.Infrastructure
 		public static void LogApiError(this ILogger logger, String message)
 		{
 			logger.LogApi(new LogEntry(LogSeverity.Error, message));
+		}
+
+		public static void LogBackground(this ILogger logger, String message)
+		{
+			logger.LogBackground(new LogEntry(LogSeverity.Information, message));
+		}
+
+		public static void LogBackgroundError(this ILogger logger, String message)
+		{
+			logger.LogBackground(new LogEntry(LogSeverity.Error, message));
 		}
 	}
 }

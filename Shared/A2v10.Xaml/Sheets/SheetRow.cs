@@ -15,9 +15,12 @@ namespace A2v10.Xaml
 		Default,
 		Title,
 		Parameter,
+		LastParameter,
 		Header,
+		LightHeader,
 		Footer,
-		Total
+		Total,
+		NoBorder
 	}
 
 	[ContentProperty("Cells")]
@@ -26,6 +29,7 @@ namespace A2v10.Xaml
 		public SheetCells Cells { get; } = new SheetCells();
 
 		public RowStyle Style { get; set; }
+		public TextAlign? Align { get; set; }
 
 		internal override void RenderElement(RenderContext context, Action<TagBuilder> onRender = null)
 		{
@@ -36,6 +40,8 @@ namespace A2v10.Xaml
 			MergeAttributes(tr, context);
 			if (Style != RowStyle.Default)
 				tr.AddCssClass("row-" + Style.ToString().ToKebabCase());
+			if (Align != null)
+				tr.AddCssClass("text-" + Align.ToString().ToLowerInvariant());
 			tr.RenderStart(context);
 			foreach (var c in Cells)
 				c.RenderElement(context);

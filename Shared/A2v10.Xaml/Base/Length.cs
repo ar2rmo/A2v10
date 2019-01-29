@@ -25,7 +25,7 @@ namespace A2v10.Xaml
 	{
 		public String Value;
 
-		public override string ToString()
+		public override String ToString()
 		{
 			return Value;
 		}
@@ -33,12 +33,16 @@ namespace A2v10.Xaml
 		public Boolean IsEmpty => String.IsNullOrEmpty(Value);
 		public Boolean IsPixel => (Value != null) && Value.EndsWith("px");
 
-		internal static bool IsValidLength(String strVal)
+		internal static Boolean IsValidLength(String strVal)
 		{
 			return (strVal.EndsWith("%") ||
 					strVal.EndsWith("px") ||
 					strVal.EndsWith("vh") ||
 					strVal.EndsWith("vw") ||
+					strVal.EndsWith("mm") ||
+					strVal.EndsWith("cm") ||
+					strVal.EndsWith("pt") ||
+					strVal.EndsWith("in") ||
 					strVal.EndsWith("em") ||
 					strVal.EndsWith("rem"));
 		}
@@ -51,7 +55,7 @@ namespace A2v10.Xaml
 				return new Length() { Value = "auto" };
 			else if (strVal == "0")
 				return new Length() { Value = strVal };
-			else if (strVal.StartsWith("calc("))
+			else if (strVal.StartsWith("Calc("))
 				return new Length() { Value = strVal };
 			else if (IsValidLength(strVal))
 				return new Length() { Value = strVal };
@@ -76,7 +80,7 @@ namespace A2v10.Xaml
 			Value = value;
 		}
 
-		public override string ToString()
+		public override String ToString()
 		{
 			return Value;
 		}
@@ -93,8 +97,8 @@ namespace A2v10.Xaml
 				return new GridLength("auto");
 			else if (strVal.StartsWith("MinMax"))
 			{
-				var re = new Regex(@"MinMax\s*\(\s*(\w+[%\*]?)\s*;\s*(\w+[%\*]?)\s*\)");
-				var match = re.Match(strVal.Trim());
+				var re = new Regex(@"MinMax\(([\w\.]+[%\*\.]?);([\w\.]+[%\*\.]?)\)");
+				var match = re.Match(strVal.Replace(" ", String.Empty));
 				if (match.Groups.Count != 3)
 					throw new XamlException($"Invalid grid length value '{strVal}'");
 				GridLength gl1 = GridLength.FromString(match.Groups[1].Value);
@@ -113,7 +117,7 @@ namespace A2v10.Xaml
 
 	public class LengthConverter : TypeConverter
 	{
-		public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+		public override Boolean CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
 		{
 			if (sourceType == typeof(String))
 				return true;
@@ -122,7 +126,7 @@ namespace A2v10.Xaml
 			return false;
 		}
 
-		public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+		public override Object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
 		{
 			if (value == null)
 				return null;
@@ -137,7 +141,7 @@ namespace A2v10.Xaml
 
 	public class GridLengthConverter : TypeConverter
 	{
-		public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+		public override Boolean CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
 		{
 			if (sourceType == typeof(String))
 				return true;
@@ -146,7 +150,7 @@ namespace A2v10.Xaml
 			return false;
 		}
 
-		public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+		public override Object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, Object value)
 		{
 			if (value == null)
 				return null;

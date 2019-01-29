@@ -1,6 +1,6 @@
-﻿// Copyright © 2015-2018 Alex Kukhtin. All rights reserved.
+﻿// Copyright © 2015-2019 Alex Kukhtin. All rights reserved.
 
-// 20181019-7323
+// 20190109-7408
 // components/datagrid.js*/
 
 (function () {
@@ -327,10 +327,11 @@
 					computed: {
 						hasIcon() { return col.icon || col.bindIcon; },
 						iconClass() {
+							let icoSingle = !col.content ? ' ico-single' : '';
 							if (col.bindIcon)
-								return 'ico-' + utils.eval(row, col.bindIcon);
+								return 'ico-' + utils.eval(row, col.bindIcon) + icoSingle;
 							else if (col.icon)
-								return 'ico-' + col.icon;
+								return 'ico-' + col.icon + icoSingle;
 							return null;
 						}
 					},
@@ -624,6 +625,7 @@
 				}
 				else if (utils.isObjectExact(grBy))
 					grBy = [grBy];
+				if (!this.$items) return null;
 				for (let itm of this.$items) {
 					let root = grmap;
 					for (let gr of grBy) {
